@@ -100,6 +100,11 @@ export interface Copy {
     openLink: string;
     viewTitle: string;
     viewQuestion: string;
+    /** Stands over the reading itself on a shared page, under the rule that
+     *  separates it from the three cards. Not `result.title` — that one says
+     *  "what the cards show *you*", and on a shared page the reader is not the
+     *  person the cards were dealt for. */
+    readingTitle: string;
     startYours: string;
     notFound: string;
   };
@@ -200,6 +205,7 @@ const zh: Copy = {
     openLink: '打开分享页',
     viewTitle: '一次塔罗解读',
     viewQuestion: '当时的问题',
+    readingTitle: '完整解读',
     startYours: '也去问一次',
     notFound: '这份分享不存在，或已被撤下。',
   },
@@ -304,6 +310,7 @@ const en: Copy = {
     openLink: 'Open share page',
     viewTitle: 'A tarot reading',
     viewQuestion: 'The question asked',
+    readingTitle: 'The full reading',
     startYours: 'Ask your own',
     notFound: 'This share does not exist, or it was taken down.',
   },

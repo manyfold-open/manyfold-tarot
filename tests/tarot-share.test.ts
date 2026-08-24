@@ -124,6 +124,28 @@ describe('buildShareSnapshot', () => {
     expect(with_.question).toBe('我要不要换工作？');
   });
 
+  it('carries the reading of the cards, so a link is worth opening', () => {
+    const snapshot = buildShareSnapshot(finished(), {
+      token: 't',
+      includeQuestion: true,
+      createdAt: 'x',
+    });
+    expect(snapshot.overview).toBe('整体偏向行动。');
+    expect(snapshot.perCard).toEqual([
+      { slot: 'situation', text: '一' },
+      { slot: 'hidden', text: '二' },
+      { slot: 'guidance', text: '三' },
+    ]);
+    expect(snapshot.connections).toBe('连起来是一条线。');
+  });
+
+  /* The line this file exists to hold, now that a snapshot carries prose. What
+     goes out is the reading *of the cards*; what stays behind is the half of the
+     interpretation written to the person who asked. A share link is opened by
+     somebody else, and the reply to their question, the things they were told to
+     do about it and the question left with them are not that reader's to have.
+     Three of these five were already guarded here — `response` and `closing` are
+     new, and are exactly the ones a careless widening would take first. */
   it('never carries the private parts of the reading', () => {
     const snapshot = buildShareSnapshot(finished(), {
       token: 't',
@@ -132,11 +154,61 @@ describe('buildShareSnapshot', () => {
     });
     const serialized = JSON.stringify(snapshot);
     expect(serialized).not.toContain('我听见了'); // greeting
+    expect(serialized).not.toContain('回到你的问题'); // response
     expect(serialized).not.toContain('先谈一次'); // actions
     expect(serialized).not.toContain('你在等什么'); // reflection
+    expect(serialized).not.toContain('牌收好了'); // closing
     expect(serialized).not.toContain('s1'); // session
     expect(serialized).not.toContain('agent-1');
     expect(serialized).not.toContain('ctx');
+  });
+
+  /* A heading over nothing is worse than no heading. An absent key renders as
+     the page rendered before any of this existed, which is also how the frozen
+     rows written before it render — so blank has to become absent here, at the
+     one point where the snapshot is built, rather than in every reader of it. */
+  it('stores a section the diviner left blank as no section at all', () => {
+    const thin = buildShareSnapshot(
+      finished({
+        interpretation: {
+          ...INTERPRETATION,
+          overview: '   ',
+          connections: '',
+          perCard: [
+            { slot: 'situation', text: '' },
+            { slot: 'hidden', text: '  ' },
+            { slot: 'guidance', text: '  三  ' },
+          ],
+        },
+      }),
+      { token: 't', includeQuestion: false, createdAt: 'x' },
+    );
+
+    expect(thin.overview).toBeUndefined();
+    expect(thin.connections).toBeUndefined();
+    // The one card that was actually written about, trimmed, and only that one.
+    expect(thin.perCard).toEqual([{ slot: 'guidance', text: '三' }]);
+    // Absent, not null and not empty — the keys are gone from the stored JSON.
+    expect(JSON.parse(JSON.stringify(thin))).not.toHaveProperty('overview');
+  });
+
+  it('drops perCard entirely when the diviner wrote about no card at all', () => {
+    const bare = buildShareSnapshot(
+      finished({
+        interpretation: {
+          ...INTERPRETATION,
+          perCard: [
+            { slot: 'situation', text: '' },
+            { slot: 'hidden', text: '' },
+            { slot: 'guidance', text: '' },
+          ],
+        },
+      }),
+      { token: 't', includeQuestion: false, createdAt: 'x' },
+    );
+    expect(bare.perCard).toBeUndefined();
+    // The sentence is not optional, whatever else went missing.
+    expect(bare.conclusion).toBe('可以试。');
   });
 
   it('refuses to freeze a reading that is not finished', () => {

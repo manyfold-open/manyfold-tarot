@@ -7,14 +7,30 @@
  * round since.
  *
  * No session, no ownership: a share link is meant to be opened by anyone, which
- * is also why the snapshot carries so little — three cards, their positions and
- * orientations, one sentence, and the signature.
+ * is also why the snapshot stops where it does — the reading of the cards, and
+ * not the half of the interpretation that is addressed to the person who asked.
+ *
+ * The page is read in two passes and is built to be read that way. Above the
+ * rule is the whole thing at a glance: three cards, and the one sentence they
+ * came down to — which is all this page used to be, and all that some visitors
+ * will want. Below the rule is the reading itself, one section per card, for the
+ * visitor who wants to know *why* the sentence says what it does. Neither half
+ * is folded behind a control: a shared link that arrives closed up asks a
+ * stranger to press something before it will explain itself, and most of them
+ * will simply not press it.
+ *
+ * Every field below the rule is optional in the snapshot and treated as optional
+ * here. Rows written before shares carried the reading have none of them, and
+ * those rows are frozen — so an old link still renders as exactly the page it
+ * always rendered, with the rule and everything under it simply absent.
  */
 
 import { useEffect, useState } from 'react';
+import { cardArt, cardById, cardKeywords, type Locale } from '../../shared/tarot/deck';
 import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
-import type { ShareSnapshot } from '../../shared/tarot/types';
+import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
 import CardSlot from './Card';
+import { Prose } from './Reading';
 import Sky from './Sky';
 import { fetchShare } from './api';
 
@@ -62,6 +78,10 @@ export default function SharePage() {
     );
   }
 
+  const drawn = new Map(snapshot.cards.map((card) => [card.slot, card]));
+  const perCard = snapshot.perCard ?? [];
+  const hasReading = Boolean(snapshot.overview || perCard.length || snapshot.connections);
+
   return (
     <div className="taro">
       <Sky />
@@ -94,9 +114,46 @@ export default function SharePage() {
 
         <p className="taro-conclusion">{snapshot.conclusion}</p>
 
-        {/* The invitation first, the mark under it. A visitor arrives here having
-            read someone else's three cards; the one thing this page wants from
-            them sits directly under the sentence they just finished, and the
+        {hasReading && (
+          <div className="taro-reading taro-shared-reading">
+            <p className="taro-reading-title">{copy.share.readingTitle}</p>
+
+            {snapshot.overview && (
+              <section className="taro-section">
+                <h2>{copy.result.overview}</h2>
+                <Prose text={snapshot.overview} />
+              </section>
+            )}
+
+            {/* One card, one section, and the card is inside it. The spread at
+                the top of the page is the picture of the reading, but by the
+                time a visitor is four paragraphs down it has scrolled away, and
+                a heading naming a card the reader can no longer see sends them
+                back up to find out which one it was. So each section carries its
+                own face — the same file the spread already loaded, so it costs a
+                cache hit and nothing else. */}
+            {perCard.map((entry) => (
+              <ReadCard
+                key={entry.slot}
+                slot={entry.slot}
+                card={drawn.get(entry.slot) ?? null}
+                text={entry.text}
+                locale={locale}
+              />
+            ))}
+
+            {snapshot.connections && (
+              <section className="taro-section">
+                <h2>{copy.result.connections}</h2>
+                <Prose text={snapshot.connections} />
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* The invitation first, the signature under it. A visitor arrives here
+            having read someone else's three cards; the one thing this page wants
+            from them sits directly under the last thing they read, and the
             signature closes the page rather than interrupting it. The line about
             the snapshot being frozen is gone: it answered a question nobody
             asked, and a shared reading that has to explain its own storage model
@@ -109,5 +166,70 @@ export default function SharePage() {
         </footer>
       </main>
     </div>
+  );
+}
+
+/**
+ * One card's section: its face, where it fell, what it is, and what it meant
+ * here.
+ *
+ * The face and the name are a header row and the reading runs full width beneath
+ * it, rather than in a column beside a rail of art. A 46px rail costs a
+ * paragraph a tenth of its measure on a phone, and the whole reason this page
+ * scrolls now is that there is finally something on it long enough to be worth
+ * reading properly.
+ *
+ * Under the card's name is its keyword line, taken from the deck rather than
+ * from the snapshot. It is the raw material the diviner was handed before it
+ * wrote anything, and printing it here is the difference between a stranger
+ * reading an assertion about a card and a stranger being shown the ground that
+ * assertion stands on. Taking it from the deck also means it costs the snapshot
+ * nothing and cannot fall out of step with it: the card id was frozen, and the
+ * card id is all this needs.
+ */
+function ReadCard({
+  slot,
+  card,
+  text,
+  locale,
+}: {
+  slot: SlotId;
+  card: { cardId: string; reversed: boolean } | null;
+  text: string;
+  locale: Locale;
+}) {
+  const copy = copyFor(locale);
+  const entry = card ? cardById(card.cardId) : null;
+
+  return (
+    <section className="taro-section taro-read-card">
+      <header className="taro-read-head">
+        {entry && card && (
+          <img
+            className={`taro-read-face${card.reversed ? ' is-reversed' : ''}`}
+            src={cardArt(card.cardId)}
+            // The name is printed right beside it; an alt here would say it twice.
+            alt=""
+            decoding="async"
+            draggable={false}
+          />
+        )}
+        <div className="taro-read-name">
+          <h2>{copy.slots[slot].title}</h2>
+          {entry && card && (
+            <p className="taro-read-card-line">
+              <strong>{entry.name[locale]}</strong>
+              <span className={card.reversed ? 'taro-orient is-reversed' : 'taro-orient'}>
+                {card.reversed ? copy.reveal.reversed : copy.reveal.upright}
+              </span>
+            </p>
+          )}
+          {entry && card && (
+            <p className="taro-read-keywords">{cardKeywords(entry, card.reversed, locale)}</p>
+          )}
+        </div>
+      </header>
+      <Prose text={text} />
+    </section>
   );
 }

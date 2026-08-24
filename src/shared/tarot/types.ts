@@ -86,7 +86,23 @@ export interface ReadingView {
   createdAt: string;
 }
 
-/** A frozen, public, read-only copy of one reading. Never changes after creation. */
+/**
+ * A frozen, public, read-only copy of one reading. Never changes after creation.
+ *
+ * What it carries is a deliberate line, not an accident of what was handy. A
+ * share link is opened by someone who is not the person who asked, so it holds
+ * the reading *of the cards* — the three of them together, each one where it
+ * fell, and the line between them — and stops before the parts of the
+ * interpretation that are addressed to the asker: the reply to their question,
+ * the things they could do about it, and the question left with them to sit
+ * with. Those are half of a private conversation, and a stranger reading them is
+ * reading someone's mail.
+ *
+ * The three reading fields are optional, and will stay optional forever. Rows
+ * written before shares carried the reading itself are frozen by design — they
+ * cannot be backfilled, so every reader of this type has to cope with their
+ * absence rather than assume a migration fixed it.
+ */
 export interface ShareSnapshot {
   token: string;
   readingId: string;
@@ -94,8 +110,15 @@ export interface ShareSnapshot {
   /** Present only when the user opted in at share time. */
   question: string | null;
   cards: { slot: SlotId; cardId: string; reversed: boolean }[];
-  /** The one-sentence conclusion, nothing more of the private reading. */
+  /** The one sentence the whole reading comes down to. Always present. */
   conclusion: string;
+  /** What the three cards say taken together, before they are taken apart. */
+  overview?: string;
+  /** What each card meant in the position it landed in — the substance of the
+   *  reading, and the reason a shared link is worth opening twice. */
+  perCard?: { slot: SlotId; text: string }[];
+  /** How the three speak to each other. */
+  connections?: string;
   /** Product identity / diviner signature shown on the shared card. */
   signature: string;
   createdAt: string;

@@ -1645,7 +1645,11 @@ html[data-app='taro'] body {
   color: #eef1f5;
 }
 
-.taro-section h3 {
+/* h3 on the reading page, where the page title is an h2; h2 on a shared page,
+   where it is an h1. Same rank in the picture, different rank in the document,
+   and the document is the one that has to be right — a stranger arriving on a
+   shared link with a screen reader should hear one heading level, not a gap. */
+.taro-section :is(h2, h3) {
   margin: 0 0 12px;
   font-family: var(--sans);
   font-size: 10.5px;
@@ -1837,6 +1841,109 @@ html[data-app='taro'] body {
 .taro-shared .taro-conclusion {
   width: min(30em, 100%);
   margin-inline: auto;
+}
+
+/* ── the reading, on a shared page ──
+
+   Above the rule the page is a picture and one sentence, and it is centred in
+   the window because that is a composition. Below the rule it is prose, and
+   prose is read from the top — which `safe center` already handles by itself:
+   the moment the column is taller than the window it packs to the start instead
+   of centring, so a shared reading with something to say scrolls from its first
+   line, and a thin one that still fits stays composed in its frame. Nothing here
+   has to know which of the two it is.
+
+   The block reuses `.taro-reading` whole — same measure, same rule, same left
+   edge as the reading page it was taken from. Two pages showing the same reading
+   should not drift apart because each kept its own copy of the typography, so
+   what follows is only what this page needs that the other one does not. */
+
+/* Which is one thing: the label over the block has a neighbour here that it
+   never has on the reading page. The first section heading lands thirty pixels
+   under it at the same size, and at --ink-4 the title of the block came out
+   dimmer than the headings inside it — the hierarchy upside down. One step up
+   the ink scale rights it, and the extra space under it says which of the two
+   is the parent before either is read. */
+.taro-shared-reading .taro-reading-title {
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+/* Each card, with its own face beside its name.
+
+   The spread at the top is the picture; this is the reference. A reader four
+   paragraphs down has scrolled the spread away, and a heading that only names a
+   card makes them go back up to see which one it was — so the card comes with
+   the paragraph about it. It is the same file the spread already fetched, drawn
+   smaller, so it costs a cache hit and no bytes.
+
+   Cut to the deck's own corner and the deck's own proportions, like every other
+   card in the file: 46px is a thumbnail of this deck, not a small rectangle with
+   a picture in it. */
+.taro-read-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.taro-read-face {
+  flex: none;
+  width: 46px;
+  height: auto;
+  aspect-ratio: var(--card-ratio);
+  object-fit: cover;
+  border-radius: calc(var(--card-round) * 1%);
+  /* Not a border: a hairline drawn on the art would crop the printed keyline
+     that is already there. A shadow lifts the card off the page instead, which
+     is what the full-size ones do too. */
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.55);
+}
+
+/* Genuinely the same card turned around, exactly as in the spread — never a
+   second picture, and never a badge standing in for one. */
+.taro-read-face.is-reversed {
+  transform: rotate(180deg);
+}
+
+.taro-read-name {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  /* Long card names in a narrow window shorten rather than push the art off. */
+  min-width: 0;
+}
+
+/* The position is the label, the card is the answer to it, so the card is the
+   larger of the two. Orientation rides on the same line at the same size it has
+   under the spread — it is a fact about the card, not a second heading. */
+.taro-read-card .taro-read-card-line {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 10px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.taro-read-card .taro-read-card-line strong {
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+/* The card's own keywords, out of the deck rather than out of the snapshot —
+   the raw material the diviner was handed before it wrote anything.
+   Deliberately the quietest line in the section: it is evidence, and evidence
+   sits under the claim rather than competing with it. */
+.taro-read-card .taro-read-keywords {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.65;
+  letter-spacing: 0.05em;
+  color: var(--ink-2);
 }
 
 /* Once the air is spent, the spread is the only thing left with height to give.

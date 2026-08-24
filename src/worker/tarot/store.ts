@@ -355,6 +355,16 @@ export function buildShareSnapshot(
   if (!interpretation || !reading.cards) {
     throw new HttpError(409, 'not_interpreted_yet', 'A reading can only be shared once complete.');
   }
+  /* Empty rather than absent is the failure mode worth guarding: a section the
+     diviner left blank must not reach the page as a heading over nothing. An
+     undefined key is dropped by JSON.stringify, so a thin reading is stored thin
+     and renders as if the field had never existed — which is exactly how the
+     snapshots written before this all render. */
+  const said = (text: string): string | undefined => text.trim() || undefined;
+  const perCard = interpretation.perCard
+    .filter((entry) => entry.text.trim())
+    .map((entry) => ({ slot: entry.slot, text: entry.text.trim() }));
+
   return {
     token: options.token,
     readingId: reading.id,
@@ -366,6 +376,9 @@ export function buildShareSnapshot(
       reversed: card.reversed,
     })),
     conclusion: shareConclusion(interpretation),
+    overview: said(interpretation.overview),
+    perCard: perCard.length ? perCard : undefined,
+    connections: said(interpretation.connections),
     signature: copyFor(reading.locale).signature,
     createdAt: options.createdAt,
   };
