@@ -21,8 +21,11 @@ export interface SlotCopy {
 
 export interface Copy {
   localeName: string;
-  /** Signature printed on shared readings. Says what this is, not who made it —
-   *  the site has no name, and nothing here is going to invent one. */
+  /** Written into every share snapshot, and kept for the ones already written.
+   *  No page renders it any more: the foot of both pages now carries the mark of
+   *  what this was built with instead, and a shared reading is titled in its own
+   *  heading. Says what this is, not who made it — the site has no name, and
+   *  nothing here is going to invent one. */
   signature: string;
   tagline: string;
 
@@ -107,6 +110,21 @@ export interface Copy {
     readingTitle: string;
     startYours: string;
     notFound: string;
+  };
+
+  /** The two lines at the foot of the page. Both are links out, so both say
+   *  where they go — the visible line for the eye, the label for a reader that
+   *  cannot see one is about to leave the site.
+   *
+   *  The words "powered by" are deliberately not here. They belong to the
+   *  wordmark they sit against, not to the copy, and they are set in English in
+   *  both locales; Signature.tsx holds them next to the mark itself. */
+  footer: {
+    /** Accessible name for the wordmark, which is one link. */
+    manyfold: string;
+    openSource: string;
+    /** The visible line already says what. This says where. */
+    openSourceLabel: string;
   };
 
   errors: {
@@ -208,6 +226,12 @@ const zh: Copy = {
     readingTitle: '完整解读',
     startYours: '也去问一次',
     notFound: '这份分享不存在，或已被撤下。',
+  },
+
+  footer: {
+    manyfold: '这个占卜由 Manyfold 搭建 —— 在新窗口打开 manyfold.ai',
+    openSource: '开源项目 · 在 GitHub 上复刻',
+    openSourceLabel: '开源项目 —— 在新窗口打开 GitHub 上的源码',
   },
 
   errors: {
@@ -313,6 +337,12 @@ const en: Copy = {
     readingTitle: 'The full reading',
     startYours: 'Ask your own',
     notFound: 'This share does not exist, or it was taken down.',
+  },
+
+  footer: {
+    manyfold: 'This reading is built on Manyfold — opens manyfold.ai in a new window',
+    openSource: 'Open source · fork it on GitHub',
+    openSourceLabel: 'Open source — opens the source on GitHub in a new window',
   },
 
   errors: {

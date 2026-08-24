@@ -31,6 +31,7 @@ import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
 import CardSlot from './Card';
 import { Prose } from './Reading';
+import Signature from './Signature';
 import Sky from './Sky';
 import { fetchShare } from './api';
 
@@ -151,18 +152,24 @@ export default function SharePage() {
           </div>
         )}
 
-        {/* The invitation first, the signature under it. A visitor arrives here
-            having read someone else's three cards; the one thing this page wants
-            from them sits directly under the last thing they read, and the
-            signature closes the page rather than interrupting it. The line about
-            the snapshot being frozen is gone: it answered a question nobody
-            asked, and a shared reading that has to explain its own storage model
-            is not a reading any more. */}
+        {/* The invitation first, the mark under it. A visitor arrives here having
+            read someone else's three cards; the one thing this page wants from
+            them sits directly under the sentence they just finished, and the
+            mark closes the page rather than interrupting it. The line about the
+            snapshot being frozen is gone: it answered a question nobody asked,
+            and a shared reading that has to explain its own storage model is not
+            a reading any more.
+
+            The mark is tagged as coming from a share. This is the only page a
+            stranger can land on without having chosen to, so where its traffic
+            goes next is a different number from the app's own — and the
+            snapshot's stored signature is no longer what stands here, because
+            the heading at the top of the page already says what this is. */}
         <footer className="taro-foot">
           <a className="taro-primary" href="/">
             {copy.share.startYours}
           </a>
-          <p className="taro-signature">{snapshot.signature}</p>
+          <Signature locale={locale} from="share" />
         </footer>
       </main>
     </div>
@@ -174,18 +181,17 @@ export default function SharePage() {
  * here.
  *
  * The face and the name are a header row and the reading runs full width beneath
- * it, rather than in a column beside a rail of art. A 46px rail costs a
+ * it, rather than in a column beside a rail of art. A 48px rail costs a
  * paragraph a tenth of its measure on a phone, and the whole reason this page
  * scrolls now is that there is finally something on it long enough to be worth
  * reading properly.
  *
  * Under the card's name is its keyword line, taken from the deck rather than
- * from the snapshot. It is the raw material the diviner was handed before it
- * wrote anything, and printing it here is the difference between a stranger
- * reading an assertion about a card and a stranger being shown the ground that
- * assertion stands on. Taking it from the deck also means it costs the snapshot
- * nothing and cannot fall out of step with it: the card id was frozen, and the
- * card id is all this needs.
+ * from the snapshot. It is the raw material the diviner was handed, and printing
+ * it here is the difference between a stranger reading an assertion about a card
+ * and a stranger being shown the ground that assertion stands on. Taking it from
+ * the deck also means it costs the snapshot nothing and cannot go stale against
+ * it: the card id was frozen, and the card id is all this needs.
  */
 function ReadCard({
   slot,

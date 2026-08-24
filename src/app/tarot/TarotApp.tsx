@@ -34,6 +34,7 @@ import CardSlot from './Card';
 import Fan from './Fan';
 import Reading, { Prose } from './Reading';
 import ShareBox from './ShareBox';
+import Signature from './Signature';
 import Sky from './Sky';
 import Speaking from './Speaking';
 import {
@@ -826,7 +827,7 @@ export default function TarotApp() {
 
       <footer className="taro-foot">
         {(reading?.demo ?? demoReader) && <p className="taro-demo">{copy.demoNotice}</p>}
-        <p className="taro-signature">{copy.signature}</p>
+        <Signature locale={locale} />
       </footer>
     </div>
   );

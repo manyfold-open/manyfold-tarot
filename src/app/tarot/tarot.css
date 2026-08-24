@@ -494,18 +494,117 @@ html[data-app='taro'] body {
   max-width: 780px;
   margin: 0 auto;
   padding: 24px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The demo notice, when there is one, and the mark under it. Held as a gap on
+     the footer rather than as a margin on either, so the space between them
+     exists only when both do — a margin that half the time collapses into
+     padding is a footer with two heights. */
+  gap: 14px;
   font-family: var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 .taro-foot p {
-  margin: 5px 0;
+  margin: 0;
 }
 
+/* ── the mark ──
+   Two lines out of the page: what it was built with, and that you can have it.
+
+   What stood here was the words "AI 塔罗" at --ink-4 — 1.65:1 on black, which is
+   a signature, and a signature is allowed to be almost invisible because nobody
+   has to find it. These are doors. A door that cannot be seen is not one, so
+   both lines rest at --ink-2, the same ink the language switch is on, and the
+   hierarchy between them is bought with size and with the weight of a drawn
+   shape against tracked-out text — never by taking one of them back down below
+   the point where it can be read.
+
+   The mark rests at 0.6, and that number is not a taste either: #e4e7ec at 0.6
+   over black composites to within a hundredth of --ink-2's own luminance. So the
+   wordmark does not arrive as a bright foreign object carrying its own
+   brightness — it joins the ink scale that was already on the page, and lifts
+   off it on hover the way everything else here does. */
+
 .taro-signature {
-  font-size: 10.5px;
-  letter-spacing: 0.3em;
-  text-indent: 0.3em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.taro-by,
+.taro-oss {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-2);
+  text-decoration: none;
+  /* Thumb first, layout second: the padding buys a hit area a finger can find,
+     and the negative margin hands every pixel of it straight back, so each line
+     still occupies exactly the height of what is drawn in it. */
+  padding: 8px 10px;
+  margin: -8px -10px;
+  transition: color 320ms ease;
+}
+
+.taro-by {
+  gap: 9px;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+}
+
+/* The smallest type on the page, and deliberately: it introduces the mark and
+   must not be caught competing with it.
+
+   Two corrections, both to put the words where they look like they belong. The
+   negative margin cancels the trailing letter-space — tracking is added after
+   every character including the last, so without it the gap to the wordmark is
+   the 9px above plus 1.4px of air nobody asked for. The offset is the harder
+   one: the label and the wordmark are centred on the same 14px row, but the
+   wordmark's baseline sits 11.9px down that row and a 10px line's lands at
+   about 10.5px — so centred, the words float above the name they introduce. */
+.taro-by-label {
+  position: relative;
+  top: 1.5px;
+  margin-right: -0.14em;
+}
+
+.taro-by-mark {
+  display: block;
+  height: 14px;
+  width: auto;
+  opacity: 0.6;
+  transition: opacity 320ms ease;
+}
+
+/* The same 10px and the same tracking as the label above it, and that is a
+   correction rather than a default. At 11px this line won on the page: a row of
+   Han characters is a far denser mark than a row of Latin lowercase, so the
+   sentence about the licence was reading louder than the name it was supposed to
+   sit under. Matching the label's size hands the line back its place — the two
+   lines now share one rhythm, and the only thing in the footer allowed to be
+   large is the wordmark. */
+.taro-oss {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  /* Tracking is trailing space, and trailing space is a centred line sitting
+     half a letter-space to the left of the middle. Give it back. */
+  text-indent: 0.14em;
+}
+
+.taro-by:hover,
+.taro-by:focus-visible,
+.taro-oss:hover,
+.taro-oss:focus-visible {
+  color: var(--ink);
+}
+
+.taro-by:hover .taro-by-mark,
+.taro-by:focus-visible .taro-by-mark {
+  opacity: 1;
 }
 
 /* On the first two screens there is nothing to scroll, so the footer steps out
@@ -1967,9 +2066,6 @@ html[data-app='taro'] body {
    reading, not because it introduces a footer — which is why the space under it
    is smaller than the space over it. */
 .taro-shared .taro-foot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 18px;
   padding: clamp(18px, 2.6vh, 26px) 0 0;
   border-top: 1px solid var(--line);
