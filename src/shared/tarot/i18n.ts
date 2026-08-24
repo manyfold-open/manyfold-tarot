@@ -95,16 +95,13 @@ export interface Copy {
 
   share: {
     title: string;
-    includeQuestion: string;
     copyLink: string;
     copied: string;
     openLink: string;
-    close: string;
     viewTitle: string;
     viewQuestion: string;
     startYours: string;
     notFound: string;
-    frozen: string;
   };
 
   errors: {
@@ -198,16 +195,13 @@ const zh: Copy = {
 
   share: {
     title: '分享这次解读',
-    includeQuestion: '在分享中包含我的问题',
     copyLink: '复制链接',
     copied: '已复制',
     openLink: '打开分享页',
-    close: '关闭',
     viewTitle: '一次塔罗解读',
     viewQuestion: '当时的问题',
     startYours: '也去问一次',
     notFound: '这份分享不存在，或已被撤下。',
-    frozen: '这是当时的快照，不会随后续占卜改变。',
   },
 
   errors: {
@@ -305,16 +299,13 @@ const en: Copy = {
 
   share: {
     title: 'Share this reading',
-    includeQuestion: 'Include my question in the share',
     copyLink: 'Copy link',
     copied: 'Copied',
     openLink: 'Open share page',
-    close: 'Close',
     viewTitle: 'A tarot reading',
     viewQuestion: 'The question asked',
     startYours: 'Ask your own',
     notFound: 'This share does not exist, or it was taken down.',
-    frozen: 'This is a snapshot from that moment. Later readings never change it.',
   },
 
   errors: {

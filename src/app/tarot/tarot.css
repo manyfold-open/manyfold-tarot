@@ -1778,25 +1778,13 @@ html[data-app='taro'] body {
   gap: 10px 22px;
 }
 
-.taro-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--sans);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
-  cursor: pointer;
-}
-
-.taro-check input {
-  accent-color: #586683;
-  width: 14px;
-  height: 14px;
-}
-
+/* Wide enough for the whole link. It used to sit behind a panel somebody had
+   chosen to open, so a clipped tail was a detail in a drawer; it is now on
+   screen every time a share succeeds, and a URL cut off mid-token reads as a
+   URL that came out wrong. Measured against the longest link this app makes —
+   host, /s/, and a 24-character token — at the 12px it is set in. */
 .taro-share-url {
-  width: min(420px, 100%);
+  width: min(520px, 100%);
   font-family: var(--sans);
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -1817,9 +1805,23 @@ html[data-app='taro'] body {
 
 /* ── shared view ── */
 
+/* This page is one shot, and a shot is composed inside its frame rather than
+   hung from the top of it. So the column is centred in whatever height it is
+   given, and the padding and the gaps are written in vh so that a window with
+   less room spends less on air before it starts taking it out of the picture.
+   Measured on a 1360x900 window, the page went from 963px — the invitation
+   sixty-three pixels below the fold, on the one page whose whole job is to be
+   answered — to 855px, with the whole thing in frame and centred in it.
+
+   `safe center` and not `center`: a centred flex column that outgrows its box
+   overflows both ends, and the top end of a scroll container cannot be reached.
+   The keyword says centre it when it fits and pack it to the top when it does
+   not, which is exactly the rule wanted and is otherwise four lines of auto
+   margins that fight the gap. */
 .taro-shared {
-  gap: 30px;
-  padding-top: clamp(48px, 12vh, 110px);
+  justify-content: safe center;
+  gap: clamp(18px, 2.6vh, 30px);
+  padding-block: clamp(28px, 6vh, 64px);
 }
 
 .taro-shared-title {
@@ -1837,24 +1839,34 @@ html[data-app='taro'] body {
   margin-inline: auto;
 }
 
+/* Once the air is spent, the spread is the only thing left with height to give.
+   Narrowing the block rather than the card keeps all three in one row and keeps
+   the deck's proportions: a shorter window gets a smaller picture of the same
+   layout, never a different one. Two steps rather than a fluid width, because a
+   card that resized continuously with the window would never settle. */
+@media (max-height: 880px) {
+  .taro-shared .taro-cards {
+    width: min(27em, 100%);
+  }
+}
+
+@media (max-height: 800px) {
+  .taro-shared .taro-cards {
+    width: min(21em, 100%);
+  }
+}
+
+/* The invitation, then the mark. The rule sits above both because it closes the
+   reading, not because it introduces a footer — which is why the space under it
+   is smaller than the space over it. */
 .taro-shared .taro-foot {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 34px 0 0;
+  gap: 18px;
+  padding: clamp(18px, 2.6vh, 26px) 0 0;
   border-top: 1px solid var(--line);
-  margin-top: 10px;
-}
-
-.taro-frozen {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--ink-4);
-}
-
-.taro-shared .taro-primary {
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 /* ── misc ── */

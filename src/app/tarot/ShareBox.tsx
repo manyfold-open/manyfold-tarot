@@ -1,14 +1,23 @@
 /**
  * Sharing the round on screen.
  *
- * Two things this file is careful about:
+ * One press. It mints the link, puts it on the clipboard, and says so — there is
+ * no panel to open first and no box to tick. The tick box asked a question
+ * nobody was in a position to answer: the question is the whole reason a shared
+ * reading makes sense to the person receiving it, and a share of three cards and
+ * one sentence with no question attached is a card trick. So the question goes
+ * in, and the wire still carries the flag because the server has always decided
+ * this, not the button.
+ *
+ * Two things this file is still careful about:
  *
  * 1. It shares the reading it was handed — the one being read right now. There
  *    is no "share my last reading" path anywhere, so a visitor scrolling an old
  *    round can never publish a newer one by accident.
- * 2. A generated link is a frozen snapshot. Changing what goes into it therefore
- *    cannot edit the link already made: toggling the question back in drops the
- *    old link and mints a new one, which is the honest behaviour.
+ * 2. It mints at most one link per round. Pressing again re-copies the link it
+ *    already has rather than writing a second snapshot row for the same three
+ *    cards, so a person who presses twice because they weren't sure it worked
+ *    does not quietly leave two public copies behind.
  */
 
 import { useEffect, useState } from 'react';
@@ -19,8 +28,6 @@ import { createShare, errorText } from './api';
 
 export default function ShareBox({ reading, locale }: { reading: ReadingView; locale: Locale }) {
   const copy = copyFor(locale);
-  const [open, setOpen] = useState(false);
-  const [includeQuestion, setIncludeQuestion] = useState(false);
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -28,25 +35,27 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
 
   // A different round is on screen: nothing from the last one carries over.
   useEffect(() => {
-    setOpen(false);
     setUrl('');
     setCopied(false);
     setError('');
   }, [reading.readingId]);
 
-  const make = async () => {
+  const share = async () => {
     if (busy) return;
     setBusy(true);
     setError('');
     try {
-      const { url: link } = await createShare(reading.readingId, includeQuestion);
+      const link = url || (await createShare(reading.readingId, true)).url;
       setUrl(link);
       try {
         await navigator.clipboard.writeText(link);
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2400);
       } catch {
-        // No clipboard permission: the link is on screen and selectable instead.
+        /* No clipboard permission. Not an error worth showing — the link is on
+           screen below, selected on focus, and the button still offers to try
+           again. Telling someone the share failed when it plainly did not is
+           worse than saying nothing. */
       }
     } catch (caught) {
       setError(errorText(caught, copy.errors.generic));
@@ -55,31 +64,24 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
     }
   };
 
-  if (!open) {
-    return (
-      <button type="button" className="taro-primary" onClick={() => setOpen(true)}>
-        {copy.outro.share}
-      </button>
-    );
-  }
+  /* Four labels for one button, and the order matters: what it is doing beats
+     what it just did beats what it will do. */
+  const label = busy
+    ? copy.outro.sharing
+    : copied
+      ? copy.share.copied
+      : url
+        ? copy.share.copyLink
+        : copy.outro.share;
 
   return (
     <div className="taro-share">
-      <label className="taro-check">
-        <input
-          type="checkbox"
-          checked={includeQuestion}
-          onChange={(event) => {
-            setIncludeQuestion(event.target.checked);
-            setUrl('');
-            setCopied(false);
-          }}
-        />
-        <span>{copy.share.includeQuestion}</span>
-      </label>
+      <button type="button" className="taro-primary" onClick={() => void share()} disabled={busy}>
+        {label}
+      </button>
 
-      {url ? (
-        <>
+      {url && (
+        <div className="taro-share-row">
           <input
             className="taro-share-url"
             readOnly
@@ -87,26 +89,9 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
             onFocus={(event) => event.target.select()}
             aria-label={copy.share.copyLink}
           />
-          <div className="taro-share-row">
-            <button type="button" className="taro-primary" onClick={() => void make()} disabled={busy}>
-              {copied ? copy.share.copied : copy.share.copyLink}
-            </button>
-            <a className="taro-link" href={url} target="_blank" rel="noreferrer">
-              {copy.share.openLink}
-            </a>
-            <button type="button" className="taro-link" onClick={() => setOpen(false)}>
-              {copy.share.close}
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="taro-share-row">
-          <button type="button" className="taro-primary" onClick={() => void make()} disabled={busy}>
-            {busy ? copy.outro.sharing : copy.outro.share}
-          </button>
-          <button type="button" className="taro-link" onClick={() => setOpen(false)}>
-            {copy.share.close}
-          </button>
+          <a className="taro-link" href={url} target="_blank" rel="noreferrer">
+            {copy.share.openLink}
+          </a>
         </div>
       )}
 

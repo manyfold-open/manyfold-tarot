@@ -94,12 +94,18 @@ export default function SharePage() {
 
         <p className="taro-conclusion">{snapshot.conclusion}</p>
 
+        {/* The invitation first, the mark under it. A visitor arrives here having
+            read someone else's three cards; the one thing this page wants from
+            them sits directly under the sentence they just finished, and the
+            signature closes the page rather than interrupting it. The line about
+            the snapshot being frozen is gone: it answered a question nobody
+            asked, and a shared reading that has to explain its own storage model
+            is not a reading any more. */}
         <footer className="taro-foot">
-          <p className="taro-signature">{snapshot.signature}</p>
-          <p className="taro-frozen">{copy.share.frozen}</p>
           <a className="taro-primary" href="/">
             {copy.share.startYours}
           </a>
+          <p className="taro-signature">{snapshot.signature}</p>
         </footer>
       </main>
     </div>
