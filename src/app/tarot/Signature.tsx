@@ -30,7 +30,16 @@ type From = 'footer' | 'share';
 const manyfoldUrl = (from: From): string =>
   `https://manyfold.ai/?utm_source=tarot&utm_medium=${from}`;
 
-const sourceUrl = 'https://github.com/jiam1ngfu/manyfold-tarot';
+/**
+ * The open-source repository, and it is the org one on purpose. Development
+ * happens in a personal fork, so the obvious URL to paste here is the fork's —
+ * but this link is the page making a public claim about itself, and it should
+ * land on the repo that is actually published: the one the README's deploy
+ * button copies, the one issues belong in, the one that outlives any one
+ * account. The bare repo URL rather than /tree/main, which is the same page
+ * with a branch name that will read as stale the day the default branch moves.
+ */
+const sourceUrl = 'https://github.com/manyfold-open/manyfold-tarot';
 
 /**
  * The Manyfold lockup, dark-mode variant, inline rather than an `<img>` for two
