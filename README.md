@@ -3,8 +3,9 @@
 English · [中文](README_CN.md)
 
 > **This deployment runs an AI tarot site — see [TAROT.md](TAROT.md).** The site is at `/`,
-> the operator console described below moved to `/console`, and the starter itself is
-> otherwise unchanged.
+> the operator console described below moved to `/settings` (`/console` still works), and the
+> starter itself is otherwise unchanged. Nothing on the tarot site links to the console — type
+> the URL: `https://your-app.workers.dev/settings`.
 
 A Cloudflare Workers app template pre-wired with [Manyfold](https://manyfold.ai) AI-agent
 connectivity. Deploy it in one click, connect your Manyfold agents from the page, verify the

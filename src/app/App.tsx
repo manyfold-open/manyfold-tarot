@@ -2,6 +2,8 @@
  * The shell: loads /api/state once, routes between the two tabs by location.hash
  * (#chat, #settings — no router dependency), and raises the password gate whenever
  * the deployment requires one and the stored password is missing or wrong.
+ *
+ * With no hash the path decides, so /settings opens on Settings — see route.ts.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -10,15 +12,14 @@ import { api, onUnauthorized } from './api';
 import ChatView from './components/ChatView';
 import SettingsView from './components/SettingsView';
 import PasswordGate from './components/PasswordGate';
+import { tabFor, type Tab } from './route';
 
-type Tab = 'chat' | 'settings';
-
-const tabFromHash = (): Tab => (location.hash === '#settings' ? 'settings' : 'chat');
+const currentTab = (): Tab => tabFor(location.pathname, location.hash);
 
 export default function App() {
   const [state, setState] = useState<AppState | null>(null);
   const [loadError, setLoadError] = useState('');
-  const [tab, setTab] = useState<Tab>(tabFromHash);
+  const [tab, setTab] = useState<Tab>(currentTab);
   const [gateOpen, setGateOpen] = useState(false);
 
   const refreshState = useCallback(async () => {
@@ -39,7 +40,7 @@ export default function App() {
   }, [refreshState]);
 
   useEffect(() => {
-    const onHash = () => setTab(tabFromHash());
+    const onHash = () => setTab(currentTab());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
