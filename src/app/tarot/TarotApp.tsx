@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_SIZE, type Locale } from '../../shared/tarot/deck';
-import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
+import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import {
   FOLLOW_UP_MAX_CHARS,
   QUESTION_MAX_CHARS,
@@ -133,9 +133,9 @@ export default function TarotApp() {
 
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-Hans' : 'en';
-    // The tagline and nothing else: there is no name on this site, so there is
-    // none in the tab either.
-    document.title = copy.tagline;
+    // The name and nothing else. The tab is read sideways, half-covered, next
+    // to twenty others: it has room for what this is, not for what it does.
+    document.title = SITE_NAME;
     localStorage.setItem(LOCALE_KEY, locale);
   }, [locale, copy]);
 

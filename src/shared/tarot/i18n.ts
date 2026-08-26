@@ -358,6 +358,11 @@ const en: Copy = {
   settingsLink: 'Settings',
 };
 
+/** What the site is called, in the tab and nowhere else. Deliberately outside
+ *  `Copy` and the same in both locales: a name is a name, and a visitor who
+ *  switches language is still looking at the same site. */
+export const SITE_NAME = 'AI Tarot';
+
 export const COPY: Record<Locale, Copy> = { zh, en };
 
 export const copyFor = (locale: Locale): Copy => COPY[locale] ?? COPY.zh;

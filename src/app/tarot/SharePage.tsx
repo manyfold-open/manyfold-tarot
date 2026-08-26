@@ -27,7 +27,7 @@
 
 import { useEffect, useState } from 'react';
 import { cardArt, cardById, cardKeywords, type Locale } from '../../shared/tarot/deck';
-import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
+import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
 import CardSlot from './Card';
 import { Prose } from './Reading';
@@ -51,7 +51,9 @@ export default function SharePage() {
 
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-Hans' : 'en';
-    document.title = copy.share.viewTitle;
+    // The page keeps its own heading; the tab also says whose site this is,
+    // because a shared link is opened by someone who has never been here.
+    document.title = `${copy.share.viewTitle} · ${SITE_NAME}`;
   }, [locale, copy]);
 
   if (missing) {
