@@ -15,19 +15,20 @@
  *   POST   /api/agents/:agentId/chat        admin  one chat turn (text/event-stream)
  *   *      /api/tarot/*                     open   the tarot site (src/worker/tarot/routes.ts)
  *
- * "admin" routes require the x-admin-password header — but only when the
- * ADMIN_PASSWORD secret is set. Without it the app is open, which is what makes
- * zero-config deploys work; set the secret before sharing the URL.
+ * "admin" routes require the x-admin-password header. This deployment is always
+ * locked — see src/worker/admin.ts for which password opens it — because its URL
+ * is public and the console behind it can spend the owner's agent budget.
  *
- * The tarot routes are open even when it is set: they are the product, and they
- * are metered instead. See isPublicPath below.
+ * The tarot routes are open regardless: they are the product, and they are
+ * metered instead. See isPublicPath below.
  */
 
 import { Hono } from 'hono';
 import type { AppState } from '../shared/types';
 import { HttpError, type Env } from './types';
+import { adminPasswordOk, adminRequired } from './admin';
 import { ensureSchema } from './db';
-import { ConfigError, safeEqual } from './crypto';
+import { ConfigError } from './crypto';
 import { A2AError } from './a2a';
 import {
   cancelConnect,
@@ -67,24 +68,19 @@ app.use('/api/*', async (c, next) => {
   await next();
 });
 
-const adminPassword = (env: Env): string | null => {
-  const value = (env.ADMIN_PASSWORD ?? '').trim();
-  return value.length > 0 ? value : null;
-};
-
-const adminHeaderOk = (c: { env: Env; req: { header: (name: string) => string | undefined } }): boolean => {
-  const required = adminPassword(c.env);
-  if (!required) return true;
-  return safeEqual(c.req.header('x-admin-password') ?? '', required);
-};
+const adminOk = (c: {
+  env: Env;
+  req: { header: (name: string) => string | undefined };
+}): Promise<boolean> => adminPasswordOk(c.env, c.req.header('x-admin-password') ?? '');
 
 /**
  * Routes a visitor may use without the admin password.
  *
- * /api/health and /api/state are the starter's own two exceptions. /api/tarot/*
- * is the third, and it is the product itself: this deployment is a public tarot
- * site, and nobody can be asked for an operator password before they are allowed
- * to ask a question.
+ * /api/health and /api/state are the starter's own two exceptions — and /api/state
+ * only in the narrow sense that it answers at all; what it answers to a stranger
+ * is nothing (see the handler). /api/tarot/* is the third, and it is the product
+ * itself: this deployment is a public tarot site, and nobody can be asked for an
+ * operator password before they are allowed to ask a question.
  *
  * The reason the gate exists — that a public URL must not let strangers spend
  * the owner's agent budget — is answered for these routes in
@@ -96,7 +92,7 @@ const isPublicPath = (path: string): boolean =>
   path === '/api/health' || path === '/api/state' || path.startsWith('/api/tarot/');
 
 app.use('/api/*', async (c, next) => {
-  if (!isPublicPath(new URL(c.req.url).pathname) && !adminHeaderOk(c)) {
+  if (!isPublicPath(new URL(c.req.url).pathname) && !(await adminOk(c))) {
     throw new HttpError(401, 'admin_password_invalid', 'This deployment requires the admin password.');
   }
   await next();
@@ -127,14 +123,30 @@ app.get('/api/health', (c) =>
 );
 
 app.get('/api/state', async (c) => {
+  // The one route that answers before the password does, because the browser has
+  // to be told that a password is wanted. It says that and nothing else: the
+  // agent list carries the operator's agent names and their RPC endpoints, and a
+  // caller who has not been let in has no claim on either. The console renders
+  // the gate from this and has nothing to render behind it.
+  if (!(await adminOk(c))) {
+    const locked: AppState = {
+      service: SERVICE,
+      adminRequired: true,
+      adminOk: false,
+      connect: { session: null },
+      agents: [],
+    };
+    return c.json(locked);
+  }
+
   const [session, agents] = await Promise.all([
     getConnectSession(c.env),
     listConnectedAgents(c.env),
   ]);
   const state: AppState = {
     service: SERVICE,
-    adminRequired: adminPassword(c.env) !== null,
-    adminOk: adminHeaderOk(c),
+    adminRequired: adminRequired(),
+    adminOk: true,
     connect: { session },
     agents,
   };

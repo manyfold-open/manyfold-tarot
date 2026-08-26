@@ -64,6 +64,18 @@ export default function App() {
       </main>
     );
   }
+  // Locked, and nothing behind the lock. The gate used to be an overlay laid over
+  // a rendered console, which reads as a lock and is not one: the agent list was
+  // in the DOM, one devtools panel away. The Worker no longer sends it (see
+  // /api/state), so there is nothing here to cover up — and the page says so
+  // rather than flashing an empty console at whoever just typed the URL.
+  if (gateOpen) {
+    return (
+      <main className="shell">
+        <PasswordGate onSubmitted={refreshState} />
+      </main>
+    );
+  }
 
   return (
     <main className="shell">
@@ -92,8 +104,6 @@ export default function App() {
       ) : (
         <SettingsView agents={state.agents} initialSession={state.connect.session} refreshState={refreshState} />
       )}
-
-      {gateOpen && <PasswordGate onSubmitted={refreshState} />}
     </main>
   );
 }

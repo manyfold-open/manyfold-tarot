@@ -157,9 +157,15 @@ AI agents working on this codebase.
   random key generated on first use and stored in the same database. The trade-off is
   honest: a generated key protects against partial exposure (logs, a table-scoped query) but
   not against a full database dump. Set the secret to remove that caveat.
-- **The app is open by default.** Anyone with the URL can connect agents and chat until you
-  set `ADMIN_PASSWORD`. All routes except `/api/health` and `/api/state` then require the
-  password (compared in constant time; sent as a header, kept in sessionStorage).
+- **The console is locked, the reading is not.** `/api/tarot/*` is open to anyone — it is the
+  product, and it is metered rather than gated. Every other route except `/api/health` and
+  `/api/state` requires the admin password (constant-time compare; sent as a header, kept in
+  sessionStorage), and `/api/state` answers a caller without it with nothing but "a password
+  is wanted". Which password opens it is decided in `src/worker/admin.ts`: the
+  `ADMIN_PASSWORD` secret if the deployment sets one, otherwise the high-entropy default whose
+  salted digest is committed there. Set the secret — `npx wrangler secret put ADMIN_PASSWORD`,
+  or Workers → Settings → Variables — to use a password of your own choosing; it replaces the
+  default rather than joining it.
 - Agent RPC URLs are validated (https-only, private/loopback addresses rejected in
   production), verification uses a non-billing `tasks/get` probe rather than a real turn, and
   every error string is stripped of anything token-shaped before it can reach a log or the

@@ -1,7 +1,13 @@
 /**
- * Shown when the deployment has ADMIN_PASSWORD set and this browser has not
- * provided it (or provided a wrong one). The password lives in sessionStorage —
- * gone when the tab closes, never in a cookie, never in a URL.
+ * Shown when this browser has not given the console's password, or gave a wrong
+ * one. The password lives in sessionStorage — gone when the tab closes, never in
+ * a cookie, never in a URL.
+ *
+ * The copy no longer names ADMIN_PASSWORD. It used to, back when the secret was
+ * the only way the app could be locked and its absence meant no lock at all; now
+ * a default ships with the deployment (src/worker/admin.ts) and the secret is one
+ * of two answers. Naming the wrong one to a stranger is a hint they have not
+ * earned, and naming both is a paragraph nobody standing at a locked door wants.
  */
 
 import { useState } from 'react';
@@ -26,8 +32,8 @@ export default function PasswordGate(props: { onSubmitted: () => Promise<void> }
       <form className="dialog" onSubmit={(event) => void submit(event)}>
         <h2>Admin password required</h2>
         <p className="muted">
-          This deployment is locked with the <code>ADMIN_PASSWORD</code> secret. Enter it to
-          continue.
+          The operator console is locked. The reading itself is not — it is at{' '}
+          <a href="/">the front page</a>, and needs no password.
         </p>
         <input
           type="password"

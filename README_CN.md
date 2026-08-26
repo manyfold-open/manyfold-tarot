@@ -59,7 +59,8 @@
 
 ### 部署之后（两条路径通用）
 
-URL 公开后强烈建议设置 —— 否则任何拿到 URL 的人都能用你的 agents 聊天（消耗你的额度）：
+控制台默认就是锁着的（默认锁见 `src/worker/admin.ts`）。设置这个 secret 可以换成你自己
+记得住的密码 —— 它替换默认锁，而不是与之并存：
 
 ```bash
 npx wrangler secret put ADMIN_PASSWORD
@@ -141,9 +142,13 @@ Manyfold A2A（message/stream、tasks/get）   ← 每个 agent 独立的 bearer
   零配置可用，未设置时会在首次使用时生成随机密钥并存入同一个数据库。这个取舍是诚实的：
   生成的密钥能防住部分暴露（日志、单表查询），但防不住整库导出。设置 secret 即可消除
   这个隐患。
-- **应用默认是开放的。** 在设置 `ADMIN_PASSWORD` 之前，任何拿到 URL 的人都能连接 agent
-  并聊天。设置后，除 `/api/health` 和 `/api/state` 外的所有路由都需要密码（常量时间比较；
-  通过 header 传输，存放在 sessionStorage）。
+- **占卜是开放的，控制台不是。** `/api/tarot/*` 对所有人开放 —— 它就是产品本身，靠计量
+  而非密码来保护。除 `/api/health` 和 `/api/state` 外的其余路由都需要管理密码（常量时间
+  比较；通过 header 传输，存放在 sessionStorage）；未通过验证时 `/api/state` 只回答
+  "需要密码"，不吐露 agent 列表。用哪个密码由 `src/worker/admin.ts` 决定：部署设置了
+  `ADMIN_PASSWORD` secret 就用它，否则用随代码提交的那把高熵默认锁（仓库里只有加盐摘要）。
+  执行 `npx wrangler secret put ADMIN_PASSWORD`（或在 Workers → Settings → Variables 里
+  设置）即可换成你自己的密码 —— 它是替换默认锁，而不是与之并存。
 - Agent 的 RPC URL 会被校验（仅允许 https，生产环境拒绝私有/回环地址）；连通性验证使用
   不计费的 `tasks/get` 探测而非真实对话；所有错误信息在到达日志或浏览器之前都会剥离
   任何形似 token 的内容。

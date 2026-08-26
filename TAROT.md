@@ -3,13 +3,16 @@
 An AI tarot site built on this Worker. Three cards, one question, one reading.
 
 The starter it grew out of is untouched and still there — the operator console moved from `/`
-to `/console`. Everything tarot lives in three new directories and one new set of tables.
+to `/settings`. Everything tarot lives in three new directories and one new set of tables.
 
 ```
-/            the tarot site            src/app/tarot/
+/            the tarot site            src/app/tarot/     public, no password
 /s/:token    a frozen shared reading   src/app/tarot/SharePage.tsx
-/console     the starter's console     src/app/App.tsx  (unchanged)
+/settings    the starter's console     src/app/App.tsx    password (also at /console)
 ```
+
+Nothing on the tarot site links to the console, and the console asks for a password before it
+renders — see `src/worker/admin.ts`. The reading never does.
 
 ## The flow
 
@@ -76,7 +79,7 @@ POST /api/tarot/readings/:id/interpretation  →  diviner.speak({kind: 'interpre
 POST /api/tarot/readings/:id/follow-ups      →  diviner.speak({kind: 'followup', …})
 ```
 
-**Connecting one:** open `/console`, connect an agent as usual. The most recently connected
+**Connecting one:** open `/settings`, give the admin password, connect an agent as usual. The most recently connected
 agent becomes the reader. On a deployment with several agents, pin one with `TAROT_AGENT_ID`.
 Set `TAROT_DEMO=1` to force the demo reader even when an agent is connected.
 

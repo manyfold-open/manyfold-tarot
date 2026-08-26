@@ -9,8 +9,13 @@
 # Manyfold API base. Defaults to the value in wrangler.jsonc; use staging for local dev.
 # MANYFOLD_API_BASE_URL=https://api-staging.manyfold.ai
 
-# When set, every API route except /api/health and /api/state requires an
-# `x-admin-password` header. Recommended once your Worker is public:
+# The password for the operator console. Every API route except /api/health,
+# /api/state and /api/tarot/* requires it as an `x-admin-password` header.
+#
+# Leaving this unset does NOT open the console: a default lock ships with the code
+# (src/worker/admin.ts). Setting this replaces that default with a password of your
+# own, which is the recommended arrangement — a secret can be anything you like,
+# because unlike the default's digest, nobody can read it.
 #   npx wrangler secret put ADMIN_PASSWORD
 # ADMIN_PASSWORD=
 

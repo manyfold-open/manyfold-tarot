@@ -115,8 +115,9 @@ export default function SettingsView(props: {
 
       <h3>About this deployment</h3>
       <p className="muted">
-        Agent tokens are AES-GCM encrypted in your D1 database and never sent to the browser. Set
-        the <code>ADMIN_PASSWORD</code> secret to lock this page (and chat) behind a password, and{' '}
+        Agent tokens are AES-GCM encrypted in your D1 database and never sent to the browser.
+        This page is already password-locked; set the <code>ADMIN_PASSWORD</code> secret to
+        replace the shipped default with a password of your own, and{' '}
         <code>CONFIG_ENCRYPTION_KEY</code> to keep the encryption key out of the database. See the
         README for details.
       </p>
