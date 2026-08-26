@@ -41,12 +41,42 @@ const checks = [
     },
   },
   {
-    name: 'unknown /api/* routes return JSON 404',
+    // What this has always been checking is that /api/* is answered by the
+    // Worker and not by the SPA fallback — an unknown API path must come back as
+    // a JSON error, never as index.html with a 200 on it.
+    //
+    // The status is 401 rather than 404 now, and that is the gate doing its job
+    // in the right order: a caller who has not given the password is told to
+    // give one, not told which routes exist. Smoke runs without the password, so
+    // 401 is the expected answer here; 404 is what the same path returns to
+    // someone already inside.
+    name: 'unknown /api/* routes are answered by the Worker, in JSON',
     run: async () => {
       const response = await fetch(`${base}/api/definitely-not-a-route`);
-      if (response.status !== 404) throw new Error(`HTTP ${response.status}, expected 404`);
+      if (![401, 404].includes(response.status)) {
+        throw new Error(`HTTP ${response.status}, expected 401 or 404`);
+      }
       const body = await response.json();
-      if (body?.error?.code !== 'not_found') throw new Error(`unexpected body: ${JSON.stringify(body)}`);
+      const expected = response.status === 401 ? 'admin_password_invalid' : 'not_found';
+      if (body?.error?.code !== expected) {
+        throw new Error(`unexpected body: ${JSON.stringify(body)}`);
+      }
+    },
+  },
+  {
+    // The half of the split that is easy to lose by accident: lock the console
+    // a little too broadly and this is the check that notices.
+    name: 'the console is locked and says so without saying more',
+    run: async () => {
+      const state = await (await fetch(`${base}/api/state`)).json();
+      if (state.adminRequired !== true || state.adminOk !== false) {
+        throw new Error(`deployment is not locked: ${JSON.stringify(state).slice(0, 120)}`);
+      }
+      if (state.agents.length > 0 || state.connect.session !== null) {
+        throw new Error('a locked deployment served the agent list');
+      }
+      const agents = await fetch(`${base}/api/agents`);
+      if (agents.status !== 401) throw new Error(`GET /api/agents → HTTP ${agents.status}, expected 401`);
     },
   },
   {
