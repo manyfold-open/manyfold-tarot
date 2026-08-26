@@ -34,7 +34,10 @@
     // "production" enforces https-only and no-private-IP checks on agent URLs.
     "ENVIRONMENT": "production"
   }
-  // Optional hardening, neither is required to deploy:
-  //   npx wrangler secret put ADMIN_PASSWORD          # locks the app behind a password
-  //   npx wrangler secret put CONFIG_ENCRYPTION_KEY   # >=32 chars; otherwise a key is generated and stored in D1
+  // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
+  //   ADMIN_PASSWORD          the operator password for /settings. Not optional in
+  //                           practice: unset falls back to the default lock in
+  //                           src/worker/admin.ts, whose plaintext is not in this
+  //                           public repo — so you would be locked out too.
+  //   CONFIG_ENCRYPTION_KEY   >=32 chars; otherwise a key is generated and stored in D1
 }

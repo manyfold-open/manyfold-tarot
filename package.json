@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare Workers starter pre-wired with Manyfold AI-agent connectivity: connect agents, chat to verify, then build your app on top.",
+  "description": "An AI tarot site on one Cloudflare Worker, read by your own Manyfold agent: one question, three cards, one reading.",
   "license": "MIT",
   "scripts": {
     "dev": "vite",

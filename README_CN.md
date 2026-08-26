@@ -1,157 +1,227 @@
-# Manyfold Agent 的 Cloudflare Worker 起步模板
+# 牌面 · Facing the Cards
 
 [English](README.md) · 中文
 
-一个预置了 [Manyfold](https://manyfold.ai) AI agent 连接能力的 Cloudflare Workers 应用模板。
-一键部署，在页面里连接你的 Manyfold agents，用流式聊天验证链路 —— 然后在一套已经跑通的
-技术栈上，构建你真正想做的应用。
+一个跑在单个 Cloudflare Worker 上的 AI 塔罗站，由**你自己的** Manyfold agent 来解读。
+一个问题，三张牌，一次解读。
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/manyfold-open/cloudflare-worker-starter)
+**[线上站点](https://manyfold-tarot.galichlorian.workers.dev)** ·
+[解读是怎么运作的](TAROT.md) ·
+[改动时要守住的不变量](AGENTS.md)
 
 ```
-┌──────────────┐    ┌───────────────┐    ┌────────────────────┐    ┌──────────────────┐
-│ 1. 部署      │ →  │ 2. 打开你的   │ →  │ 3. 连接 agent      │ →  │ 4. 聊天验证，    │
-│  (按钮或     │    │    Worker URL │    │  （在 Manyfold 上  │    │    然后开始构建  │
-│  fork+Builds)│    │               │    │    授权批准）      │    │    你的应用      │
-└──────────────┘    └───────────────┘    └────────────────────┘    └──────────────────┘
+ 1 提问   →   2 接住   →   3 洗牌   →   4 抽牌   →   5 解读   →   6 收尾
+ 一个输入    先回应问题   牌自己洗完  从整副背面  三张牌作为   分享 ·
+ 一个按钮    此时还没有   服务端当场  里挑三张    一个牌阵，   再问一件事 ·
+             任何牌      锁定三张    逐张翻开    八个段落     继续解读
 ```
 
-## 你会得到什么
+所有权威判断都在服务端：三张牌在任何一张背面出现在屏幕上之前就已被 Worker 封定，浏览器
+永远不选牌、不选正逆位，而写解读的 agent 在结构上也没有机会挑选自己要解读的是什么。
+[TAROT.md](TAROT.md) 是详细版。
 
-- **连接 agent** —— 与 Manyfold 之间的设备码（device-code）授权握手：弹窗打开 Manyfold
-  的授权页，你核对确认码、勾选要共享的 agents 即可。Bearer token 以 AES-GCM 加密存入你的
-  D1 数据库，永远不会到达浏览器。
-- **聊天** —— 与每个已连接 agent 的流式聊天（A2A `message/stream` over SSE）。对话持久化
-  在 D1 中，并保留 agent 侧的 `contextId`，刷新页面后多轮上下文依然有效。
-- **设置页** —— 查看所有已连接的 agents，重新运行（免费、不计费的）连通性探测，断开连接，
-  或继续连接更多。重复授权同一个 agent 会原地轮换它的 token。
-- **一个干净的迭代起点** —— Vite + React 19 + Hono 跑在同一个 Worker 上，D1 采用零迁移
-  schema，几乎没有魔法。加一个路由、一张表、一个组件，直接发布。
+## 一个 Worker，两个面
 
-## 部署
+部署之前先理解这一点，后面所有配置都是从它推出来的：
 
-### 路径 A —— Deploy to Cloudflare 按钮（推荐）
+| 路径 | 给谁用 | 需要密码 |
+| --- | --- | --- |
+| `/` —— 占卜 | 拿到链接的任何人 | **否** |
+| `/s/:token` —— 分享出去的解读快照 | 拿到链接的任何人 | **否** |
+| `/settings` —— 运营控制台 | 你自己 | **是** |
+
+占卜本身就是产品。它按设计对所有人开放，靠计量而不是靠锁来保护
+（`src/worker/tarot/ratelimit.ts`）—— 总不能在一个访客被允许提问之前，先问他要运营密码。
+
+控制台是另一面：连接 agent、断开、列出、和它聊天。那是你的 Manyfold 账号和你的 agent 预算，
+所以它在密码后面，而且**占卜站上没有任何地方链接到它**。你只能自己在地址栏敲 URL 进去。
+这是刻意的：一个为了占卜而来的人，不该看见一扇他打不开的门。
+
+## 部署一份属于你自己的
+
+你需要一个 Cloudflare 账号和一个 [Manyfold](https://manyfold.ai) agent。但不必先有 agent ——
+站点自带 demo 解读者，在连任何 agent 之前就完全可用，所以可以先把 URL 跑通，再指向你的 agent。
+
+### 1 · 先让它跑起来
+
+<details open>
+<summary><b>路径 A —— Deploy 按钮</b>（推荐）</summary>
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/manyfold-open/manyfold-tarot)
+
+Cloudflare 会把这个仓库复制到你的 GitHub 账户下，按 `wrangler.jsonc` 里的声明创建 D1 数据库，
+把属于你的 `database_id` 写进你的副本，并把仓库接入 **Workers Builds** —— 之后每次 push 到
+`main` 都会自动构建（`npm run build`）并部署（`npx wrangler deploy`）。
 
 > [!IMPORTANT]
-> **在 Cloudflare 表单中点击 "Deploy" 之前，请先展开一次 "Advanced settings" 区域。**
-> 截至 2026 年 8 月，Cloudflare 控制台存在一个 bug：该区域折叠时，其中的隐藏字段
-> （构建 API token、非生产分支部署命令）不会被初始化 —— 流程会在创建仓库后静默卡住，
-> 且不显示任何错误。展开该区域后字段会自动填充，部署即可正常完成。这是控制台侧的
-> 问题，与本模板无关。
+> **点 Deploy 之前，先把 "Advanced settings" 展开一次。** 截至 2026 年 8 月，Cloudflare 控制台
+> 在该区域折叠时不会初始化其中的隐藏字段（构建 API token、非生产分支部署命令），流程会在创建
+> 仓库之后静默卡住且不报任何错。展开后字段会自动填好，部署即可正常完成。这是控制台侧的 bug，
+> 本仓库无法修复。
 
-点击上方按钮，Cloudflare 会：
+</details>
 
-1. 在你的 GitHub/GitLab 账户中创建这个仓库的副本；
-2. 根据 `wrangler.jsonc` 自动创建 D1 数据库，并把真实的 `database_id` 写入你的副本；
-3. 将仓库接入 **Workers Builds** —— 之后每次 push 到 `main` 都会自动构建
-   （`npm run build`）并部署（`npx wrangler deploy`）。
+<details>
+<summary><b>路径 B —— 自己 fork 并接入 Workers Builds</b></summary>
 
-不需要配置任何 secret。打开 Worker URL，你就已经到了流程图的第 2 步。
+```bash
+git clone https://github.com/<你>/manyfold-tarot && cd manyfold-tarot
+npm install
+npx wrangler d1 create manyfold-app-db      # 把返回的 id 填进 wrangler.jsonc
+```
 
-### 路径 B —— fork / 使用模板，自己接入 Workers Builds
+`wrangler.jsonc` 里有两个字段属于本部署而不属于你：
 
-1. 在 GitHub 上 fork 本仓库（或点 "Use this template"）。
-2. 创建数据库：`npx wrangler d1 create manyfold-app-db`，把返回的 `database_id` 填入
-   `wrangler.jsonc`。
-3. 在 Cloudflare 控制台：**Workers & Pages → Create → Connect to Git**，选择你的 fork，
-   构建命令填 `npm run build`，部署命令填 `npx wrangler deploy`。
-4. push 到 `main` —— Workers Builds 会完成部署。
+- `d1_databases[0].database_id` —— **必须替换**成你刚创建的那个 id。不改的话，你的 Worker
+  会去绑定一个不属于你的数据库，然后失败。
+- `name` —— Worker 的名字，也就是你的 `*.workers.dev` 子域名。除非你想跟 Cloudflare 争
+  `manyfold-tarot` 这个名字，否则请改掉。
 
-### 部署之后（两条路径通用）
+然后 **Workers & Pages → Create → Connect to Git**，选择你的 fork，构建命令 `npm run build`，
+部署命令 `npx wrangler deploy`，push 到 `main` 即可。
 
-控制台默认就是锁着的（默认锁见 `src/worker/admin.ts`）。设置这个 secret 可以换成你自己
-记得住的密码 —— 它替换默认锁，而不是与之并存：
+</details>
+
+两条路径都没有迁移步骤。`src/worker/db.ts` 里的 schema 会在第一个请求时自动应用，本地和线上
+都一样。
+
+### 2 · 设置控制台密码
+
+> [!IMPORTANT]
+> **这一步要最先做 —— 不做的话，你打不开你自己的控制台。**
+
+`src/worker/admin.ts` 里带着一把默认锁，这样刚部署好的站点不会有一段"还没来得及上锁"的裸奔
+时间。但这是个公开仓库，提交进去的只有那把默认锁的**加盐摘要**：它的明文不在仓库里、不在 git
+历史里、也不在这份文档里。也就是说，默认锁是一把你没有钥匙的锁。请换成你自己的：
 
 ```bash
 npx wrangler secret put ADMIN_PASSWORD
 ```
 
-可选，让凭证加密密钥不落在数据库里（见[安全说明](#安全说明)）：
+如果你是用按钮部署的、本地没有代码，那就走控制台：**Workers & Pages → 你的 Worker →
+Settings → Variables and Secrets → Add → Secret**。
+
+这个 secret 是**替换**默认锁，不是与之并存；比较时按明文做常量时间比对。因为它只存在于
+Cloudflare 的 secret 存储里、谁也读不到，所以它可以又短又好记 —— 这条路径存在的全部意义就在
+这里。设置后立即生效，不需要重新部署。
+
+### 3 · 进控制台 —— 靠手动敲 URL
+
+```
+https://your-worker.your-subdomain.workers.dev/settings
+```
+
+没有任何地方链接到它。`/console` 也仍然可用，照顾那些收藏了模板原始地址的人。页面会要第 2 步
+里那个密码，在输对之前它背后什么都不渲染 —— 没有标签栏，没有 agent 列表，Worker 那边也根本
+不下发 agent 列表，所以 devtools 里也翻不出东西。密码存在 `sessionStorage`，关掉标签页就忘。
+
+### 4 · 连上你的 agent
+
+在 **Settings → Connect an agent** 里，弹窗会打开 Manyfold 的授权页。把你页面上显示的确认码和
+授权页上的那个对一遍 —— 这一步比对是整个流程的防钓鱼校验，别跳过 —— 然后勾选要共享的 agents。
+
+Bearer token 会以 AES-GCM 加密的形式存进你的 D1，永远不会到达浏览器。之后重新授权同一个 agent
+会原地轮换它的 token。
+
+### 5 · 确认解读的确实是你的 agent
+
+最近一次连接的 agent 会立刻成为解读者 —— 不用重新部署，也不用配置。直接问站点现在是谁在说话：
 
 ```bash
-npx wrangler secret put CONFIG_ENCRYPTION_KEY
+curl https://your-worker.workers.dev/api/tarot/reader
+# {"demo":false}   ← 你的 agent 在解读
+# {"demo":true}    ← 还是内置的 demo 解读者
 ```
+
+如果连了多个 agent，用 `TAROT_AGENT_ID` 指定其中一个。想暂时切回 demo 解读者，设
+`TAROT_DEMO=1`。然后用一条命令，对着线上部署从头到尾跑一次完整的占卜：
+
+```bash
+npm run smoke -- https://your-worker.workers.dev
+```
+
+它会提问、洗牌、翻开三张牌、取回解读、生成分享链接，并且顺路检查控制台仍然是锁着的、占卜仍然
+是开放的。
+
+## 配置项
+
+| 名称 | 类型 | 设置位置 | 作用 |
+| --- | --- | --- | --- |
+| `ADMIN_PASSWORD` | secret | Cloudflare | **控制台密码。** 替换随代码提交的默认锁。见第 2 步。 |
+| `CONFIG_ENCRYPTION_KEY` | secret | Cloudflare | ≥32 字符。加密 D1 中的设备码与 agent token。不设置则在首次使用时生成随机密钥并存进同一个数据库 —— 见[安全说明](#安全说明)。 |
+| `TAROT_AGENT_ID` | var | `wrangler.jsonc` | 指定由哪个已连接的 agent 解读。默认取最近连接的那个。 |
+| `TAROT_DEMO` | var | `wrangler.jsonc` | 设为 `1` 时强制使用内置 demo 解读者，即使已连接 agent。 |
+| `MANYFOLD_API_BASE_URL` | var | `wrangler.jsonc` | Manyfold API 地址，默认 `https://api.manyfold.ai`。 |
+| `ENVIRONMENT` | var | `wrangler.jsonc` | `production` 会强制 https-only，并拒绝私有/回环地址的 agent URL。 |
+
+secret 永远不进仓库。`.dev.vars.example` 里对本地开发列了同一组变量 —— 复制成 `.dev.vars`
+即可，该文件已被 git 忽略。
 
 ## 本地开发
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # 然后取消注释 MANYFOLD_API_BASE_URL / ENVIRONMENT
+cp .dev.vars.example .dev.vars    # 按需取消注释
 npm run dev
 ```
 
-一条命令启动全部：Vite 以 HMR 方式服务 React 应用，Worker 运行在 workerd 中并**自动模拟
-本地 D1 数据库** —— schema 在第一个请求时自动创建，永远不需要迁移步骤。
+一条命令跑起全部：Vite 以 HMR 服务 React 应用，Worker 跑在 workerd 里，并自动模拟一个本地 D1。
 
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 开发服务器（前端 + worker + 本地 D1） |
 | `npm run check` | 类型检查、构建、`wrangler deploy --dry-run` |
-| `npm test` | 单元测试（vitest） |
-| `npm run deploy` | 手动部署（通常由 Workers Builds 完成） |
-| `npm run smoke -- <url>` | 对部署运行冒烟测试 |
+| `npm test` | 206 个测试，含一次穿过真实 Worker 的完整占卜流程 |
+| `npm run deploy` | 手动部署（通常交给 Workers Builds） |
+| `npm run smoke -- <url>` | 对线上部署跑一次完整占卜 |
 
-## 架构一览
+## 结构一览
 
 ```
 浏览器（React SPA，dist/client）
-   │  /api/*（run_worker_first）             其余请求 → 静态资源
+   │  /api/*（run_worker_first）            其余请求 → 静态资源
    ▼
 Hono 应用（src/worker/index.ts）
    │ ensureSchema → Origin 校验 → 管理密码门
+   ├─ /api/tarot/*    src/worker/tarot/       公开：占卜、抽牌、分享
    ├─ /api/connect*   src/worker/connect.ts   Manyfold 设备码授权握手
    ├─ /api/agents*    src/worker/connect.ts   列表 / 验证 / 断开
-   ├─ /api/agents/:id/chat  src/worker/chat.ts  SSE 透传 + 持久化
    ▼
-D1（settings、connect_sessions、agents、conversations、messages）
-Manyfold A2A（message/stream、tasks/get）   ← 每个 agent 独立的 bearer token，调用时解密
+D1 —— 没有迁移，schema 在下一个请求时自己应用
+Manyfold A2A（message/stream、tasks/get）  ← 每个 agent 独立 token，调用时解密
 ```
 
 | 文件 | 用途 |
 | --- | --- |
-| `src/worker/index.ts` | 路由、中间件、错误映射 |
-| `src/worker/connect.ts` | Manyfold 授权握手与已连接 agent 的存储 |
-| `src/worker/a2a.ts` | A2A JSON-RPC + SSE 流消费器、SSRF 防护、密钥脱敏 |
-| `src/worker/chat.ts` | 一轮聊天：上游 agent SSE 进、应用 SSE 出、D1 持久化 |
-| `src/worker/crypto.ts` | AES-GCM 加解密、常量时间比较 |
-| `src/worker/db.ts` | schema（运行时自动应用）与设置存储 |
-| `src/shared/types.ts` | worker 与浏览器共享的 API 类型 |
-| `src/app/` | React 应用：聊天 + 设置两个标签页、连接面板、密码门 |
+| `src/worker/admin.ts` | 谁能进控制台，以及默认锁为什么长这样 |
+| `src/worker/tarot/draw.ts` | 抽牌：CSPRNG、互不重复、服务端、只抽一次 |
+| `src/worker/tarot/prompt.ts` | 提示词出、散文回，以及注入加固 |
+| `src/worker/tarot/diviner.ts` | 适配层：你的 A2A agent，或内置 demo 解读者 |
+| `src/app/tarot/` | 六个状态、牌阵、分享页 |
+| `src/app/App.tsx` | 运营控制台 —— 聊天与设置两个标签页 |
 
-## 如何扩展
+这个塔罗站是从 [`manyfold-open/cloudflare-worker-starter`](https://github.com/manyfold-open/cloudflare-worker-starter)
+长出来的，模板本身原封不动地还在里面：`/settings` 就是模板原来的控制台。如果你要的是不带塔罗
+的模板，请直接去那个仓库拿，而不是从这里往外删东西。
 
-这个模板是起点，不是框架。预期的迭代方式：
-
-- **加 API 路由** —— 在 `src/worker/index.ts` 中添加；除 `/api/health` 和 `/api/state`
-  外的路由在设置了管理密码后会自动受保护。
-- **加数据表** —— 在 `src/worker/db.ts` 的 `SCHEMA` 里追加
-  `CREATE TABLE IF NOT EXISTS …`；下一个请求就会创建，本地和线上都一样。
-- **加页面** —— 在 `src/app/App.tsx` 中添加组件和标签页。
-- **在服务端代码里调用你的 agent** —— `src/worker/connect.ts` 的
-  `credentialFor(env, agentId)` 会返回任意已连接 agent 的 `{ rpcUrl, token }`；完整的流式
-  调用见 `src/worker/chat.ts`，后台任务也可以改用非流式的 `message/send` + `tasks/get`。
-
-`AGENTS.md` 列出了迭代时必须保持的不变量 —— 对人类和 AI agent 都适用。
+[TAROT.md](TAROT.md) 讲设计决策 —— 牌从哪里来、解读者在结构上做不到哪些事、分享如何把一次解读
+冻结成快照。[AGENTS.md](AGENTS.md) 列出改动时必须守住的不变量。
 
 ## 安全说明
 
-- **设备码握手的设计保证凭证永远不经过浏览器。** 浏览器只拿到一个不透明的 `connectId`；
-  设备码（唯一能兑换 agent token 的东西）加密存放在 D1 中，且只能兑换一次。页面上显示的
-  确认码是这个流程的防钓鱼校验 —— Manyfold 授权页必须显示同一个码。
-- **Agent token 以 AES-GCM 加密存储**，密钥来自 `CONFIG_ENCRYPTION_KEY`；为了让一键部署
-  零配置可用，未设置时会在首次使用时生成随机密钥并存入同一个数据库。这个取舍是诚实的：
-  生成的密钥能防住部分暴露（日志、单表查询），但防不住整库导出。设置 secret 即可消除
-  这个隐患。
-- **占卜是开放的，控制台不是。** `/api/tarot/*` 对所有人开放 —— 它就是产品本身，靠计量
-  而非密码来保护。除 `/api/health` 和 `/api/state` 外的其余路由都需要管理密码（常量时间
-  比较；通过 header 传输，存放在 sessionStorage）；未通过验证时 `/api/state` 只回答
-  "需要密码"，不吐露 agent 列表。用哪个密码由 `src/worker/admin.ts` 决定：部署设置了
-  `ADMIN_PASSWORD` secret 就用它，否则用随代码提交的那把高熵默认锁（仓库里只有加盐摘要）。
-  执行 `npx wrangler secret put ADMIN_PASSWORD`（或在 Workers → Settings → Variables 里
-  设置）即可换成你自己的密码 —— 它是替换默认锁，而不是与之并存。
-- Agent 的 RPC URL 会被校验（仅允许 https，生产环境拒绝私有/回环地址）；连通性验证使用
-  不计费的 `tasks/get` 探测而非真实对话；所有错误信息在到达日志或浏览器之前都会剥离
-  任何形似 token 的内容。
+- **控制台锁着，占卜不锁。** 除 `/api/health`、`/api/state` 和 `/api/tarot/*` 之外的所有路由都
+  需要管理密码，通过 header 传输、常量时间比对。对没带密码的调用者，`/api/state` 只回答"需要
+  密码"，不会泄露 agent 列表。
+- **凭证永远不经过浏览器。** 设备码是唯一能兑换 agent token 的东西，它加密存放在 D1 中且只能
+  兑换一次；浏览器只拿到一个不透明的 `connectId`。agent token 以 AES-GCM 加密存储。
+- **自动生成密钥这个取舍值得知道。** 不设 `CONFIG_ENCRYPTION_KEY` 时，加密密钥会在首次使用时
+  生成，并存进它所保护的那同一个数据库。这能防住部分暴露（一行日志、一次单表查询），但防不住
+  整库导出。设置这个 secret 即可消除该隐患，而一键部署两种情况下都能用。
+- **公开路由按 session 和 IP 双重计量。** 所有可能消耗你 agent 额度的路径都有限流，因为这些
+  路由必须保持开放。
+- agent 的 RPC URL 会被校验（仅 https，生产环境拒绝私有/回环地址）；连通性检查用不计费的
+  `tasks/get` 探测而非真实对话；所有错误信息在进入日志或浏览器之前都会剥掉任何形似 token 的
+  内容。
 
 ## 许可证
 

@@ -160,7 +160,7 @@ by `SCHEMA` in `src/worker/db.ts` on the next request, like everything else here
 ## Testing
 
 ```
-npm test                      # 167 tests, including a full-flow run through the real Worker
+npm test                      # 206 tests, including a full-flow run through the real Worker
 npm run check                 # tsc + vite build + wrangler dry-run
 npm run smoke -- <url>        # drives a whole reading against a live deployment
 ```
