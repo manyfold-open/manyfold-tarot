@@ -16,8 +16,9 @@
  *   *      /api/tarot/*                     open   the tarot site (src/worker/tarot/routes.ts)
  *
  * "admin" routes require the x-admin-password header. This deployment is always
- * locked — see src/worker/admin.ts for which password opens it — because its URL
- * is public and the console behind it can spend the owner's agent budget.
+ * locked — the ADMIN_PASSWORD secret is the only thing that opens it, and until
+ * one is set nothing does — because its URL is public and the console behind it
+ * can spend the owner's agent budget. See src/worker/admin.ts.
  *
  * The tarot routes are open regardless: they are the product, and they are
  * metered instead. See isPublicPath below.
@@ -26,7 +27,7 @@
 import { Hono } from 'hono';
 import type { AppState } from '../shared/types';
 import { HttpError, type Env } from './types';
-import { adminPasswordOk, adminRequired } from './admin';
+import { adminConfigured, adminPasswordOk, adminRequired } from './admin';
 import { ensureSchema } from './db';
 import { ConfigError } from './crypto';
 import { A2AError } from './a2a';
@@ -71,7 +72,7 @@ app.use('/api/*', async (c, next) => {
 const adminOk = (c: {
   env: Env;
   req: { header: (name: string) => string | undefined };
-}): Promise<boolean> => adminPasswordOk(c.env, c.req.header('x-admin-password') ?? '');
+}): boolean => adminPasswordOk(c.env, c.req.header('x-admin-password') ?? '');
 
 /**
  * Routes a visitor may use without the admin password.
@@ -92,7 +93,7 @@ const isPublicPath = (path: string): boolean =>
   path === '/api/health' || path === '/api/state' || path.startsWith('/api/tarot/');
 
 app.use('/api/*', async (c, next) => {
-  if (!isPublicPath(new URL(c.req.url).pathname) && !(await adminOk(c))) {
+  if (!isPublicPath(new URL(c.req.url).pathname) && !adminOk(c)) {
     throw new HttpError(401, 'admin_password_invalid', 'This deployment requires the admin password.');
   }
   await next();
@@ -128,11 +129,16 @@ app.get('/api/state', async (c) => {
   // agent list carries the operator's agent names and their RPC endpoints, and a
   // caller who has not been let in has no claim on either. The console renders
   // the gate from this and has nothing to render behind it.
-  if (!(await adminOk(c))) {
+  //
+  // adminConfigured is the one extra bit, and it is for the operator rather than
+  // the stranger: on a deployment with no ADMIN_PASSWORD set, an input box is a
+  // dead end, and the page needs to say so.
+  if (!adminOk(c)) {
     const locked: AppState = {
       service: SERVICE,
       adminRequired: true,
       adminOk: false,
+      adminConfigured: adminConfigured(c.env),
       connect: { session: null },
       agents: [],
     };
@@ -147,6 +153,7 @@ app.get('/api/state', async (c) => {
     service: SERVICE,
     adminRequired: adminRequired(),
     adminOk: true,
+    adminConfigured: true,
     connect: { session },
     agents,
   };

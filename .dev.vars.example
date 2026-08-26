@@ -1,8 +1,8 @@
 # Local development overrides. Copy to .dev.vars (git-ignored) and uncomment what you need.
 #
-# The app deploys and runs with none of this set, which is why the Deploy to
-# Cloudflare button asks you for nothing. ADMIN_PASSWORD is the one you will want
-# anyway — see below.
+# The tarot site deploys and serves readings with none of this set, which is why the
+# Deploy to Cloudflare button asks you for nothing. ADMIN_PASSWORD is the one you
+# have to set anyway, because the operator console does not open without it.
 
 # Relaxes the https-only / no-private-IP checks so you can point at a local agent.
 # ENVIRONMENT=development
@@ -13,11 +13,13 @@
 # The password for the operator console. Every API route except /api/health,
 # /api/state and /api/tarot/* requires it as an `x-admin-password` header.
 #
-# Leaving this unset does NOT open the console — it locks it against you as well.
-# A default lock ships with the code (src/worker/admin.ts), but this repository is
-# public, so only its salted digest is committed; the plaintext is nowhere in the
-# tree. Setting this replaces that default with a password of your own, and a secret
-# can be as short as you like, because unlike a digest nobody can read it.
+# Leaving this unset does NOT open the console — it closes it against everyone,
+# yourself included. There is no default password: this repository is public, and a
+# lock committed to a public repo is one only its author holds the key to. So the
+# console starts shut and says which secret to set (src/worker/admin.ts).
+#
+# A secret can be as short as you like — nobody, including you afterwards, can read
+# it back out of Cloudflare.
 #   npx wrangler secret put ADMIN_PASSWORD
 # ADMIN_PASSWORD=
 

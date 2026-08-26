@@ -75,6 +75,12 @@ const checks = [
       if (state.agents.length > 0 || state.connect.session !== null) {
         throw new Error('a locked deployment served the agent list');
       }
+      // Not a failure: a deployment can be perfectly healthy — and this whole
+      // reading can pass — before anyone has set ADMIN_PASSWORD. But its operator
+      // cannot get in either, and that is worth hearing about once.
+      if (state.adminConfigured === false) {
+        console.log('  (no ADMIN_PASSWORD set — nobody can open /settings, including you)');
+      }
       const agents = await fetch(`${base}/api/agents`);
       if (agents.status !== 401) throw new Error(`GET /api/agents → HTTP ${agents.status}, expected 401`);
     },

@@ -16,11 +16,10 @@ export interface Env {
   /** Optional: >=32 chars. Without it a key is generated and kept in D1. */
   CONFIG_ENCRYPTION_KEY?: string;
   /**
-   * The operator password. Operator routes always require `x-admin-password`;
-   * this decides what it has to be. Unset falls back to the default lock in
-   * admin.ts, whose plaintext is not in this repository — so a deployment that
-   * wants a console it can actually open sets this. /api/tarot/* stays public
-   * either way.
+   * The operator password, and the only one. Operator routes always require
+   * `x-admin-password`; this decides what it has to be. Unset, nothing matches
+   * and the console does not open for anyone — see admin.ts for why there is no
+   * default. /api/tarot/* stays public either way.
    */
   ADMIN_PASSWORD?: string;
 

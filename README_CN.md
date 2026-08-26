@@ -90,20 +90,22 @@ npx wrangler d1 create manyfold-app-db      # 把返回的 id 填进 wrangler.js
 > [!IMPORTANT]
 > **这一步要最先做 —— 不做的话，你打不开你自己的控制台。**
 
-`src/worker/admin.ts` 里带着一把默认锁，这样刚部署好的站点不会有一段"还没来得及上锁"的裸奔
-时间。但这是个公开仓库，提交进去的只有那把默认锁的**加盐摘要**：它的明文不在仓库里、不在 git
-历史里、也不在这份文档里。也就是说，默认锁是一把你没有钥匙的锁。请换成你自己的：
+刚部署好的站点，控制台是**关闭**状态：没有默认密码，所以谁都打不开 —— 撞见这个网址的陌生人
+打不开，发布这份代码的人也打不开。代价就是你自己也得先设一个才能进去。
 
 ```bash
 npx wrangler secret put ADMIN_PASSWORD
 ```
 
 如果你是用按钮部署的、本地没有代码，那就走控制台：**Workers & Pages → 你的 Worker →
-Settings → Variables and Secrets → Add → Secret**。
+Settings → Variables and Secrets → Add**，名字填 `ADMIN_PASSWORD`，勾上 **Secret**，保存 ——
+然后去 **Deployments** 标签页确认新版本已经在承接流量。加变量会生成一个新版本，但不一定会自动
+把它切上去。
 
-这个 secret 是**替换**默认锁，不是与之并存；比较时按明文做常量时间比对。因为它只存在于
-Cloudflare 的 secret 存储里、谁也读不到，所以它可以又短又好记 —— 这条路径存在的全部意义就在
-这里。设置后立即生效，不需要重新部署。
+在你设好之前，`/settings` 会直接把这件事写在页面上，而不是显示一个怎么填都进不去的输入框。
+
+密码可以又短又好记。它只存在于 Cloudflare 的 secret 存储里，谁也读不回来（包括你自己），所以
+它不需要"公开在仓库里的密码"才需要的那种长度。忘了就重设一个。
 
 ### 3 · 进控制台 —— 靠手动敲 URL
 
@@ -147,7 +149,7 @@ npm run smoke -- https://your-worker.workers.dev
 
 | 名称 | 类型 | 设置位置 | 作用 |
 | --- | --- | --- | --- |
-| `ADMIN_PASSWORD` | secret | Cloudflare | **控制台密码。** 替换随代码提交的默认锁。见第 2 步。 |
+| `ADMIN_PASSWORD` | secret | Cloudflare | **控制台密码，也是唯一的一个。** 不设置则控制台完全打不开。见第 2 步。 |
 | `CONFIG_ENCRYPTION_KEY` | secret | Cloudflare | ≥32 字符。加密 D1 中的设备码与 agent token。不设置则在首次使用时生成随机密钥并存进同一个数据库 —— 见[安全说明](#安全说明)。 |
 | `TAROT_AGENT_ID` | var | `wrangler.jsonc` | 指定由哪个已连接的 agent 解读。默认取最近连接的那个。 |
 | `TAROT_DEMO` | var | `wrangler.jsonc` | 设为 `1` 时强制使用内置 demo 解读者，即使已连接 agent。 |
@@ -171,7 +173,7 @@ npm run dev
 | --- | --- |
 | `npm run dev` | 开发服务器（前端 + worker + 本地 D1） |
 | `npm run check` | 类型检查、构建、`wrangler deploy --dry-run` |
-| `npm test` | 206 个测试，含一次穿过真实 Worker 的完整占卜流程 |
+| `npm test` | 208 个测试，含一次穿过真实 Worker 的完整占卜流程 |
 | `npm run deploy` | 手动部署（通常交给 Workers Builds） |
 | `npm run smoke -- <url>` | 对线上部署跑一次完整占卜 |
 
@@ -193,7 +195,7 @@ Manyfold A2A（message/stream、tasks/get）  ← 每个 agent 独立 token，�
 
 | 文件 | 用途 |
 | --- | --- |
-| `src/worker/admin.ts` | 谁能进控制台，以及默认锁为什么长这样 |
+| `src/worker/admin.ts` | 谁能进控制台，以及为什么这里没有默认密码 |
 | `src/worker/tarot/draw.ts` | 抽牌：CSPRNG、互不重复、服务端、只抽一次 |
 | `src/worker/tarot/prompt.ts` | 提示词出、散文回，以及注入加固 |
 | `src/worker/tarot/diviner.ts` | 适配层：你的 A2A agent，或内置 demo 解读者 |
@@ -212,6 +214,10 @@ Manyfold A2A（message/stream、tasks/get）  ← 每个 agent 独立 token，�
 - **控制台锁着，占卜不锁。** 除 `/api/health`、`/api/state` 和 `/api/tarot/*` 之外的所有路由都
   需要管理密码，通过 header 传输、常量时间比对。对没带密码的调用者，`/api/state` 只回答"需要
   密码"，不会泄露 agent 列表。
+- **这里刻意没有默认密码。** 早先的版本随代码提交了一把默认锁（只提交加盐摘要），好让站点一部署
+  出来就是锁着的。但在公开仓库里，那是一把只有生成它的人才有钥匙的锁 —— 每一个 fork 都继承了
+  作者的后门，却拿不到那份便利。现在没设密码的部署是**关闭**的：对所有人一视同仁地关着，同时
+  在页面上告诉运营者该设哪个 secret。整件事就在 `src/worker/admin.ts` 里。
 - **凭证永远不经过浏览器。** 设备码是唯一能兑换 agent token 的东西，它加密存放在 D1 中且只能
   兑换一次；浏览器只拿到一个不透明的 `connectId`。agent token 以 AES-GCM 加密存储。
 - **自动生成密钥这个取舍值得知道。** 不设 `CONFIG_ENCRYPTION_KEY` 时，加密密钥会在首次使用时

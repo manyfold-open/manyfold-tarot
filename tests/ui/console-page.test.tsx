@@ -21,12 +21,16 @@ const open: AppState = {
   service: 'manyfold-tarot',
   adminRequired: true,
   adminOk: true,
+  adminConfigured: true,
   connect: { session: null },
   agents: [],
 };
 
 /** Exactly what the Worker sends a browser that has not given the password. */
 const locked: AppState = { ...open, adminOk: false };
+
+/** And what it sends when there is no password to give. */
+const unconfigured: AppState = { ...locked, adminConfigured: false };
 
 let state: AppState = open;
 
@@ -95,5 +99,20 @@ describe('when the deployment is locked', () => {
     await lockedAt('/settings');
 
     expect(screen.getByRole('link', { name: 'the front page' }).getAttribute('href')).toBe('/');
+  });
+});
+
+describe('when the deployment never set a password', () => {
+  it('gives the operator the fix instead of an input that cannot work', async () => {
+    // The fork case. Offering a password box here is a puzzle with no solution:
+    // nothing the visitor types can match, because there is nothing to match.
+    state = unconfigured;
+    history.replaceState(null, '', '/settings');
+    render(<App />);
+
+    await screen.findByText('This deployment has no admin password');
+    expect(screen.queryByLabelText('Admin password')).toBeNull();
+    expect(screen.getAllByText('ADMIN_PASSWORD').length).toBeGreaterThan(0);
+    expect(document.querySelector('.tabs')).toBeNull();
   });
 });

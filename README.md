@@ -97,23 +97,24 @@ first request, locally and in production.
 > [!IMPORTANT]
 > **Do this before anything else — you cannot open your own console until you do.**
 
-A default lock ships in `src/worker/admin.ts`, so a fresh deployment is never briefly open to
-the internet while you get around to locking it. But this repository is public and only the
-*salted digest* of that default is committed: its plaintext is not in the repo, not in the git
-history, and not in this file. Which means the default is a lock you do not have the key to.
-Replace it with one of your own:
+A fresh deployment arrives with its console **closed**: there is no default password, so nobody
+can open it — not a stranger who found the URL, and not whoever published this code. That is
+also why you have to set one before you can get in yourself.
 
 ```bash
 npx wrangler secret put ADMIN_PASSWORD
 ```
 
 Or, if you deployed with the button and have no clone: **Workers & Pages → your Worker →
-Settings → Variables and Secrets → Add → Secret**.
+Settings → Variables and Secrets → Add**, name it `ADMIN_PASSWORD`, tick **Secret**, save — then
+check the **Deployments** tab and make sure the new version is the one serving traffic. Adding a
+variable creates a version; it does not always promote it.
 
-The secret **replaces** the shipped default rather than joining it, and it is compared as
-plaintext in constant time. Because it lives only in Cloudflare's secret store where nobody can
-read it, it can be short and memorable — that is the whole reason this path exists. It takes
-effect immediately; no redeploy needed.
+Until you do, `/settings` says so rather than showing an input box that cannot succeed.
+
+The value can be short and memorable. It lives only in Cloudflare's secret store, where nobody —
+including you, afterwards — can read it back, so it does not need the entropy a password
+published in a repository would. If you forget it, set a new one.
 
 ### 3 · Open the console — by typing the URL
 
@@ -162,7 +163,7 @@ checks along the way that the console is still locked and the reading still open
 
 | Name | Kind | Set it in | What it does |
 | --- | --- | --- | --- |
-| `ADMIN_PASSWORD` | secret | Cloudflare | **The console password.** Replaces the shipped default lock. See step 2. |
+| `ADMIN_PASSWORD` | secret | Cloudflare | **The console password, and the only one.** Unset, the console cannot be opened at all. See step 2. |
 | `CONFIG_ENCRYPTION_KEY` | secret | Cloudflare | ≥32 chars. Encrypts device codes and agent tokens in D1. Without it a random key is generated on first use and stored in the same database — see [Security](#security). |
 | `TAROT_AGENT_ID` | var | `wrangler.jsonc` | Pins which connected agent reads. Default: the most recently connected. |
 | `TAROT_DEMO` | var | `wrangler.jsonc` | `1` forces the built-in demo reader even when an agent is connected. |
@@ -187,7 +188,7 @@ against an automatically emulated local D1.
 | --- | --- |
 | `npm run dev` | Dev server (app + worker + local D1) |
 | `npm run check` | Typecheck, build, `wrangler deploy --dry-run` |
-| `npm test` | 206 tests, including a full reading driven through the real Worker |
+| `npm test` | 208 tests, including a full reading driven through the real Worker |
 | `npm run deploy` | Manual deploy (Workers Builds normally does this) |
 | `npm run smoke -- <url>` | Drive a whole reading against a live deployment |
 
@@ -230,6 +231,11 @@ invariants to preserve when changing any of it.
   and `/api/tarot/*` requires the admin password, sent as a header and compared in constant
   time. To a caller without it `/api/state` answers only "a password is wanted" — it does not
   leak the agent list.
+- **There is no default password, deliberately.** An earlier version shipped one as a salted
+  digest so a deployment would arrive locked. In a public repo that is a lock whose only key
+  belongs to whoever generated it — every fork inherits the author's back door and none of the
+  convenience. Now an unconfigured deployment is closed instead: shut against everyone equally,
+  and it tells its operator which secret to set. `src/worker/admin.ts` is the whole of it.
 - **Credentials never touch the browser.** The device code, the only thing that can redeem agent
   tokens, is encrypted in D1 and redeemable exactly once; the browser sees an opaque
   `connectId`. Agent tokens are AES-GCM encrypted at rest.

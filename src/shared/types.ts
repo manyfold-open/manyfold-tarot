@@ -38,10 +38,16 @@ export interface PollOutcome {
 /** Bootstrap payload: everything the SPA needs to render its first frame. */
 export interface AppState {
   service: string;
-  /** Is ADMIN_PASSWORD set on the deployment? */
+  /** Does the console want a password? Always — see src/worker/admin.ts. */
   adminRequired: boolean;
-  /** Did this request carry a valid x-admin-password header (or none is needed)? */
+  /** Did this request carry a valid x-admin-password header? */
   adminOk: boolean;
+  /**
+   * Is ADMIN_PASSWORD set on the deployment? When false the console cannot be
+   * opened by anyone, and the gate says which secret to set rather than showing
+   * an input that has nothing to match against.
+   */
+  adminConfigured: boolean;
   connect: { session: ConnectSession | null };
   agents: ConnectedAgent[];
 }

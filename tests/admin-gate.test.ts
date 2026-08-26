@@ -8,17 +8,18 @@
  * operator's agent list, disconnect an agent, or spend the owner's budget in the
  * verification chat.
  *
- * The password this deployment ships with is not written down here, and that is
- * the point rather than an omission: it is committed one directory over as a
- * digest precisely so that reading this public repository does not hand it to
- * anyone. So the digest branch is exercised against a lock built here, from a
- * password these tests are allowed to know, and the shipped one is proved the
- * only way it can honestly be proved — by an operator typing it.
+ * There is one password now, the ADMIN_PASSWORD secret, and the case worth the
+ * most attention is its absence. A deployment that has not set it is closed, not
+ * open and not default-locked: no string opens the console, and `adminConfigured`
+ * carries that fact to the browser so the page can say which secret to set. The
+ * default lock this file used to test was a digest committed to a public
+ * repository, which meant every fork inherited a lock only its author could open.
+ * `nothing opens an unconfigured console` below is the test that keeps it gone.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import app from '../src/worker/index';
-import { DEFAULT_LOCK, adminPasswordOk, matchesLock, type Lock } from '../src/worker/admin';
+import { adminConfigured, adminPasswordOk } from '../src/worker/admin';
 import type { Env } from '../src/worker/types';
 import type { AppState } from '../src/shared/types';
 import { createD1, type FakeD1 } from './support/d1';
@@ -52,20 +53,11 @@ const call = (path: string, options: { password?: string; env?: Env } = {}) => {
 };
 
 /**
- * A lock this file owns, so the digest branch can be tested from both sides.
- *
- * The digest is written out rather than computed here, and the difference
- * matters: hashing the password with the same call the implementation uses would
- * only prove that a function agrees with itself. This constant came from
- * `sha256(salt + password)` computed elsewhere, so it also pins *which* hash of
- * *what* — change the algorithm, the concatenation order, or the encoding, and
- * this stops matching.
+ * Built inside each test, never at describe time: `base` does not exist until
+ * beforeAll runs, and spreading it early yields an env with no database and a 500
+ * that looks nothing like the thing under test.
  */
-const TEST_PASSWORD = 'a-password-a-test-may-know';
-const testLock: Lock = {
-  salt: 'dGVzdC1zYWx0LW5vdC1hLXNlY3JldA==',
-  digest: 'f65e8da7949fcd3f1e3ba2074fae256fe382a7e057b5557bd42d6b35b6bf5d67',
-};
+const withSecret = (secret: string): Env => ({ ...base, ADMIN_PASSWORD: secret }) as Env;
 
 describe('the reading stays open', () => {
   it('lets a stranger reach the tarot API with no password at all', async () => {
@@ -79,6 +71,14 @@ describe('the reading stays open', () => {
   });
 
   it('serves the front page without asking for anything', async () => {
+    expect((await call('/')).status).toBe(200);
+  });
+
+  it('stays open even on a deployment that has no admin password', async () => {
+    // The closed console must not close the product with it. This is the half a
+    // "lock everything by default" change breaks first.
+    const response = await call('/api/tarot/reader', { env: base });
+    expect(response.status).toBe(200);
     expect((await call('/')).status).toBe(200);
   });
 });
@@ -101,6 +101,58 @@ describe('the console is locked', () => {
   });
 });
 
+describe('a deployment with no ADMIN_PASSWORD', () => {
+  it('nothing opens an unconfigured console', async () => {
+    // Not "the right password opens it" — there is no right password. A default
+    // lock committed to a public repo is a key its author keeps and its forkers
+    // do not, so there is no default any more, and this is the assertion that
+    // says so out loud.
+    for (const guess of ['', ' ', 'admin', 'letmein', 'abcd-efgh-ijkl-mnop', 'x'.repeat(64)]) {
+      expect(adminPasswordOk(base, guess), guess).toBe(false);
+    }
+    expect(adminConfigured(base)).toBe(false);
+  });
+
+  it('treats a blank secret as no secret, so an empty value cannot mean "no lock"', async () => {
+    for (const blank of ['', '   ', '\n\t']) {
+      const env = withSecret(blank);
+      expect(adminConfigured(env), JSON.stringify(blank)).toBe(false);
+      expect(adminPasswordOk(env, blank)).toBe(false);
+      expect((await call('/api/agents', { env, password: blank })).status).toBe(401);
+    }
+  });
+
+  it('tells the browser it is unconfigured, so the page can say what to set', async () => {
+    const state = (await (await call('/api/state')).json()) as AppState;
+    expect(state.adminConfigured).toBe(false);
+    expect(state.adminRequired).toBe(true);
+    expect(state.adminOk).toBe(false);
+  });
+});
+
+describe('the ADMIN_PASSWORD secret', () => {
+  it('opens the console when it is the one set', async () => {
+    const env = withSecret('a simple one');
+    expect((await call('/api/agents', { env, password: 'a simple one' })).status).toBe(200);
+    expect((await call('/api/agents', { env, password: 'a simple two' })).status).toBe(401);
+  });
+
+  it('is the only thing that opens it — no second password survives alongside', async () => {
+    const env = withSecret('a simple one');
+    for (const other of ['', 'admin', 'a simple one ', 'A SIMPLE ONE']) {
+      expect(adminPasswordOk(env, other), JSON.stringify(other)).toBe(false);
+    }
+  });
+
+  it('may be short and memorable, which is the entire reason it exists', async () => {
+    // A secret is not readable by anyone, so it does not need the entropy a
+    // committed digest would have needed. If this ever stops being true, someone
+    // has added a length rule that pushes operators back towards a shared default.
+    const env = withSecret('cat');
+    expect((await call('/api/agents', { env, password: 'cat' })).status).toBe(200);
+  });
+});
+
 describe('/api/state', () => {
   it('tells a stranger that a password is wanted, and nothing else', async () => {
     const state = (await (await call('/api/state')).json()) as AppState;
@@ -113,55 +165,10 @@ describe('/api/state', () => {
   });
 
   it('answers properly once the password is given', async () => {
-    const env = { ...base, ADMIN_PASSWORD: 'let me in' } as Env;
+    const env = withSecret('let me in');
     const state = (await (await call('/api/state', { env, password: 'let me in' })).json()) as AppState;
     expect(state.adminOk).toBe(true);
+    expect(state.adminConfigured).toBe(true);
     expect(Array.isArray(state.agents)).toBe(true);
-  });
-});
-
-describe('the ADMIN_PASSWORD secret', () => {
-  // Built inside each test, never at describe time: `base` does not exist until
-  // beforeAll runs, and spreading it early yields an env with no database and a
-  // 500 that looks nothing like the thing under test.
-  const withSecret = (secret: string): Env => ({ ...base, ADMIN_PASSWORD: secret }) as Env;
-
-  it('opens the console when it is the one set', async () => {
-    const env = withSecret('a simple one');
-    expect((await call('/api/agents', { env, password: 'a simple one' })).status).toBe(200);
-    expect((await call('/api/agents', { env, password: 'a simple two' })).status).toBe(401);
-  });
-
-  it('replaces the shipped default rather than joining it', async () => {
-    // Otherwise setting a secret would widen the lock instead of narrowing it,
-    // and the published digest would stay live on a deployment that believed it
-    // had moved past it.
-    expect(await adminPasswordOk(withSecret('a simple one'), TEST_PASSWORD, testLock)).toBe(false);
-  });
-
-  it('is ignored when blank, so an empty secret cannot mean "no lock"', async () => {
-    const blank = withSecret('   ');
-    expect(await adminPasswordOk(blank, '', testLock)).toBe(false);
-    expect(await adminPasswordOk(blank, '   ', testLock)).toBe(false);
-    expect(await adminPasswordOk(blank, TEST_PASSWORD, testLock)).toBe(true);
-  });
-});
-
-describe('the shipped lock', () => {
-  it('opens for its own password and shuts for anything else', async () => {
-    expect(await matchesLock(testLock, TEST_PASSWORD)).toBe(true);
-    expect(await matchesLock(testLock, `${TEST_PASSWORD} `)).toBe(false);
-    expect(await matchesLock(testLock, '')).toBe(false);
-  });
-
-  it('is a whole SHA-256 and a salt, not a truncated paste', async () => {
-    expect(DEFAULT_LOCK.digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(DEFAULT_LOCK.salt.length).toBeGreaterThanOrEqual(16);
-  });
-
-  it('is not one of the passwords it exists to keep out', async () => {
-    for (const guess of ['admin', 'password', 'tarot', 'taro', 'manyfold', '123456', 'letmein']) {
-      expect(await matchesLock(DEFAULT_LOCK, guess), guess).toBe(false);
-    }
   });
 });

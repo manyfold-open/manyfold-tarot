@@ -35,9 +35,9 @@
     "ENVIRONMENT": "production"
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
-  //   ADMIN_PASSWORD          the operator password for /settings. Not optional in
-  //                           practice: unset falls back to the default lock in
-  //                           src/worker/admin.ts, whose plaintext is not in this
-  //                           public repo — so you would be locked out too.
+  //   ADMIN_PASSWORD          the operator password for /settings, and the only one.
+  //                           There is no default (this is a public repo, and a
+  //                           committed lock only its author can open is worse than
+  //                           none) — unset, the console does not open for anybody.
   //   CONFIG_ENCRYPTION_KEY   >=32 chars; otherwise a key is generated and stored in D1
 }

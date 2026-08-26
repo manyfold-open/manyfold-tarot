@@ -72,7 +72,7 @@ export default function App() {
   if (gateOpen) {
     return (
       <main className="shell">
-        <PasswordGate onSubmitted={refreshState} />
+        <PasswordGate configured={state.adminConfigured} onSubmitted={refreshState} />
       </main>
     );
   }
