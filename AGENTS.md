@@ -42,6 +42,15 @@ The template is designed to be extended and reshaped; these are the load-bearing
 7. **Keep new routes behind the admin gate.** Any route added under `/api/` is protected by
    the `ADMIN_PASSWORD` middleware automatically — do not add exceptions beyond `/api/health`
    and `/api/state` without a reason as good as theirs.
+8. **Leave the analytics rules alone** (`src/worker/analytics.ts`):
+   - the measurement id is a var, never a constant in `index.html` — committed empty, so a
+     fork reports to nobody until its owner opts in;
+   - the consent defaults are pushed before `config`, and the EEA/UK/CH split is Google's
+     `region` parameter rather than a per-request geo decision, which is what keeps the HTML
+     identical for every visitor and cacheable;
+   - the operator console is not measured, and no event ever carries the question, the cards
+     or the reading;
+   - accept and decline stay the same size in `Consent.tsx`.
 
 ## Checks
 

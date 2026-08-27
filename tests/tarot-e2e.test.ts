@@ -133,6 +133,17 @@ describe('the app still boots', () => {
     expect((await call('/api/tarot/nope')).status).toBe(404);
   });
 
+  it('owes nobody a consent banner on a deployment that measures nothing', async () => {
+    // No GA_MEASUREMENT_ID in this env — which is every fork and every clone.
+    // Nothing from Google is served, so there is nothing to ask about, and the
+    // answer has to be no regardless of where the request came from.
+    const reader = await (await call('/api/tarot/reader')).json<{
+      demo: boolean;
+      consentRequired: boolean;
+    }>();
+    expect(reader).toEqual({ demo: true, consentRequired: false });
+  });
+
   it('refuses a cross-origin mutation', async () => {
     const { ctx } = context();
     const response = await app.fetch(

@@ -31,6 +31,14 @@ export interface Env {
   TAROT_AGENT_ID?: string;
   /** Set to "1" to force the built-in demo reader even when an agent is connected. */
   TAROT_DEMO?: string;
+
+  /**
+   * Optional: a GA4 measurement id (`G-…`). Set it and the Worker writes the
+   * Google tag into every page it serves, with Consent Mode v2 defaults ahead of
+   * it; leave it unset — which is what a fresh clone does — and no analytics of
+   * any kind is served. See src/worker/analytics.ts.
+   */
+  GA_MEASUREMENT_ID?: string;
 }
 
 /** Everything needed to talk to one agent over A2A. */

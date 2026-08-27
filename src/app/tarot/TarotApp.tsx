@@ -30,7 +30,9 @@ import {
   type FollowUpMessage,
   type ReadingView,
 } from '../../shared/tarot/types';
+import { track } from './analytics';
 import CardSlot from './Card';
+import Consent from './Consent';
 import Fan from './Fan';
 import Reading, { Prose } from './Reading';
 import ShareBox from './ShareBox';
@@ -113,6 +115,8 @@ export default function TarotApp() {
   const [followLive, setFollowLive] = useState<string | null>(null);
   const [suggestsNew, setSuggestsNew] = useState(false);
   const [demoReader, setDemoReader] = useState(false);
+  /** Null until the Worker answers; the banner draws nothing before that. */
+  const [consentRequired, setConsentRequired] = useState<boolean | undefined>(undefined);
   const [loadingLine, setLoadingLine] = useState(0);
   /** Which places in the spread the visitor has set aside. Presentation only —
    *  a place is not a card, and the Worker has already chosen the cards. */
@@ -141,7 +145,10 @@ export default function TarotApp() {
 
   useEffect(() => {
     void fetchReader()
-      .then((info) => setDemoReader(info.demo))
+      .then((info) => {
+        setDemoReader(info.demo);
+        setConsentRequired(info.consentRequired);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -247,6 +254,9 @@ export default function TarotApp() {
       setFollowUps([]);
       setSuggestsNew(false);
       setPhase('greeting');
+      // The five events are the reading itself, in order — never its content.
+      // What goes out is that a question was asked, not what was asked.
+      track('reading_started', { locale, returning: previousReadingId.current !== null });
       void runGreeting(created.readingId);
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'rate_limited') {
@@ -304,6 +314,10 @@ export default function TarotApp() {
           setReading(drawn);
           setPicked([]);
           setPhase('choose');
+          // The round's own locale rather than the one in state: this runs off a
+          // timer, and reading it here would pin a dependency the shuffle cannot
+          // afford to have — a language switch mid-shuffle would restart it.
+          track('cards_drawn', { locale: drawn.locale });
         })
         .catch((caught: unknown) => {
           if (cancelled) return;
@@ -425,6 +439,9 @@ export default function TarotApp() {
           current ? { ...current, interpretation: event.interpretation, status: 'interpreted' } : current,
         );
         setPhase('outro');
+        // The one worth calling a conversion: a visitor who got the thing they
+        // came for. Everything before it is a step towards this.
+        track('reading_completed', { locale: reading.locale, demo: reading.demo });
       } else if (event.type === 'error') setError(event.message);
     });
     setBusy(false);
@@ -454,6 +471,7 @@ export default function TarotApp() {
       { id: -Date.now(), role: 'user', content: text, createdAt: new Date().toISOString() },
     ]);
     setFollowLive('');
+    track('follow_up_asked', { locale: reading.locale });
     await runTurn(readingPath(reading.readingId, '/follow-ups'), { message: text }, (event) => {
       if (event.type === 'delta') setFollowLive(event.text);
       else if (event.type === 'followup') {
@@ -828,7 +846,14 @@ export default function TarotApp() {
       <footer className="taro-foot">
         {(reading?.demo ?? demoReader) && <p className="taro-demo">{copy.demoNotice}</p>}
         <Signature locale={locale} />
+        {/* Quiet, and always there. A privacy page reachable only from a banner
+            is a privacy page that disappears the moment someone answers it. */}
+        <a className="taro-foot-link" href="/privacy">
+          {copy.consent.more}
+        </a>
       </footer>
+
+      <Consent locale={locale} required={consentRequired} />
     </div>
   );
 }

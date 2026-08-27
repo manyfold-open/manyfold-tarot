@@ -32,6 +32,7 @@ import {
   type DrawnCardView,
 } from '../../shared/tarot/types';
 import { A2AError, safeErrorText } from '../a2a';
+import { consentRequiredFor, measurementIdFor } from '../analytics';
 import { HttpError, type Env } from '../types';
 import { demoHint } from './demo';
 import { resolveDiviner } from './diviner';
@@ -183,7 +184,16 @@ function throttledDelta(send: (event: DivinerEvent) => Promise<void>) {
 
 tarot.get('/reader', async (c) => {
   const diviner = await resolveDiviner(c.env);
-  return c.json({ demo: diviner.demo });
+  // `consentRequired` rides along because the page already asks this question on
+  // load and a second request to answer it would be a request for nothing. It
+  // decides whether a banner is drawn, not whether anything is stored — the tag
+  // in the page head has already denied itself in these regions before this
+  // answer arrives (src/worker/analytics.ts).
+  return c.json({
+    demo: diviner.demo,
+    consentRequired:
+      measurementIdFor(c.env) !== null && consentRequiredFor(c.req.header('cf-ipcountry')),
+  });
 });
 
 /* ───────── state 1 → 2: the question ───────── */

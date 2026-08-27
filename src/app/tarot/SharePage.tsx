@@ -30,6 +30,7 @@ import { cardArt, cardById, cardKeywords, type Locale } from '../../shared/tarot
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
 import CardSlot from './Card';
+import Consent from './Consent';
 import { Prose } from './Reading';
 import Signature from './Signature';
 import Sky from './Sky';
@@ -172,8 +173,15 @@ export default function SharePage() {
             {copy.share.startYours}
           </a>
           <Signature locale={locale} from="share" />
+          <a className="taro-foot-link" href="/privacy">
+            {copy.consent.more}
+          </a>
         </footer>
       </main>
+
+      {/* No `required` to hand down: this page never asks the Worker who is
+          reading, so the banner asks for itself — and only if it has to. */}
+      <Consent locale={locale} />
     </div>
   );
 }

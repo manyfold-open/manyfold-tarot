@@ -28,6 +28,7 @@ import { Hono } from 'hono';
 import type { AppState } from '../shared/types';
 import { HttpError, type Env } from './types';
 import { adminConfigured, adminPasswordOk, adminRequired } from './admin';
+import { measurementIdFor, withAnalytics } from './analytics';
 import { ensureSchema } from './db';
 import { ConfigError } from './crypto';
 import { A2AError } from './a2a';
@@ -215,7 +216,21 @@ app.all('/api/*', () => {
   throw new HttpError(404, 'not_found', 'No such API route.');
 });
 
-// Anything else that reaches the Worker is a static asset (or the SPA fallback).
-app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw));
+/**
+ * Anything else that reaches the Worker is a static asset (or the SPA fallback).
+ *
+ * Only the paths listed in `run_worker_first` arrive here at all — the page
+ * itself and a shared reading — because the one thing the Worker adds on the way
+ * past is the Google tag, and a card image has no head to put it in. Everything
+ * else is served by the assets runtime without waking this up.
+ */
+app.all('*', async (c) => {
+  const response = await c.env.ASSETS.fetch(c.req.raw);
+  return withAnalytics(response, {
+    measurementId: measurementIdFor(c.env),
+    pathname: new URL(c.req.url).pathname,
+    method: c.req.method,
+  });
+});
 
 export default app;

@@ -127,6 +127,31 @@ export interface Copy {
     openSourceLabel: string;
   };
 
+  /** The consent banner. Drawn only for visitors who are owed one — the Worker
+   *  decides that from the request's country, and the tag in the page head has
+   *  already denied itself in those regions before this is on screen. */
+  consent: {
+    line: string;
+    accept: string;
+    decline: string;
+    more: string;
+    /** Accessible name of the banner itself. */
+    label: string;
+  };
+
+  /** The one page on this site that is prose: what is kept, who else sees it,
+   *  and how to take back an answer already given. */
+  privacy: {
+    title: string;
+    intro: string;
+    sections: { title: string; body: string[] }[];
+    choiceTitle: string;
+    state: (choice: 'granted' | 'denied' | 'unset') => string;
+    accept: string;
+    decline: string;
+    back: string;
+  };
+
   errors: {
     generic: string;
     retry: string;
@@ -232,6 +257,54 @@ const zh: Copy = {
     manyfold: '这个占卜由 Manyfold 搭建 —— 在新窗口打开 manyfold.ai',
     openSource: '开源项目 · 在 GitHub 上复刻',
     openSourceLabel: '开源项目 —— 在新窗口打开 GitHub 上的源码',
+  },
+
+  consent: {
+    line: '我们想用 Google Analytics 记录站点的使用情况，也用它衡量广告效果。你的问题和解读内容不会被送去。',
+    accept: '同意',
+    decline: '不同意',
+    more: '隐私说明',
+    label: 'Cookie 与统计',
+  },
+
+  privacy: {
+    title: '隐私说明',
+    intro: '这是一个占卜站点，不需要注册，也没有账号。下面写的是它实际会保留什么，以及这些内容会经过谁的手。',
+    sections: [
+      {
+        title: '这个站点会保留什么',
+        body: [
+          '一个只有编号的会话 cookie（taro_sid），用来在你刷新页面之后仍然认得出这一轮占卜是你的。它不带姓名，也不跨站点。',
+          '你写下的问题、抽到的三张牌，以及占卜师给出的解读，保存在运营者的 Cloudflare 数据库里。',
+          '如果你按下分享，这一次的解读会被冻结成一份快照——拿到链接的人都能看到它。',
+          '浏览器本地还会记住三样东西：你选的语言、当前这一轮占卜的编号，以及你对下面这个问题的回答。',
+        ],
+      },
+      {
+        title: '谁还会看到',
+        body: [
+          '你的问题和三张牌会交给写这段解读的 Manyfold 智能体——没有它就没有解读。',
+          '在你同意之后（或者你所在的地区不需要事先征询时），页面的使用情况会记录到 Google Analytics：页面浏览，以及占卜过程中的五个节点（开始、抽牌、解读完成、追问、分享）。你写的问题、抽到的牌和解读的正文都不在其中。',
+        ],
+      },
+      {
+        title: '关于同意',
+        body: [
+          '在欧洲经济区、英国和瑞士，页面在你回答之前不会存放任何统计或广告用途的标识——这是 Google Consent Mode v2 的默认拒绝状态，在统计代码加载之前就已经写好。',
+          '在其他地区，统计默认开启，你同样可以在下面随时关掉。',
+        ],
+      },
+    ],
+    choiceTitle: '你现在的选择',
+    state: (choice) =>
+      choice === 'granted'
+        ? '已同意统计。'
+        : choice === 'denied'
+          ? '已拒绝统计。'
+          : '尚未选择；当前按你所在地区的默认处理。',
+    accept: '同意统计',
+    decline: '拒绝统计',
+    back: '回到占卜',
   },
 
   errors: {
@@ -343,6 +416,55 @@ const en: Copy = {
     manyfold: 'This reading is built on Manyfold — opens manyfold.ai in a new window',
     openSource: 'Open source · fork it on GitHub',
     openSourceLabel: 'Open source — opens the source on GitHub in a new window',
+  },
+
+  consent: {
+    line: 'We would like to use Google Analytics to see how the site is used, and to measure our ads. Your question and your reading are never sent there.',
+    accept: 'Accept',
+    decline: 'Decline',
+    more: 'Privacy',
+    label: 'Cookies and analytics',
+  },
+
+  privacy: {
+    title: 'Privacy',
+    intro:
+      'This is a tarot site. There is no account and nothing to sign up for. What follows is what it actually keeps, and whose hands that passes through.',
+    sections: [
+      {
+        title: 'What this site keeps',
+        body: [
+          'A session cookie holding nothing but an id (taro_sid), so that a reload still recognises which round is yours. It carries no name and does not follow you anywhere else.',
+          'The question you write, the three cards you draw and the reading you are given, stored in the operator’s Cloudflare database.',
+          'If you press share, that reading is frozen into a snapshot anyone with the link can read.',
+          'Three things in your own browser: the language you chose, the id of the round you are in, and your answer to the question below.',
+        ],
+      },
+      {
+        title: 'Who else sees it',
+        body: [
+          'Your question and the three cards go to the Manyfold agent that writes the reading — without that there is no reading.',
+          'Once you accept (or, where you are, if consent is not required first), how the site is used is recorded in Google Analytics: page views, and the five moments of a reading — started, drawn, interpreted, followed up, shared. Your question, your cards and the text of your reading are not among them.',
+        ],
+      },
+      {
+        title: 'About consent',
+        body: [
+          'In the EEA, the UK and Switzerland nothing is stored for analytics or advertising until you answer — the tag denies itself before it loads, which is Google Consent Mode v2 in its default state.',
+          'Elsewhere analytics starts on, and you can turn it off here just the same.',
+        ],
+      },
+    ],
+    choiceTitle: 'Your choice',
+    state: (choice) =>
+      choice === 'granted'
+        ? 'Analytics is on.'
+        : choice === 'denied'
+          ? 'Analytics is off.'
+          : 'Not answered yet; the default for where you are is in effect.',
+    accept: 'Turn analytics on',
+    decline: 'Turn analytics off',
+    back: 'Back to the reading',
   },
 
   errors: {

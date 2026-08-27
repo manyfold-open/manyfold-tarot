@@ -19,7 +19,11 @@
     "directory": "./dist/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    // The API, plus the three paths that serve an HTML document: the Worker
+    // writes the Google tag into their <head> on the way past (and does nothing
+    // at all when GA_MEASUREMENT_ID is unset). Card images and hashed bundles
+    // are not in this list and never wake the Worker.
+    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy"]
   },
   "d1_databases": [
     {
@@ -32,7 +36,11 @@
     // Manyfold API base. Point at https://api-staging.manyfold.ai via .dev.vars for local dev.
     "MANYFOLD_API_BASE_URL": "https://api.manyfold.ai",
     // "production" enforces https-only and no-private-IP checks on agent URLs.
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    // GA4 measurement id. Empty means no analytics is served at all, which is
+    // what a fork should inherit — put your own id here to measure your own
+    // deployment. Consent Mode v2 defaults ship with it (src/worker/analytics.ts).
+    "GA_MEASUREMENT_ID": ""
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
   //   ADMIN_PASSWORD          the operator password for /settings, and the only one.

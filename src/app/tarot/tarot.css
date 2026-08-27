@@ -2203,6 +2203,161 @@ html[data-app='taro'] body {
   }
 }
 
+/* ── the consent banner, and the page it points at ──
+
+   The banner sits at the foot of the window rather than across the middle of it.
+   It is asking permission to count, not warning about anything, and a page that
+   opens with its own question covered is a page that answered the visitor's
+   first question with paperwork.
+
+   Accept and decline are one class, not two. Nothing here dims the answer this
+   site would rather not hear: consent collected from a button that was quieter
+   than its neighbour is not consent, and the regulators who take that view are
+   the same ones this banner exists for. */
+
+.taro-consent {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: calc(100% - 32px);
+  max-width: 620px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  /* Not opaque: the sky keeps moving behind it, so the banner reads as
+     something laid on the page rather than a second page over it. */
+  background: rgba(4, 6, 12, 0.86);
+  backdrop-filter: blur(8px);
+  animation: taro-consent-in 520ms ease both;
+}
+
+@keyframes taro-consent-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.taro-consent-line {
+  flex: 1 1 300px;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+.taro-consent-answer {
+  display: flex;
+  gap: 8px;
+}
+
+.taro-consent-button {
+  flex: 0 0 auto;
+  padding: 8px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: none;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 320ms ease, background 320ms ease;
+}
+
+.taro-consent-button:hover,
+.taro-consent-button:focus-visible {
+  border-color: var(--ink-3);
+  background: rgba(198, 214, 255, 0.06);
+}
+
+.taro-consent-button[aria-pressed='true'] {
+  border-color: var(--ink-3);
+  background: rgba(198, 214, 255, 0.1);
+}
+
+/* The one link in the footer that stays on this site. Below the mark, and
+   quieter than it: it is a door that has to be findable, not one anybody is
+   being sent through. */
+.taro-foot-link {
+  margin-top: 10px;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 320ms ease;
+}
+
+.taro-foot-link:hover {
+  color: var(--ink-2);
+}
+
+/* ── /privacy ──
+   The only page on this site that is read rather than looked at, so it is set
+   like something to read: one column, measured for the line rather than for the
+   window, and left-aligned in both languages. */
+
+.taro-prose {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 0 24px;
+  text-align: left;
+  font-family: var(--sans);
+  color: var(--ink-2);
+}
+
+.taro-prose h1 {
+  margin: 0 0 20px;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.taro-prose h2 {
+  margin: 32px 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.taro-prose p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.taro-prose-lead {
+  color: var(--ink-2);
+}
+
+.taro-choice {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.taro-choice .taro-consent-answer {
+  margin-top: 14px;
+}
+
 /* Motion is ornament. Without it the flow still reads: the flip becomes a cut,
    the deck sits still, and every state change is still announced in text. */
 @media (prefers-reduced-motion: reduce) {

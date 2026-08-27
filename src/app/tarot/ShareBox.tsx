@@ -24,6 +24,7 @@ import { useEffect, useState } from 'react';
 import type { Locale } from '../../shared/tarot/deck';
 import { copyFor } from '../../shared/tarot/i18n';
 import type { ReadingView } from '../../shared/tarot/types';
+import { track } from './analytics';
 import { createShare, errorText } from './api';
 
 export default function ShareBox({ reading, locale }: { reading: ReadingView; locale: Locale }) {
@@ -47,6 +48,10 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
     try {
       const link = url || (await createShare(reading.readingId, true)).url;
       setUrl(link);
+      // Counted where the snapshot is minted, not where the button is pressed:
+      // pressing again re-copies a link that already exists, and one round that
+      // was shared once is one share.
+      if (!url) track('reading_shared', { locale });
       try {
         await navigator.clipboard.writeText(link);
         setCopied(true);

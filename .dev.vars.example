@@ -23,6 +23,12 @@
 #   npx wrangler secret put ADMIN_PASSWORD
 # ADMIN_PASSWORD=
 
+# The GA4 measurement id, overriding the one in wrangler.jsonc. Set a fake one
+# locally: the Worker still writes the tag and the consent banner still appears,
+# but nothing reaches the real property, so `npm run dev` never shows up in the
+# numbers a campaign is judged on. Leave it empty to serve no analytics at all.
+# GA_MEASUREMENT_ID=G-TESTLOCAL0
+
 # Encrypts the Manyfold device code and agent tokens stored in D1.
 # If unset, a random key is generated on first use and stored in the same database.
 # Set this (>=32 chars) to keep the key out of the database:

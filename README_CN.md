@@ -131,8 +131,8 @@ Bearer token 会以 AES-GCM 加密的形式存进你的 D1，永远不会到达�
 
 ```bash
 curl https://your-worker.workers.dev/api/tarot/reader
-# {"demo":false}   ← 你的 agent 在解读
-# {"demo":true}    ← 还是内置的 demo 解读者
+# {"demo":false,...}   ← 你的 agent 在解读
+# {"demo":true,...}    ← 还是内置的 demo 解读者
 ```
 
 如果连了多个 agent，用 `TAROT_AGENT_ID` 指定其中一个。想暂时切回 demo 解读者，设
@@ -155,9 +155,36 @@ npm run smoke -- https://your-worker.workers.dev
 | `TAROT_DEMO` | var | `wrangler.jsonc` | 设为 `1` 时强制使用内置 demo 解读者，即使已连接 agent。 |
 | `MANYFOLD_API_BASE_URL` | var | `wrangler.jsonc` | Manyfold API 地址，默认 `https://api.manyfold.ai`。 |
 | `ENVIRONMENT` | var | `wrangler.jsonc` | `production` 会强制 https-only，并拒绝私有/回环地址的 agent URL。 |
+| `GA_MEASUREMENT_ID` | var | `wrangler.jsonc` | GA4 测量 id（`G-…`）。留空（默认）则完全不加载任何统计代码。见[统计](#统计)。 |
 
 secret 永远不进仓库。`.dev.vars.example` 里对本地开发列了同一组变量 —— 复制成 `.dev.vars`
 即可，该文件已被 git 忽略。
+
+## 统计
+
+默认是空的：从这个仓库 fork 出去的站点不向任何人上报，除非你在 `wrangler.jsonc` 里填上自己的 id。
+
+填上之后，Worker 会在返回页面时把 Google 代码写进三个「页面」的 `<head>` —— `/`、`/s/:token`、
+`/privacy`（见 `src/worker/analytics.ts`）。运营控制台永远不统计。`index.html` 里不写死任何东西，
+所以这个 id 属于某一次部署，而不属于这份代码。
+
+Consent Mode v2 与它一起下发，并且跑在它前面。在欧洲经济区、英国和瑞士，所有存储类别默认 `denied`，
+由横幅来问；其他地区默认开启，并且可以在 `/privacy` 关掉。哪些地区要问用的是 Google 自己的 `region`
+参数，而不是这个 Worker 去查 IP —— 所以每个访客拿到的 HTML 完全一样，而且即使国别判断错了，同意状态
+仍然是对的。
+
+五个事件描述整条漏斗，其中没有任何一个带上问题、牌面或解读正文：
+
+| 事件 | 触发时机 |
+| --- | --- |
+| `reading_started` | 问题已提交 |
+| `cards_drawn` | 三张牌已落定 |
+| `reading_completed` | 解读已给出 —— **导入 Google Ads 的就是这一个** |
+| `follow_up_asked` | 访客继续追问 |
+| `reading_shared` | 生成了分享链接 |
+
+本地开发时在 `.dev.vars` 里填一个假的 id（`GA_MEASUREMENT_ID=G-TESTLOCAL0`）：代码和横幅都照常工作，
+而 `npm run dev` 永远不会混进用来衡量广告的数字里。
 
 ## 本地开发
 

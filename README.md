@@ -144,8 +144,8 @@ configuration. Ask the site who is talking:
 
 ```bash
 curl https://your-worker.workers.dev/api/tarot/reader
-# {"demo":false}   ← your agent is reading
-# {"demo":true}    ← still the built-in demo reader
+# {"demo":false,...}   ← your agent is reading
+# {"demo":true,...}    ← still the built-in demo reader
 ```
 
 If several agents are connected, pin one with `TAROT_AGENT_ID`. If you want the demo reader
@@ -169,9 +169,40 @@ checks along the way that the console is still locked and the reading still open
 | `TAROT_DEMO` | var | `wrangler.jsonc` | `1` forces the built-in demo reader even when an agent is connected. |
 | `MANYFOLD_API_BASE_URL` | var | `wrangler.jsonc` | Manyfold API base. Defaults to `https://api.manyfold.ai`. |
 | `ENVIRONMENT` | var | `wrangler.jsonc` | `production` enforces https-only and rejects private/loopback agent URLs. |
+| `GA_MEASUREMENT_ID` | var | `wrangler.jsonc` | A GA4 id (`G-…`). Empty — the default — serves no analytics at all. See [Measurement](#measurement). |
 
 Secrets are never committed. `.dev.vars.example` documents the same set for local use — copy it
 to `.dev.vars`, which is git-ignored.
+
+## Measurement
+
+Empty out of the box: a fork of this repository reports to nobody, and the only way that
+changes is you putting your own id in `wrangler.jsonc`.
+
+Set one, and the Worker writes the Google tag into the `<head>` of the three pages that are
+pages — `/`, `/s/:token`, `/privacy` — on the way out (`src/worker/analytics.ts`). The operator
+console is never measured. Nothing is baked into `index.html`, so the id stays a property of the
+deployment rather than of the code.
+
+Consent Mode v2 ships with it and runs ahead of it. In the EEA, the UK and Switzerland every
+storage type starts `denied` and a banner asks; everywhere else analytics starts on and
+`/privacy` can turn it off. Which regions those are is Google's own `region` parameter rather
+than a geo-lookup this Worker performs, so the HTML is identical for every visitor and the
+consent state is right even if the country guess is not.
+
+Five events describe the funnel, and none of them carries the question, the cards or the
+reading:
+
+| Event | When |
+| --- | --- |
+| `reading_started` | a question was submitted |
+| `cards_drawn` | the three cards were committed |
+| `reading_completed` | the interpretation arrived — **the one to import into Google Ads** |
+| `follow_up_asked` | the visitor kept going |
+| `reading_shared` | a share link was minted |
+
+Locally, put a fake id in `.dev.vars` (`GA_MEASUREMENT_ID=G-TESTLOCAL0`): the tag and the banner
+both work, and `npm run dev` never shows up in the numbers a campaign is judged on.
 
 ## Local development
 

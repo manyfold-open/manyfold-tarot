@@ -24,7 +24,15 @@ const base = '/api/tarot';
 const readingPath = (id: string, suffix = ''): string =>
   `${base}/readings/${encodeURIComponent(id)}${suffix}`;
 
-export const fetchReader = (): Promise<{ demo: boolean }> => api(`${base}/reader`);
+/**
+ * Who is reading, and whether this visitor is owed a consent banner.
+ *
+ * The second one is not the reader's business, but it is the same question at
+ * the same moment — the page asks this on load either way, and a separate
+ * request to learn one boolean would be a request for nothing.
+ */
+export const fetchReader = (): Promise<{ demo: boolean; consentRequired: boolean }> =>
+  api(`${base}/reader`);
 
 export const startReading = (body: CreateReadingBody): Promise<{ reading: ReadingView }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });

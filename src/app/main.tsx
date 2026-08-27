@@ -3,6 +3,8 @@
  *
  *   /          the reading — this is the product, and it is the first paint
  *   /s/:token  one shared reading, frozen
+ *   /privacy   what is kept and who else sees it, and where the consent banner
+ *              points; also the only place a stored answer can be changed
  *   /settings  the operator console that ships with the starter: connect a
  *              Manyfold agent, verify it, chat with it. Reachable only by typing
  *              the URL — nothing on the site links to it, by design.
@@ -17,7 +19,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { isConsolePath, isSharePath } from './route';
+import { isConsolePath, isPrivacyPath, isSharePath } from './route';
+import PrivacyPage from './tarot/PrivacyPage';
 import SharePage from './tarot/SharePage';
 import TarotApp from './tarot/TarotApp';
 import './styles.css';
@@ -26,11 +29,20 @@ import './tarot/tarot.css';
 const path = location.pathname;
 const isConsole = isConsolePath(path);
 const isShare = isSharePath(path);
+const isPrivacy = isPrivacyPath(path);
 
 // Lets the tarot stylesheet own the page background without touching the
 // console's own :root theme.
 if (!isConsole) document.documentElement.dataset.app = 'taro';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>{isConsole ? <App /> : isShare ? <SharePage /> : <TarotApp />}</StrictMode>,
+const page = isConsole ? (
+  <App />
+) : isPrivacy ? (
+  <PrivacyPage />
+) : isShare ? (
+  <SharePage />
+) : (
+  <TarotApp />
 );
+
+createRoot(document.getElementById('root')!).render(<StrictMode>{page}</StrictMode>);

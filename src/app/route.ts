@@ -27,6 +27,9 @@ export const isConsolePath = (path: string): boolean =>
 
 export const isSharePath = (path: string): boolean => path.startsWith('/s/');
 
+/** The prose page the consent banner points at. One path, no aliases. */
+export const isPrivacyPath = (path: string): boolean => under(path, '/privacy');
+
 /**
  * The console's tab, from the whole location rather than the hash alone.
  *
