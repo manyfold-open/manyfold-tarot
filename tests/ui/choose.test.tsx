@@ -56,6 +56,7 @@ vi.mock('../../src/app/tarot/api', () => ({
   fetchReading: vi.fn(async () => ({ reading: drawn })),
   startReading: vi.fn(),
   createShare: vi.fn(),
+  fetchReferral: vi.fn(async () => ({ referral: null, url: null })),
   fetchShare: vi.fn(),
   stopShuffle: vi.fn(),
   streamDiviner: (path: string, body: unknown, onEvent: (event: DivinerEvent) => void) =>

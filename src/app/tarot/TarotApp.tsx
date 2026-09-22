@@ -496,6 +496,7 @@ export default function TarotApp() {
   const newRound = useCallback(() => {
     previousReadingId.current = reading?.readingId ?? null;
     localStorage.removeItem(READING_KEY);
+    history.replaceState(null, '', '/');
     greetedFor.current = null;
     drawnFor.current = null;
     turning.current = null;
@@ -802,8 +803,12 @@ export default function TarotApp() {
             <section className="taro-outro">
               <div className="taro-outro-actions">
                 <ShareBox reading={reading} locale={locale} />
-                <ReferralBox reading={reading} locale={locale} />
+                <ReferralBox reading={reading} locale={locale} onNewReading={newRound} />
               </div>
+
+              <button type="button" className="taro-secondary taro-new-reading" onClick={newRound}>
+                {copy.outro.newReading}
+              </button>
 
               {followOpen ? (
                 <form

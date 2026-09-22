@@ -120,7 +120,10 @@ export interface Copy {
     inviting: string;
     copied: string;
     copyLink: string;
+    pending: string;
     completed: string;
+    expired: string;
+    startAgain: string;
   };
 
   /** The two lines at the foot of the page. Both are links out, so both say
@@ -273,7 +276,10 @@ const zh: Copy = {
     inviting: '正在生成邀请链接……',
     copied: '链接已复制',
     copyLink: '复制邀请链接',
-    completed: '朋友已完成，你已解锁下一次',
+    pending: '等待朋友完成；完成后这里会自动更新。',
+    completed: '朋友已完成，你已解锁下一次。',
+    expired: '这个邀请已过期，再生成一个新的邀请。',
+    startAgain: '回到首页，再问一次',
   },
 
   footer: {
@@ -445,7 +451,10 @@ const en: Copy = {
     inviting: 'Making an invitation link…',
     copied: 'Invitation copied',
     copyLink: 'Copy invitation link',
-    completed: 'Friend completed it — one more is unlocked',
+    pending: 'Waiting for your friend — this will update when they finish.',
+    completed: 'Your friend finished — one more reading is unlocked.',
+    expired: 'This invitation expired. Make a new one to try again.',
+    startAgain: 'Back to the home page — ask again',
   },
 
   footer: {

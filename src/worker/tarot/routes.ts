@@ -19,6 +19,7 @@
  *   POST /api/tarot/readings/:id/follow-ups      SSE  keep reading the same three cards
  *   POST /api/tarot/readings/:id/share           freeze a public snapshot
  *   POST /api/tarot/readings/:id/referral        create a one-use friend invite
+ *   GET  /api/tarot/readings/:id/referral        check that invite's status
  *   GET  /api/tarot/share/:token                 read one (public, no session)
  *
  * The streaming routes follow the starter's chat pattern: the response stream is
@@ -76,6 +77,7 @@ import {
   completeReferral,
   consumeReadingAccess,
   createReferral,
+  findReferral,
   validateReferral,
 } from './referrals';
 import {
@@ -436,6 +438,22 @@ tarot.post('/readings/:id/referral', async (c) => {
     },
     201,
   );
+});
+
+/**
+ * Lets the inviter see whether the friend has finished. It only looks up an
+ * invitation owned by the current session; the token itself is never needed
+ * in the browser and no other session can use this route to inspect it.
+ */
+tarot.get('/readings/:id/referral', async (c) => {
+  await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
+  const referral = await findReferral(c.env, c.get('sessionId'), c.req.param('id'));
+  if (!referral) return c.json({ referral: null, url: null });
+  const url = new URL(c.req.url);
+  return c.json({
+    referral,
+    url: `${url.origin}/?ref=${encodeURIComponent(referral.token)}`,
+  });
 });
 
 /* ───────── state 6a: keep reading the same three cards ───────── */

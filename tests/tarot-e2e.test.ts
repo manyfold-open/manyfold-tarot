@@ -453,8 +453,25 @@ describe('referring a friend', () => {
     expect(referral.status).toBe('pending');
     expect(new URL(url).searchParams.get('ref')).toBe(referral.token);
 
+    const pending = await call(`/api/tarot/readings/${inviter.readingId}/referral`, {
+      cookie: inviter.session,
+    });
+    expect(pending.status).toBe(200);
+    expect(await pending.json<{ referral: { status: string }; url: string }>()).toMatchObject({
+      referral: { status: 'pending' },
+      url,
+    });
+
     const friend = await completeReading(null, referral.token);
     expect(friend.session).not.toBe(inviter.session);
+
+    const completed = await call(`/api/tarot/readings/${inviter.readingId}/referral`, {
+      cookie: inviter.session,
+    });
+    expect(await completed.json<{ referral: { status: string }; url: string }>()).toMatchObject({
+      referral: { status: 'completed' },
+      url,
+    });
 
     const access = await (
       await call('/api/tarot/access', { cookie: inviter.session })

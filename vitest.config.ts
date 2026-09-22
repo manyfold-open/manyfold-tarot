@@ -12,6 +12,15 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
+    environmentOptions: {
+      jsdom: {
+        // jsdom disables localStorage for an opaque origin. The UI tests use
+        // it for the reading id and consent choice, so give the test document
+        // the same kind of origin it has in the browser.
+        url: 'http://localhost/',
+      },
+    },
+    setupFiles: ['./tests/support/jsdom-compat.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 });
