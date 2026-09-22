@@ -43,6 +43,7 @@ import Speaking from './Speaking';
 import {
   ApiError,
   errorText,
+  fetchAccess,
   fetchReader,
   fetchReading,
   startReading,
@@ -98,7 +99,11 @@ const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
       };
 
 export default function TarotApp() {
-  const referralToken = useMemo(() => new URLSearchParams(location.search).get('ref'), []);
+  /** The invite this browser arrived with. Spent by the first round it starts,
+   *  so a later round from the same page does not carry a used link along. */
+  const [referralToken, setReferralToken] = useState(() =>
+    new URLSearchParams(location.search).get('ref'),
+  );
   const [locale, setLocale] = useState<Locale>(() =>
     normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language),
   );
@@ -123,6 +128,9 @@ export default function TarotApp() {
   /** Which places in the spread the visitor has set aside. Presentation only —
    *  a place is not a card, and the Worker has already chosen the cards. */
   const [picked, setPicked] = useState<number[]>([]);
+  /** What the question box may do. Null until the Worker answers — the box is
+   *  drawn meanwhile, and the Worker still refuses a round it cannot afford. */
+  const [access, setAccess] = useState<Awaited<ReturnType<typeof fetchAccess>> | null>(null);
 
   /** Rounds are linked only so the reader knows this visitor was just here. */
   const previousReadingId = useRef<string | null>(null);
@@ -180,6 +188,24 @@ export default function TarotApp() {
       cancelled = true;
     };
   }, []);
+
+  const refreshAccess = useCallback(async () => {
+    try {
+      const current = await fetchAccess();
+      setAccess(current);
+      return current;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Asked each time the visitor lands on the question box or the end of a
+  // round: a round may have just been spent, or a friend may have unlocked one
+  // while they were away. The end of a round needs it to say where its last
+  // button actually goes.
+  useEffect(() => {
+    if (phase === 'ask' || phase === 'outro') void refreshAccess();
+  }, [phase, refreshAccess]);
 
   /* ───────── one diviner turn ───────── */
 
@@ -252,7 +278,10 @@ export default function TarotApp() {
         previousReadingId: previousReadingId.current,
         referralToken,
       });
-      if (referralToken) history.replaceState(null, '', location.pathname);
+      if (referralToken) {
+        history.replaceState(null, '', location.pathname);
+        setReferralToken(null);
+      }
       localStorage.setItem(READING_KEY, created.readingId);
       setReading(created);
       setFollowUps([]);
@@ -266,7 +295,10 @@ export default function TarotApp() {
       if (caught instanceof ApiError && caught.code === 'rate_limited') {
         setError(copy.errors.rateLimited);
       } else if (caught instanceof ApiError && caught.code === 'reading_limit') {
-        setError(copy.errors.readingLimit);
+        // The home page turns into the invite; the line is only the fallback
+        // for when it cannot find out why.
+        const current = await refreshAccess();
+        if (current?.canRead !== false) setError(copy.errors.readingLimit);
       } else if (caught instanceof ApiError && caught.code === 'question_too_long') {
         setError(copy.errors.tooLong);
       } else {
@@ -275,7 +307,7 @@ export default function TarotApp() {
     } finally {
       setBusy(false);
     }
-  }, [busy, question, locale, copy, referralToken, runGreeting]);
+  }, [busy, question, locale, copy, referralToken, runGreeting, refreshAccess]);
 
   /** The field is a line, not a box: it opens one row high and grows downward
    *  with the question instead of reserving room for one nobody has written. */
@@ -562,9 +594,30 @@ export default function TarotApp() {
         )}
 
         {/* ── 1 · the question ── */}
-        {phase === 'ask' && (
+        {/* ── 1 · nothing left to spend: the invite is the whole page ── */}
+        {phase === 'ask' && access?.canRead === false && (
+          <section className="taro-ask taro-locked">
+            <h1 className="taro-ask-title">{copy.referral.lockedTitle}</h1>
+            {access.inviteReadingId ? (
+              <ReferralBox
+                readingId={access.inviteReadingId}
+                locale={locale}
+                intro
+                onCompleted={() => void refreshAccess()}
+              />
+            ) : (
+              <p className="taro-referral-copy">{copy.referral.lockedNoInvite}</p>
+            )}
+          </section>
+        )}
+
+        {phase === 'ask' && access?.canRead !== false && (
           <section className="taro-ask">
-            {referralToken && <p className="taro-referral-invite">{copy.referral.invited}</p>}
+            {referralToken ? (
+              <p className="taro-referral-invite">{copy.referral.invited}</p>
+            ) : access?.freeUsed && access.credits > 0 ? (
+              <p className="taro-referral-invite">{copy.referral.completed}</p>
+            ) : null}
             <h1 className="taro-ask-title">{copy.ask.title}</h1>
             <form
               onSubmit={(event) => {
@@ -803,11 +856,17 @@ export default function TarotApp() {
             <section className="taro-outro">
               <div className="taro-outro-actions">
                 <ShareBox reading={reading} locale={locale} />
-                <ReferralBox reading={reading} locale={locale} onNewReading={newRound} />
+                <ReferralBox
+                  readingId={reading.readingId}
+                  locale={locale}
+                  onCompleted={() => void refreshAccess()}
+                />
               </div>
 
               <button type="button" className="taro-secondary taro-new-reading" onClick={newRound}>
-                {copy.outro.newReading}
+                {/* Always the way home. It only promises another question when
+                    there is one to ask; otherwise home is where the invite is. */}
+                {access?.canRead === false ? copy.outro.backHome : copy.outro.newReading}
               </button>
 
               {followOpen ? (

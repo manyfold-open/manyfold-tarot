@@ -1853,8 +1853,7 @@ html[data-app='taro'] body {
   gap: 20px;
 }
 
-.taro-outro-actions > .taro-share,
-.taro-outro-actions > .taro-referral {
+.taro-outro-actions > .taro-share {
   box-sizing: border-box;
 }
 
@@ -1865,13 +1864,6 @@ html[data-app='taro'] body {
 
 .taro-outro-actions .taro-share {
   width: 100%;
-}
-
-.taro-outro-actions > .taro-referral {
-  border-top: 0;
-  padding-top: 0;
-  justify-content: flex-start;
-  gap: 16px;
 }
 
 @media (max-width: 560px) {
@@ -1909,27 +1901,9 @@ html[data-app='taro'] body {
   gap: 16px;
 }
 
-.taro-referral {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 0 4px;
-  border-top: 1px solid var(--line);
-}
-
-.taro-referral-title,
 .taro-referral-copy {
   margin: 0;
   text-align: center;
-}
-
-.taro-referral-title {
-  font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  color: var(--ink-3);
 }
 
 .taro-referral-copy,
@@ -1957,6 +1931,17 @@ html[data-app='taro'] body {
 
 .taro-referral-invite {
   margin: 0 0 24px;
+  text-align: center;
+}
+
+/* On the home page the invite stands in for the question box. */
+.taro-referral-home {
+  max-width: 440px;
+}
+
+.taro-locked > .taro-referral-copy {
+  max-width: 440px;
+  margin: 0;
   text-align: center;
 }
 

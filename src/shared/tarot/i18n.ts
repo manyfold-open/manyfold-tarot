@@ -89,6 +89,9 @@ export interface Copy {
     share: string;
     sharing: string;
     newReading: string;
+    /** The same button when there is nothing left to ask with: it only goes
+     *  home, where the invite waits. */
+    backHome: string;
     continue: string;
     continueTitle: string;
     continuePlaceholder: string;
@@ -113,7 +116,6 @@ export interface Copy {
   };
 
   referral: {
-    title: string;
     description: string;
     invited: string;
     invite: string;
@@ -123,7 +125,10 @@ export interface Copy {
     pending: string;
     completed: string;
     expired: string;
-    startAgain: string;
+    /** The home page, once there is nothing left to spend. */
+    lockedTitle: string;
+    /** The same, when no reading has finished yet to invite from. */
+    lockedNoInvite: string;
   };
 
   /** The two lines at the foot of the page. Both are links out, so both say
@@ -249,6 +254,7 @@ const zh: Copy = {
     share: '分享这次解读',
     sharing: '正在生成分享……',
     newReading: '再问一件事',
+    backHome: '回到首页',
     continue: '继续解读这三张牌',
     continueTitle: '还有什么想问这三张牌？',
     continuePlaceholder: '比如：为什么这张牌会落在“隐藏的影响”？',
@@ -269,17 +275,17 @@ const zh: Copy = {
   },
 
   referral: {
-    title: '想再问一次？',
     description: '邀请一位朋友完成一次塔罗解读，你就能解锁下一次。',
     invited: '有人邀请你来问一次牌。',
-    invite: '邀请朋友，解锁下一次',
+    invite: '邀请朋友，再玩一次',
     inviting: '正在生成邀请链接……',
     copied: '链接已复制',
     copyLink: '复制邀请链接',
-    pending: '等待朋友完成；完成后这里会自动更新。',
+    pending: '等待朋友完成，完成后这里会自动更新。',
     completed: '朋友已完成，你已解锁下一次。',
     expired: '这个邀请已过期，再生成一个新的邀请。',
-    startAgain: '回到首页，再问一次',
+    lockedTitle: '免费的这一次已经用过了。',
+    lockedNoInvite: '完成一次解读后，才能邀请朋友来解锁下一次。',
   },
 
   footer: {
@@ -424,6 +430,7 @@ const en: Copy = {
     share: 'Share this reading',
     sharing: 'Preparing the share…',
     newReading: 'Ask about something else',
+    backHome: 'Back to the home page',
     continue: 'Keep reading these three cards',
     continueTitle: 'What else do you want to ask these three cards?',
     continuePlaceholder: 'For example: why did this card land on the hidden influence?',
@@ -444,17 +451,17 @@ const en: Copy = {
   },
 
   referral: {
-    title: 'Want to ask again?',
     description: 'Invite a friend to complete a tarot reading and unlock one more for yourself.',
     invited: 'Someone invited you to ask the cards a question.',
-    invite: 'Invite a friend to unlock one more',
+    invite: 'Invite a friend to play one more',
     inviting: 'Making an invitation link…',
     copied: 'Invitation copied',
     copyLink: 'Copy invitation link',
-    pending: 'Waiting for your friend — this will update when they finish.',
+    pending: 'Waiting for your friend, then this will update when they finish.',
     completed: 'Your friend finished — one more reading is unlocked.',
     expired: 'This invitation expired. Make a new one to try again.',
-    startAgain: 'Back to the home page — ask again',
+    lockedTitle: 'Your free reading is used.',
+    lockedNoInvite: 'Finish a reading first, then invite a friend to unlock the next one.',
   },
 
   footer: {
