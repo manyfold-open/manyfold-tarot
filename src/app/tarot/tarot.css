@@ -1933,6 +1933,22 @@ html[data-app='taro'] body {
   line-height: 1.7;
 }
 
+.taro-referral-status {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.taro-referral-status.is-complete {
+  color: var(--ink);
+}
+
+.taro-new-reading {
+  margin-top: 2px;
+}
+
 .taro-referral-invite {
   margin: 0 0 24px;
   text-align: center;

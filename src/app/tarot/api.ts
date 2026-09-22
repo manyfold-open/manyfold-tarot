@@ -44,6 +44,13 @@ export const createReferral = (
   url: string;
 }> => api(readingPath(id, '/referral'), { method: 'POST', body: '{}' });
 
+export const fetchReferral = (
+  id: string,
+): Promise<{
+  referral: { token: string; status: 'pending' | 'completed' | 'expired'; expiresAt: string } | null;
+  url: string | null;
+}> => api(readingPath(id, '/referral'));
+
 export const fetchReading = (id: string): Promise<{ reading: ReadingView }> =>
   api(readingPath(id));
 

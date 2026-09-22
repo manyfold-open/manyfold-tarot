@@ -163,6 +163,27 @@ export async function createReferral(
   return { token, status: 'pending', expiresAt };
 }
 
+/**
+ * Reads the invite belonging to one of the visitor's own readings without
+ * creating or renewing anything. This is intentionally separate from
+ * createReferral: reopening a finished page must be safe, and an expired
+ * invitation should not silently become a new invitation just because the
+ * browser asked what happened to it.
+ */
+export async function findReferral(
+  env: Env,
+  sessionId: string,
+  readingId: string,
+): Promise<ReferralView | null> {
+  const row = await env.DB.prepare(
+    `SELECT token, status, expires_at FROM tarot_referrals
+     WHERE source_reading_id = ? AND inviter_session_id = ?`,
+  )
+    .bind(readingId, sessionId)
+    .first<{ token: string; status: string; expires_at: string }>();
+  return row ? viewFor(row) : null;
+}
+
 export async function bindReferralToReading(
   env: Env,
   readingId: string,
