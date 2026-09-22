@@ -1,4 +1,4 @@
-# 牌面 · Facing the Cards
+# AI Tarot
 
 English · [中文](README_CN.md)
 
