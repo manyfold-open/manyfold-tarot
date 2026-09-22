@@ -100,9 +100,9 @@ const first = <T extends DivinerEvent['type']>(
   events.find((event) => event.type === type) as Extract<DivinerEvent, { type: T }> | undefined;
 
 /** Runs a whole round and hands back the ids, so later tests can start anywhere. */
-async function completeReading(cookie?: string | null) {
+async function completeReading(cookie?: string | null, referralToken?: string | null) {
   const started = await call('/api/tarot/readings', {
-    body: { question: '我要不要换一份工作？', locale: 'zh' },
+    body: { question: '我要不要换一份工作？', locale: 'zh', referralToken },
     cookie,
   });
   const session = cookie ?? started.cookie;
@@ -329,6 +329,15 @@ describe('one full round', () => {
   });
 
   it('state 6b: a new round is a new record, and never touches the old one', async () => {
+    const invitation = await call(`/api/tarot/readings/${readingId}/referral`, {
+      body: {},
+      cookie: session,
+    });
+    const { url } = await invitation.json<{ url: string }>();
+    const token = new URL(url).searchParams.get('ref');
+    expect(token).toBeTruthy();
+    await completeReading(null, token);
+
     const response = await call('/api/tarot/readings', {
       body: { question: '那我妈的病呢？', locale: 'zh', previousReadingId: readingId },
       cookie: session,
@@ -429,9 +438,88 @@ describe('sharing', () => {
   });
 });
 
+describe('referring a friend', () => {
+  it('gives the inviter one extra reading after a different session completes', async () => {
+    const inviter = await completeReading();
+    const created = await call(`/api/tarot/readings/${inviter.readingId}/referral`, {
+      body: {},
+      cookie: inviter.session,
+    });
+    expect(created.status).toBe(201);
+    const { referral, url } = await created.json<{
+      referral: { status: string; token: string };
+      url: string;
+    }>();
+    expect(referral.status).toBe('pending');
+    expect(new URL(url).searchParams.get('ref')).toBe(referral.token);
+
+    const friend = await completeReading(null, referral.token);
+    expect(friend.session).not.toBe(inviter.session);
+
+    const access = await (
+      await call('/api/tarot/access', { cookie: inviter.session })
+    ).json<{ freeUsed: boolean; credits: number; canRead: boolean }>();
+    expect(access).toEqual({ freeUsed: true, credits: 1, canRead: true });
+
+    const second = await call('/api/tarot/readings', {
+      body: { question: '再问一次' },
+      cookie: inviter.session,
+    });
+    expect(second.status).toBe(201);
+    const after = await (
+      await call('/api/tarot/access', { cookie: inviter.session })
+    ).json<{ freeUsed: boolean; credits: number; canRead: boolean }>();
+    expect(after).toEqual({ freeUsed: true, credits: 0, canRead: false });
+  });
+
+  it('does not reward the inviter twice for the same link', async () => {
+    const inviter = await completeReading();
+    const created = await call(`/api/tarot/readings/${inviter.readingId}/referral`, {
+      body: {},
+      cookie: inviter.session,
+    });
+    const { referral } = await created.json<{ referral: { token: string } }>();
+    await completeReading(null, referral.token);
+
+    const replay = await call('/api/tarot/readings', {
+      body: { question: '另一位朋友', referralToken: referral.token },
+    });
+    expect(replay.status).toBe(410);
+    const access = await (
+      await call('/api/tarot/access', { cookie: inviter.session })
+    ).json<{ credits: number }>();
+    expect(access.credits).toBe(1);
+  });
+
+  it('does not let the inviter complete their own link', async () => {
+    const inviter = await completeReading();
+    const created = await call(`/api/tarot/readings/${inviter.readingId}/referral`, {
+      body: {},
+      cookie: inviter.session,
+    });
+    const { referral } = await created.json<{ referral: { token: string } }>();
+    const self = await call('/api/tarot/readings', {
+      body: { question: '自己再问一次', referralToken: referral.token },
+      cookie: inviter.session,
+    });
+    expect(self.status).toBe(400);
+    expect(await self.json<{ error: { code: string } }>()).toMatchObject({
+      error: { code: 'referral_self' },
+    });
+  });
+});
+
 describe('the meter', () => {
   it('cuts a session off once it has started too many rounds', async () => {
     const cookie = 'taro_sid=heavyhandedvisitorsession';
+    for (let i = 0; i < 20; i += 1) {
+      await d1.db
+        .prepare(
+          'INSERT INTO tarot_rewards (referral_token, session_id, redeemed_at, created_at) VALUES (?, ?, NULL, ?)',
+        )
+        .bind(`meter-reward-${i}`, cookie.slice('taro_sid='.length), new Date().toISOString())
+        .run();
+    }
     let blocked: Awaited<ReturnType<typeof call>> | null = null;
     for (let i = 0; i < 20 && !blocked; i += 1) {
       const response = await call('/api/tarot/readings', {

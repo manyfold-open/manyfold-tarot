@@ -479,6 +479,12 @@ html[data-app='taro'] body {
   width: 100%;
 }
 
+/* A finished reading should end after its actions; keeping the stage's flex
+   fill here leaves a large, empty runway before the footer. */
+.taro.is-outro .taro-stage {
+  flex: 0 0 auto;
+}
+
 /* The deck is the one screen that is not a column of prose. Giving it the width
    costs nothing elsewhere — no other stage changes shape — and it buys the
    spread three even rows of 26 instead of four ragged ones. */
@@ -1845,6 +1851,42 @@ html[data-app='taro'] body {
   padding-top: 32px;
 }
 
+.taro-outro-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 20px;
+}
+
+.taro-outro-actions > .taro-share,
+.taro-outro-actions > .taro-referral {
+  box-sizing: border-box;
+}
+
+.taro-outro-actions > .taro-secondary {
+  width: 100%;
+  margin-top: 0;
+}
+
+.taro-outro-actions .taro-share {
+  width: 100%;
+}
+
+.taro-outro-actions > .taro-referral {
+  border-top: 0;
+  padding-top: 0;
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .taro-outro-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
 .taro-follow {
   width: 100%;
   display: flex;
@@ -1871,6 +1913,41 @@ html[data-app='taro'] body {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+}
+
+.taro-referral {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0 4px;
+  border-top: 1px solid var(--line);
+}
+
+.taro-referral-title,
+.taro-referral-copy {
+  margin: 0;
+  text-align: center;
+}
+
+.taro-referral-title {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+
+.taro-referral-copy,
+.taro-referral-invite {
+  color: var(--ink-2);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.taro-referral-invite {
+  margin: 0 0 24px;
+  text-align: center;
 }
 
 .taro-share-row {

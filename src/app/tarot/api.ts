@@ -37,6 +37,13 @@ export const fetchReader = (): Promise<{ demo: boolean; consentRequired: boolean
 export const startReading = (body: CreateReadingBody): Promise<{ reading: ReadingView }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });
 
+export const createReferral = (
+  id: string,
+): Promise<{
+  referral: { token: string; status: 'pending' | 'completed' | 'expired'; expiresAt: string };
+  url: string;
+}> => api(readingPath(id, '/referral'), { method: 'POST', body: '{}' });
+
 export const fetchReading = (id: string): Promise<{ reading: ReadingView }> =>
   api(readingPath(id));
 

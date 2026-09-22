@@ -35,6 +35,7 @@ import CardSlot from './Card';
 import Consent from './Consent';
 import Fan from './Fan';
 import Reading, { Prose } from './Reading';
+import ReferralBox from './ReferralBox';
 import ShareBox from './ShareBox';
 import Signature from './Signature';
 import Sky from './Sky';
@@ -97,6 +98,7 @@ const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
       };
 
 export default function TarotApp() {
+  const referralToken = useMemo(() => new URLSearchParams(location.search).get('ref'), []);
   const [locale, setLocale] = useState<Locale>(() =>
     normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language),
   );
@@ -248,19 +250,23 @@ export default function TarotApp() {
         question: text,
         locale,
         previousReadingId: previousReadingId.current,
+        referralToken,
       });
+      if (referralToken) history.replaceState(null, '', location.pathname);
       localStorage.setItem(READING_KEY, created.readingId);
       setReading(created);
       setFollowUps([]);
       setSuggestsNew(false);
       setPhase('greeting');
-      // The five events are the reading itself, in order — never its content.
+      // The reading events are the product funnel, in order — never its content.
       // What goes out is that a question was asked, not what was asked.
       track('reading_started', { locale, returning: previousReadingId.current !== null });
       void runGreeting(created.readingId);
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'rate_limited') {
         setError(copy.errors.rateLimited);
+      } else if (caught instanceof ApiError && caught.code === 'reading_limit') {
+        setError(copy.errors.readingLimit);
       } else if (caught instanceof ApiError && caught.code === 'question_too_long') {
         setError(copy.errors.tooLong);
       } else {
@@ -269,7 +275,7 @@ export default function TarotApp() {
     } finally {
       setBusy(false);
     }
-  }, [busy, question, locale, copy, runGreeting]);
+  }, [busy, question, locale, copy, referralToken, runGreeting]);
 
   /** The field is a line, not a box: it opens one row high and grows downward
    *  with the question instead of reserving room for one nobody has written. */
@@ -522,7 +528,7 @@ export default function TarotApp() {
   const alone = phase === 'ask' || phase === 'greeting';
 
   return (
-    <div className={`taro${alone ? ' is-alone' : ''}${atTable ? ' is-table' : ''}`}>
+    <div className={`taro${alone ? ' is-alone' : ''}${atTable ? ' is-table' : ''}${phase === 'outro' ? ' is-outro' : ''}`}>
       <Sky />
       {/* The only chrome on the page. There is no mark and no name: the first
           thing anyone sees should be the question, not a logo. */}
@@ -557,6 +563,7 @@ export default function TarotApp() {
         {/* ── 1 · the question ── */}
         {phase === 'ask' && (
           <section className="taro-ask">
+            {referralToken && <p className="taro-referral-invite">{copy.referral.invited}</p>}
             <h1 className="taro-ask-title">{copy.ask.title}</h1>
             <form
               onSubmit={(event) => {
@@ -793,11 +800,10 @@ export default function TarotApp() {
             ) : null}
 
             <section className="taro-outro">
-              <ShareBox reading={reading} locale={locale} />
-
-              <button type="button" className="taro-secondary" onClick={newRound}>
-                {copy.outro.newReading}
-              </button>
+              <div className="taro-outro-actions">
+                <ShareBox reading={reading} locale={locale} />
+                <ReferralBox reading={reading} locale={locale} />
+              </div>
 
               {followOpen ? (
                 <form
@@ -833,11 +839,7 @@ export default function TarotApp() {
                     {copy.outro.continueSubmit}
                   </button>
                 </form>
-              ) : (
-                <button type="button" className="taro-link" onClick={() => setFollowOpen(true)}>
-                  {copy.outro.continue}
-                </button>
-              )}
+              ) : null}
             </section>
           </>
         )}

@@ -143,6 +143,52 @@ CREATE TABLE IF NOT EXISTS tarot_rate (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tarot_rate_window ON tarot_rate (window_start);
+
+-- One free reading per anonymous browser session, followed by one reading for
+-- each friend who completes a reading from that session's invite.
+CREATE TABLE IF NOT EXISTS tarot_access (
+  session_id TEXT PRIMARY KEY,
+  free_used  INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- An invite belongs to the finished reading that created it. A token can be
+-- completed once, so forwarding the same link cannot mint multiple rewards.
+CREATE TABLE IF NOT EXISTS tarot_referrals (
+  token              TEXT PRIMARY KEY,
+  inviter_session_id TEXT NOT NULL,
+  source_reading_id  TEXT NOT NULL UNIQUE,
+  status             TEXT NOT NULL DEFAULT 'pending',
+  invitee_session_id TEXT,
+  invitee_reading_id TEXT,
+  created_at         TEXT NOT NULL,
+  expires_at         TEXT NOT NULL,
+  completed_at       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_tarot_referrals_inviter
+  ON tarot_referrals (inviter_session_id, created_at);
+
+-- Keeps the referral attached to the invitee's server-side reading. The token
+-- never needs to be trusted from a completion callback by itself.
+CREATE TABLE IF NOT EXISTS tarot_referral_readings (
+  reading_id     TEXT PRIMARY KEY,
+  referral_token TEXT NOT NULL,
+  created_at     TEXT NOT NULL
+);
+
+-- A completed referral becomes one redeemable Tarot reading for the inviter.
+-- redeemed_at is the atomic one-time consumption marker.
+CREATE TABLE IF NOT EXISTS tarot_rewards (
+  referral_token TEXT PRIMARY KEY,
+  session_id     TEXT NOT NULL,
+  redeemed_at    TEXT,
+  created_at     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tarot_rewards_session
+  ON tarot_rewards (session_id, redeemed_at, created_at);
 `;
 
 /**

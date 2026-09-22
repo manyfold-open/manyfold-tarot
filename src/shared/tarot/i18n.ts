@@ -112,6 +112,17 @@ export interface Copy {
     notFound: string;
   };
 
+  referral: {
+    title: string;
+    description: string;
+    invited: string;
+    invite: string;
+    inviting: string;
+    copied: string;
+    copyLink: string;
+    completed: string;
+  };
+
   /** The two lines at the foot of the page. Both are links out, so both say
    *  where they go — the visible line for the eye, the label for a reader that
    *  cannot see one is about to leave the site.
@@ -158,6 +169,7 @@ export interface Copy {
     tooLong: string;
     rateLimited: string;
     lost: string;
+    readingLimit: string;
   };
 
   demoNotice: string;
@@ -253,6 +265,17 @@ const zh: Copy = {
     notFound: '这份分享不存在，或已被撤下。',
   },
 
+  referral: {
+    title: '想再问一次？',
+    description: '邀请一位朋友完成一次塔罗解读，你就能解锁下一次。',
+    invited: '有人邀请你来问一次牌。',
+    invite: '邀请朋友，解锁下一次',
+    inviting: '正在生成邀请链接……',
+    copied: '链接已复制',
+    copyLink: '复制邀请链接',
+    completed: '朋友已完成，你已解锁下一次',
+  },
+
   footer: {
     manyfold: '这个占卜由 Manyfold 搭建 —— 在新窗口打开 manyfold.ai',
     openSource: '开源项目 · 在 GitHub 上复刻',
@@ -277,6 +300,7 @@ const zh: Copy = {
           '一个只有编号的会话 cookie（taro_sid），用来在你刷新页面之后仍然认得出这一轮占卜是你的。它不带姓名，也不跨站点。',
           '你写下的问题、抽到的三张牌，以及占卜师给出的解读，保存在运营者的 Cloudflare 数据库里。',
           '如果你按下分享，这一次的解读会被冻结成一份快照——拿到链接的人都能看到它。',
+          '如果你邀请朋友，站点会保留一枚只用一次的邀请编号和完成状态，用来给你解锁下一次占卜；它不带姓名。',
           '浏览器本地还会记住三样东西：你选的语言、当前这一轮占卜的编号，以及你对下面这个问题的回答。',
         ],
       },
@@ -284,7 +308,7 @@ const zh: Copy = {
         title: '谁还会看到',
         body: [
           '你的问题和三张牌会交给写这段解读的 Manyfold 智能体——没有它就没有解读。',
-          '在你同意之后（或者你所在的地区不需要事先征询时），页面的使用情况会记录到 Google Analytics：页面浏览，以及占卜过程中的五个节点（开始、抽牌、解读完成、追问、分享）。你写的问题、抽到的牌和解读的正文都不在其中。',
+          '在你同意之后（或者你所在的地区不需要事先征询时），页面的使用情况会记录到 Google Analytics：页面浏览，以及占卜过程中的六个节点（开始、抽牌、解读完成、追问、分享、创建邀请）。你写的问题、抽到的牌和解读的正文都不在其中。',
         ],
       },
       {
@@ -313,6 +337,7 @@ const zh: Copy = {
     tooLong: '问题太长了，请精简一些。',
     rateLimited: '今天问得有点多了，让牌歇一会儿再来。',
     lost: '这一轮占卜已经找不到了，重新开始吧。',
+    readingLimit: '这次体验已经用完。邀请一位朋友完成一次塔罗解读，就能再问一次。',
   },
 
   demoNotice: '演示模式：占卜师尚未连接，以下解读来自内置示例。',
@@ -412,6 +437,17 @@ const en: Copy = {
     notFound: 'This share does not exist, or it was taken down.',
   },
 
+  referral: {
+    title: 'Want to ask again?',
+    description: 'Invite a friend to complete a tarot reading and unlock one more for yourself.',
+    invited: 'Someone invited you to ask the cards a question.',
+    invite: 'Invite a friend to unlock one more',
+    inviting: 'Making an invitation link…',
+    copied: 'Invitation copied',
+    copyLink: 'Copy invitation link',
+    completed: 'Friend completed it — one more is unlocked',
+  },
+
   footer: {
     manyfold: 'This reading is built on Manyfold — opens manyfold.ai in a new window',
     openSource: 'Open source · fork it on GitHub',
@@ -437,6 +473,7 @@ const en: Copy = {
           'A session cookie holding nothing but an id (taro_sid), so that a reload still recognises which round is yours. It carries no name and does not follow you anywhere else.',
           'The question you write, the three cards you draw and the reading you are given, stored in the operator’s Cloudflare database.',
           'If you press share, that reading is frozen into a snapshot anyone with the link can read.',
+          'If you invite a friend, the site keeps a one-use invitation id and its completion state so it can unlock another reading for you; it carries no name.',
           'Three things in your own browser: the language you chose, the id of the round you are in, and your answer to the question below.',
         ],
       },
@@ -444,7 +481,7 @@ const en: Copy = {
         title: 'Who else sees it',
         body: [
           'Your question and the three cards go to the Manyfold agent that writes the reading — without that there is no reading.',
-          'Once you accept (or, where you are, if consent is not required first), how the site is used is recorded in Google Analytics: page views, and the five moments of a reading — started, drawn, interpreted, followed up, shared. Your question, your cards and the text of your reading are not among them.',
+          'Once you accept (or, where you are, if consent is not required first), how the site is used is recorded in Google Analytics: page views, and six moments of a reading — started, drawn, interpreted, followed up, shared, and an invitation created. Your question, your cards and the text of your reading are not among them.',
         ],
       },
       {
@@ -473,6 +510,7 @@ const en: Copy = {
     tooLong: 'That question is too long — please tighten it.',
     rateLimited: 'That is a lot of questions for one day. Let the deck rest a while.',
     lost: 'That reading can no longer be found. Let us start again.',
+    readingLimit: 'Your free reading is used. Invite a friend to complete a tarot reading and ask again.',
   },
 
   demoNotice: 'Demo mode: no reader is connected yet, so this reading comes from the built-in sample.',

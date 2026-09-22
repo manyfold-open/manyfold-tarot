@@ -148,6 +148,8 @@ export interface CreateReadingBody {
   locale?: Locale;
   /** Carries the prior reading id so a new round can keep light continuity. */
   previousReadingId?: string | null;
+  /** Opaque invite token carried by a friend opening a referral link. */
+  referralToken?: string | null;
 }
 
 export interface ShareBody {
