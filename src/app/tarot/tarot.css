@@ -628,21 +628,9 @@ html[data-app='taro'] body {
   }
 }
 
-/* The deck's two screens are the same case: nothing to scroll, and a table that
-   should sit in the middle of the window rather than in the middle of what is
-   left above a signature. The taller threshold is the deck's — the sweep needs
-   more room than one sentence does. Width is in the test because a phone wraps
-   the footer onto two or three lines and there is no slack under the deck to
-   put them over: narrow, and the footer stays in the flow and takes its share
-   honestly. */
-@media (min-width: 700px) and (min-height: 780px) {
-  .taro.is-table .taro-foot {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-}
+/* The table owns the space above the footer. Keeping the footer in normal flow
+   prevents it from covering the pick status and the confirmation button on
+   shorter desktop viewports. */
 
 .taro-demo {
   max-width: 34em;
