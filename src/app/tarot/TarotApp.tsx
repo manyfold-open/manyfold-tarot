@@ -528,7 +528,7 @@ export default function TarotApp() {
   const alone = phase === 'ask' || phase === 'greeting';
 
   return (
-    <div className={`taro${alone ? ' is-alone' : ''}${atTable ? ' is-table' : ''}`}>
+    <div className={`taro${alone ? ' is-alone' : ''}${atTable ? ' is-table' : ''}${phase === 'outro' ? ' is-outro' : ''}`}>
       <Sky />
       {/* The only chrome on the page. There is no mark and no name: the first
           thing anyone sees should be the question, not a logo. */}
@@ -800,12 +800,10 @@ export default function TarotApp() {
             ) : null}
 
             <section className="taro-outro">
-              <ShareBox reading={reading} locale={locale} />
-              <ReferralBox reading={reading} locale={locale} />
-
-              <button type="button" className="taro-secondary" onClick={newRound}>
-                {copy.outro.newReading}
-              </button>
+              <div className="taro-outro-actions">
+                <ShareBox reading={reading} locale={locale} />
+                <ReferralBox reading={reading} locale={locale} />
+              </div>
 
               {followOpen ? (
                 <form
@@ -841,11 +839,7 @@ export default function TarotApp() {
                     {copy.outro.continueSubmit}
                   </button>
                 </form>
-              ) : (
-                <button type="button" className="taro-link" onClick={() => setFollowOpen(true)}>
-                  {copy.outro.continue}
-                </button>
-              )}
+              ) : null}
             </section>
           </>
         )}

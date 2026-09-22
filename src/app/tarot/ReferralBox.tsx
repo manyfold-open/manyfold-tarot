@@ -56,8 +56,6 @@ export default function ReferralBox({ reading, locale }: { reading: ReadingView;
 
   return (
     <div className="taro-referral">
-      <p className="taro-referral-title">{copy.referral.title}</p>
-      <p className="taro-referral-copy">{copy.referral.description}</p>
       <button type="button" className="taro-secondary" onClick={() => void invite()} disabled={busy || status === 'completed'}>
         {label}
       </button>
