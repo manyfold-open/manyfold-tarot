@@ -15,6 +15,13 @@ export interface AccessView {
   freeUsed: boolean;
   credits: number;
   canRead: boolean;
+  /**
+   * The finished reading an invite can hang off, so the home page can offer a
+   * link without the visitor having to find their old reading. A reading whose
+   * invite is still out wins over a newer one, so the link a friend may already
+   * hold stays the one being watched. Null when nothing has been finished yet.
+   */
+  inviteReadingId: string | null;
 }
 
 const toBase64Url = (bytes: Uint8Array): string => {
@@ -84,9 +91,26 @@ export async function accessFor(env: Env, sessionId: string): Promise<AccessView
   )
     .bind(sessionId)
     .first<{ count: number }>();
+  const source = await env.DB.prepare(
+    `SELECT r.id FROM tarot_readings r
+     LEFT JOIN tarot_referrals f
+       ON f.source_reading_id = r.id AND f.inviter_session_id = r.session_id
+     WHERE r.session_id = ? AND r.status = 'interpreted'
+       AND (f.status IS NULL OR f.status <> 'completed')
+     ORDER BY CASE WHEN f.status = 'pending' AND f.expires_at > ? THEN 0 ELSE 1 END,
+       r.created_at DESC
+     LIMIT 1`,
+  )
+    .bind(sessionId, now())
+    .first<{ id: string }>();
   const freeUsed = Number(access?.free_used ?? 0) === 1;
   const credits = Number(reward?.count ?? 0);
-  return { freeUsed, credits, canRead: !freeUsed || credits > 0 };
+  return {
+    freeUsed,
+    credits,
+    canRead: !freeUsed || credits > 0,
+    inviteReadingId: source?.id ?? null,
+  };
 }
 
 const referralStatus = (status: string, expiresAt: string): ReferralView['status'] =>

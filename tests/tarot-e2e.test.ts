@@ -476,7 +476,7 @@ describe('referring a friend', () => {
     const access = await (
       await call('/api/tarot/access', { cookie: inviter.session })
     ).json<{ freeUsed: boolean; credits: number; canRead: boolean }>();
-    expect(access).toEqual({ freeUsed: true, credits: 1, canRead: true });
+    expect(access).toMatchObject({ freeUsed: true, credits: 1, canRead: true });
 
     const second = await call('/api/tarot/readings', {
       body: { question: '再问一次' },
@@ -486,7 +486,28 @@ describe('referring a friend', () => {
     const after = await (
       await call('/api/tarot/access', { cookie: inviter.session })
     ).json<{ freeUsed: boolean; credits: number; canRead: boolean }>();
-    expect(after).toEqual({ freeUsed: true, credits: 0, canRead: false });
+    expect(after).toMatchObject({ freeUsed: true, credits: 0, canRead: false });
+  });
+
+  it('points the home page at the reading an invite can be made from', async () => {
+    const inviter = await completeReading();
+    const locked = await (
+      await call('/api/tarot/access', { cookie: inviter.session })
+    ).json<{ canRead: boolean; inviteReadingId: string | null }>();
+    expect(locked).toMatchObject({ canRead: false, inviteReadingId: inviter.readingId });
+
+    const created = await call(`/api/tarot/readings/${inviter.readingId}/referral`, {
+      body: {},
+      cookie: inviter.session,
+    });
+    const { referral } = await created.json<{ referral: { token: string } }>();
+    await completeReading(null, referral.token);
+
+    // The completed invite cannot be reused, so it is no longer offered.
+    const unlocked = await (
+      await call('/api/tarot/access', { cookie: inviter.session })
+    ).json<{ canRead: boolean; inviteReadingId: string | null }>();
+    expect(unlocked).toMatchObject({ canRead: true, inviteReadingId: null });
   });
 
   it('does not reward the inviter twice for the same link', async () => {

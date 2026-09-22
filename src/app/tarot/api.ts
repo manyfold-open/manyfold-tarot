@@ -34,6 +34,14 @@ const readingPath = (id: string, suffix = ''): string =>
 export const fetchReader = (): Promise<{ demo: boolean; consentRequired: boolean }> =>
   api(`${base}/reader`);
 
+/** Whether this browser may start a round, and what an invite can be made from. */
+export const fetchAccess = (): Promise<{
+  freeUsed: boolean;
+  credits: number;
+  canRead: boolean;
+  inviteReadingId: string | null;
+}> => api(`${base}/access`);
+
 export const startReading = (body: CreateReadingBody): Promise<{ reading: ReadingView }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });
 
