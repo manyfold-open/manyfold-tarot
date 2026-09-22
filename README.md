@@ -2,286 +2,66 @@
 
 English · [中文](README_CN.md)
 
-An AI tarot site on a single Cloudflare Worker, read by **your** Manyfold agent.
-One question, three cards, one reading.
+An AI tarot reading built on Cloudflare Workers and Manyfold.
 
-**[Live site](https://manyfold-tarot.galichlorian.workers.dev)** ·
-[How the reading works](TAROT.md) ·
-[Invariants for contributors](AGENTS.md)
+**Official site:** [tarot.manyfold.ai](https://tarot.manyfold.ai/)
 
-```
- 1 提问   →   2 接住   →   3 洗牌   →   4 抽牌   →   5 解读   →   6 收尾
- one       the reader   the deck    the visitor  one reading  share ·
- question, answers it   settles and turns three  of all three ask again ·
- one       before any   the server  backs over   in eight     keep reading
- button    card exists  commits 3   one by one   sections     these three
-```
+One question. Three cards. One reading.
 
-Everything is server-authoritative: the three cards are sealed by the Worker before a single
-back is on screen, the browser never picks a card or an orientation, and the agent that writes
-the reading is never in a position to choose what it is reading. [TAROT.md](TAROT.md) is the
-long version.
+## What it is
 
-## Two surfaces, one Worker
+Facing the Cards is a quiet, guided tarot experience. Ask one question, let the deck settle, choose three card backs, and receive a reading that connects the cards to your situation.
 
-Understand this before deploying, because the rest of the setup follows from it:
+The site can use a connected Manyfold agent as its reader and includes a built-in demo reader, so the experience works before an agent is connected.
 
-| Path | Who it is for | Password |
-| --- | --- | --- |
-| `/` — the reading | anyone with the link | **no** |
-| `/s/:token` — a frozen shared reading | anyone with the link | **no** |
-| `/settings` — the operator console | you | **yes** |
+## How a reading works
 
-The reading is the product. It is public by design and protected by a meter rather than a lock
-(`src/worker/tarot/ratelimit.ts`), because a visitor cannot be asked for an operator password
-before they are allowed to ask a question.
+1. Ask a question.
+2. The reader acknowledges what you are asking.
+3. The Worker shuffles and commits three cards.
+4. Choose three cards from the spread; the browser does not decide which cards they are.
+5. Turn the cards over one by one.
+6. Receive one reading of the complete spread.
+7. Share the reading, ask a follow-up, or start a new round.
 
-The console is the other side: connecting agents, disconnecting them, listing them, chatting
-with one. That is your Manyfold account and your agent budget, so it is behind a password —
-and **nothing on the tarot site links to it.** You get there by typing the URL. That is
-deliberate: someone who came for a reading should not be shown a door they cannot open.
+The spread is fixed:
 
-## Deploy your own
+- **This moment** — 此刻的处境
+- **Hidden influence** — 隐藏的影响
+- **The guidance ahead** — 接下来的指引
 
-You need a Cloudflare account and a [Manyfold](https://manyfold.ai) agent. You do not need the
-agent first — the site ships with its own demo reader and is completely usable before anything
-is connected, so get the URL working, then point it at your agent.
+## Server-authoritative by design
 
-### 1 · Get it running
+The Worker decides the cards and their orientations before the first card back appears. The browser never draws or re-rolls cards, and the reader only interprets cards that have already been chosen.
 
-<details open>
-<summary><b>Path A — the Deploy button</b> (recommended)</summary>
+Questions are treated as user-provided material, not instructions. Reader responses are cleaned and parsed before they reach the interface.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/manyfold-open/manyfold-tarot)
+## Sharing and privacy
 
-Cloudflare will copy this repository into your GitHub account, provision the D1 database
-declared in `wrangler.jsonc`, write your own `database_id` into your copy, and wire the repo to
-**Workers Builds** so every push to `main` builds (`npm run build`) and deploys
-(`npx wrangler deploy`) on its own.
+A shared reading is a frozen snapshot of the round at the time it was shared. Later follow-ups do not change an existing share link.
 
-> [!IMPORTANT]
-> **Expand "Advanced settings" once before clicking Deploy.** As of August 2026 the Cloudflare
-> dashboard leaves hidden fields in that section (build API token, non-production deploy
-> command) uninitialized while it is collapsed, and the flow then stalls silently after creating
-> the repository with no error shown. Expanding it fills them in and the deploy completes. This
-> is a dashboard bug, not something this repo can fix.
+The public reading is separate from the password-protected operator console at `/settings`.
 
-</details>
-
-<details>
-<summary><b>Path B — fork it and wire Workers Builds yourself</b></summary>
-
-```bash
-git clone https://github.com/<you>/manyfold-tarot && cd manyfold-tarot
-npm install
-npx wrangler d1 create manyfold-app-db      # paste the returned id into wrangler.jsonc
-```
-
-Two fields in `wrangler.jsonc` are this deployment's and not yours:
-
-- `d1_databases[0].database_id` — **replace it** with the id you just created. Left alone, your
-  Worker will fail to bind a database it does not own.
-- `name` — the Worker's name, and therefore your `*.workers.dev` subdomain. Change it unless
-  you want to argue with Cloudflare about `manyfold-tarot`.
-
-Then **Workers & Pages → Create → Connect to Git**, pick your fork, build command
-`npm run build`, deploy command `npx wrangler deploy`, and push to `main`.
-
-</details>
-
-There is no migration step in either path. The schema in `src/worker/db.ts` is applied on the
-first request, locally and in production.
-
-### 2 · Set the console password
-
-> [!IMPORTANT]
-> **Do this before anything else — you cannot open your own console until you do.**
-
-A fresh deployment arrives with its console **closed**: there is no default password, so nobody
-can open it — not a stranger who found the URL, and not whoever published this code. That is
-also why you have to set one before you can get in yourself.
-
-```bash
-npx wrangler secret put ADMIN_PASSWORD
-```
-
-Or, if you deployed with the button and have no clone: **Workers & Pages → your Worker →
-Settings → Variables and Secrets → Add**, name it `ADMIN_PASSWORD`, tick **Secret**, save — then
-check the **Deployments** tab and make sure the new version is the one serving traffic. Adding a
-variable creates a version; it does not always promote it.
-
-Until you do, `/settings` says so rather than showing an input box that cannot succeed.
-
-The value can be short and memorable. It lives only in Cloudflare's secret store, where nobody —
-including you, afterwards — can read it back, so it does not need the entropy a password
-published in a repository would. If you forget it, set a new one.
-
-### 3 · Open the console — by typing the URL
-
-```
-https://your-worker.your-subdomain.workers.dev/settings
-```
-
-Nothing links there. `/console` still works, for anyone who bookmarked the starter's original
-URL. The page asks for the password from step 2 and renders nothing behind it until you get it
-right — no tab bar, no agent list, and the Worker does not send the agent list either, so there
-is nothing to find in devtools. The password is kept in `sessionStorage`; closing the tab
-forgets it.
-
-### 4 · Connect your agent
-
-In **Settings → Connect an agent**, a popup opens Manyfold's consent page. Compare the
-confirmation code shown in your page against the one on the consent page — that comparison is
-the flow's anti-phishing check, so do not skip it — then pick which agents to share.
-
-The bearer tokens land AES-GCM-encrypted in your D1 database and never reach the browser.
-Re-approving an agent later rotates its token in place.
-
-### 5 · Confirm your agent is the one reading
-
-The most recently connected agent becomes the reader, immediately — no redeploy, no
-configuration. Ask the site who is talking:
-
-```bash
-curl https://your-worker.workers.dev/api/tarot/reader
-# {"demo":false,...}   ← your agent is reading
-# {"demo":true,...}    ← still the built-in demo reader
-```
-
-If several agents are connected, pin one with `TAROT_AGENT_ID`. If you want the demo reader
-back for a while, set `TAROT_DEMO=1`. Then run a whole reading against the deployment, start to
-finish, in one command:
-
-```bash
-npm run smoke -- https://your-worker.workers.dev
-```
-
-It asks a question, draws, turns all three cards, takes the interpretation, shares it, and
-checks along the way that the console is still locked and the reading still open.
-
-## Configuration
-
-| Name | Kind | Set it in | What it does |
-| --- | --- | --- | --- |
-| `ADMIN_PASSWORD` | secret | Cloudflare | **The console password, and the only one.** Unset, the console cannot be opened at all. See step 2. |
-| `CONFIG_ENCRYPTION_KEY` | secret | Cloudflare | ≥32 chars. Encrypts device codes and agent tokens in D1. Without it a random key is generated on first use and stored in the same database — see [Security](#security). |
-| `TAROT_AGENT_ID` | var | `wrangler.jsonc` | Pins which connected agent reads. Default: the most recently connected. |
-| `TAROT_DEMO` | var | `wrangler.jsonc` | `1` forces the built-in demo reader even when an agent is connected. |
-| `MANYFOLD_API_BASE_URL` | var | `wrangler.jsonc` | Manyfold API base. Defaults to `https://api.manyfold.ai`. |
-| `ENVIRONMENT` | var | `wrangler.jsonc` | `production` enforces https-only and rejects private/loopback agent URLs. |
-| `GA_MEASUREMENT_ID` | var | `wrangler.jsonc` | A GA4 id (`G-…`). Empty — the default — serves no analytics at all. See [Measurement](#measurement). |
-
-Secrets are never committed. `.dev.vars.example` documents the same set for local use — copy it
-to `.dev.vars`, which is git-ignored.
-
-## Measurement
-
-Empty out of the box: a fork of this repository reports to nobody, and the only way that
-changes is you putting your own id in `wrangler.jsonc`.
-
-Set one, and the Worker writes the Google tag into the `<head>` of the three pages that are
-pages — `/`, `/s/:token`, `/privacy` — on the way out (`src/worker/analytics.ts`). The operator
-console is never measured. Nothing is baked into `index.html`, so the id stays a property of the
-deployment rather than of the code.
-
-Consent Mode v2 ships with it and runs ahead of it. In the EEA, the UK and Switzerland every
-storage type starts `denied` and a banner asks; everywhere else analytics starts on and
-`/privacy` can turn it off. Which regions those are is Google's own `region` parameter rather
-than a geo-lookup this Worker performs, so the HTML is identical for every visitor and the
-consent state is right even if the country guess is not.
-
-Five events describe the funnel, and none of them carries the question, the cards or the
-reading:
-
-| Event | When |
-| --- | --- |
-| `reading_started` | a question was submitted |
-| `cards_drawn` | the three cards were committed |
-| `reading_completed` | the interpretation arrived — **the one to import into Google Ads** |
-| `follow_up_asked` | the visitor kept going |
-| `reading_shared` | a share link was minted |
-
-Locally, put a fake id in `.dev.vars` (`GA_MEASUREMENT_ID=G-TESTLOCAL0`): the tag and the banner
-both work, and `npm run dev` never shows up in the numbers a campaign is judged on.
-
-## Local development
+## Run locally
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars    # uncomment what you need
+cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-One command runs everything: Vite serves the React app with HMR while the Worker runs in workerd
-against an automatically emulated local D1.
+Useful checks:
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Dev server (app + worker + local D1) |
-| `npm run check` | Typecheck, build, `wrangler deploy --dry-run` |
-| `npm test` | 208 tests, including a full reading driven through the real Worker |
-| `npm run deploy` | Manual deploy (Workers Builds normally does this) |
-| `npm run smoke -- <url>` | Drive a whole reading against a live deployment |
-
-## How it is put together
-
-```
-Browser (React SPA, dist/client)
-   │  /api/* (run_worker_first)            everything else → static assets
-   ▼
-Hono app (src/worker/index.ts)
-   │ ensureSchema → origin check → admin gate
-   ├─ /api/tarot/*    src/worker/tarot/    public: the reading, the draw, shares
-   ├─ /api/connect*   src/worker/connect.ts   Manyfold device-code handshake
-   ├─ /api/agents*    src/worker/connect.ts   list / verify / disconnect
-   ▼
-D1 — no migrations, the schema applies itself on the next request
-Manyfold A2A (message/stream, tasks/get)  ← per-agent token, decrypted per call
+```bash
+npm run check
+npm test
+npm run smoke -- <url>
 ```
 
-| File | Purpose |
-| --- | --- |
-| `src/worker/admin.ts` | Who gets into the console, and why the default is shaped that way |
-| `src/worker/tarot/draw.ts` | The draw: CSPRNG, distinct, server-side, committed once |
-| `src/worker/tarot/prompt.ts` | Prompts out, prose back, injection hardening |
-| `src/worker/tarot/diviner.ts` | The adapter: your A2A agent, or the built-in demo reader |
-| `src/app/tarot/` | The six states, the spread, the shared page |
-| `src/app/App.tsx` | The operator console — chat and settings tabs |
+## Architecture
 
-The tarot site grew out of [`manyfold-open/cloudflare-worker-starter`](https://github.com/manyfold-open/cloudflare-worker-starter),
-which is still in here intact: the starter's console is what `/settings` is. If you want the
-starter without the tarot, take it from there rather than deleting things out of this.
-
-[TAROT.md](TAROT.md) covers the design decisions — where the cards come from, what the reader
-structurally cannot do, how sharing freezes a reading. [AGENTS.md](AGENTS.md) lists the
-invariants to preserve when changing any of it.
-
-## Security
-
-- **The console is locked; the reading is not.** Every route except `/api/health`, `/api/state`
-  and `/api/tarot/*` requires the admin password, sent as a header and compared in constant
-  time. To a caller without it `/api/state` answers only "a password is wanted" — it does not
-  leak the agent list.
-- **There is no default password, deliberately.** An earlier version shipped one as a salted
-  digest so a deployment would arrive locked. In a public repo that is a lock whose only key
-  belongs to whoever generated it — every fork inherits the author's back door and none of the
-  convenience. Now an unconfigured deployment is closed instead: shut against everyone equally,
-  and it tells its operator which secret to set. `src/worker/admin.ts` is the whole of it.
-- **Credentials never touch the browser.** The device code, the only thing that can redeem agent
-  tokens, is encrypted in D1 and redeemable exactly once; the browser sees an opaque
-  `connectId`. Agent tokens are AES-GCM encrypted at rest.
-- **The generated-key trade-off is deliberate and worth knowing.** Without
-  `CONFIG_ENCRYPTION_KEY`, the encryption key is generated on first use and stored in the same
-  database it protects. That defends against partial exposure — a log line, a single-table query
-  — but not against a full database dump. Setting the secret removes the caveat, and one-click
-  deploys work either way.
-- **Public routes are metered per session and per IP.** Anything that can cost you an agent turn
-  is rate-limited, because those routes have to stay open.
-- Agent RPC URLs are validated (https-only, private and loopback addresses rejected in
-  production), connectivity checks use a non-billing `tasks/get` probe instead of a real turn,
-  and every error string is stripped of anything token-shaped before it reaches a log or a
-  browser.
-
-## License
-
-[MIT](LICENSE)
+- React + TypeScript frontend
+- Hono on a Cloudflare Worker
+- Cloudflare D1 for readings, follow-ups, shares, and configuration
+- Manyfold A2A for connected readers
+- [MIT License](LICENSE)
