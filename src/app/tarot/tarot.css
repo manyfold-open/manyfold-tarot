@@ -479,6 +479,12 @@ html[data-app='taro'] body {
   width: 100%;
 }
 
+/* A limit/error line is part of the opening scene, but it should not cling to
+   the top edge of the stage when the question screen is centred below it. */
+.taro.is-alone .taro-stage > .taro-error {
+  margin-top: clamp(18px, 3vh, 30px);
+}
+
 /* A finished reading should end after its actions; keeping the stage's flex
    fill here leaves a large, empty runway before the footer. */
 .taro.is-outro .taro-stage {
