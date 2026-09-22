@@ -11,6 +11,12 @@
   "name": "manyfold-tarot",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-08-01",
+  "routes": [
+    {
+      "pattern": "tarot.manyfold.ai",
+      "custom_domain": true
+    }
+  ],
   "observability": {
     "enabled": true
   },
@@ -28,8 +34,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "manyfold-app-db",
-      "database_id": "8911dae0-a52a-4264-bf99-e44efdcd1fa3"
+      "database_name": "manyfold-tarot-db",
+      "database_id": "f05ec677-9cd9-4cba-85ac-864c1a4f5891"
     }
   ],
   "vars": {
@@ -40,7 +46,7 @@
     // GA4 measurement id. Empty means no analytics is served at all, which is
     // what a fork should inherit — put your own id here to measure your own
     // deployment. Consent Mode v2 defaults ship with it (src/worker/analytics.ts).
-    "GA_MEASUREMENT_ID": ""
+    "GA_MEASUREMENT_ID": "G-CW6W545VTM"
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
   //   ADMIN_PASSWORD          the operator password for /settings, and the only one.
