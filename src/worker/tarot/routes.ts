@@ -9,6 +9,7 @@
  *
  * Route map:
  *   GET  /api/tarot/reader                       who is reading (live agent or demo)
+ *   GET  /api/tarot/access                       remaining free/referred readings
  *   POST /api/tarot/readings                     start a round from a question
  *   GET  /api/tarot/readings/:id                 resume a round
  *   POST /api/tarot/readings/:id/greeting        SSE  the reader catches the question
@@ -17,6 +18,7 @@
  *   POST /api/tarot/readings/:id/interpretation  SSE  the full reading
  *   POST /api/tarot/readings/:id/follow-ups      SSE  keep reading the same three cards
  *   POST /api/tarot/readings/:id/share           freeze a public snapshot
+ *   POST /api/tarot/readings/:id/referral        create a one-use friend invite
  *   GET  /api/tarot/share/:token                 read one (public, no session)
  *
  * The streaming routes follow the starter's chat pattern: the response stream is
@@ -68,6 +70,14 @@ import {
   saveGreeting,
   saveInterpretation,
 } from './store';
+import {
+  accessFor,
+  bindReferralToReading,
+  completeReferral,
+  consumeReadingAccess,
+  createReferral,
+  validateReferral,
+} from './referrals';
 import {
   isSecureRequest,
   newSessionId,
@@ -196,6 +206,8 @@ tarot.get('/reader', async (c) => {
   });
 });
 
+tarot.get('/access', async (c) => c.json(await accessFor(c.env, c.get('sessionId'))));
+
 /* ───────── state 1 → 2: the question ───────── */
 
 tarot.post('/readings', async (c) => {
@@ -209,6 +221,11 @@ tarot.post('/readings', async (c) => {
   }
 
   const sessionId = c.get('sessionId');
+  const referralToken =
+    typeof body?.referralToken === 'string' && body.referralToken.length > 0
+      ? body.referralToken
+      : null;
+  if (referralToken) await validateReferral(c.env, referralToken, sessionId);
   await enforce(c.env, {
     sessionId,
     ip: c.get('clientIp'),
@@ -216,6 +233,7 @@ tarot.post('/readings', async (c) => {
     rule: RULES.readings,
     ipRule: RULES.readingsPerIp,
   });
+  await consumeReadingAccess(c.env, sessionId);
 
   // A new round is a new row and a new A2A context. The previous id is kept only
   // as a link between rounds — never as a way to mix two spreads.
@@ -226,6 +244,7 @@ tarot.post('/readings', async (c) => {
     locale: normalizeLocale(body?.locale),
     previousReadingId: previous,
   });
+  if (referralToken) await bindReferralToReading(c.env, reading.id, referralToken);
   return c.json({ reading: await readingViewFor(c.env, reading) }, 201);
 });
 
@@ -399,8 +418,24 @@ tarot.post('/readings/:id/interpretation', async (c) => {
       demo: diviner.demo,
       agentId: diviner.agentId,
     });
+    await completeReferral(c.env, reading.id, c.get('sessionId'));
     await send({ type: 'interpretation', interpretation });
   });
+});
+
+/* ───────── invite a friend ───────── */
+
+tarot.post('/readings/:id/referral', async (c) => {
+  const reading = await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
+  const referral = await createReferral(c.env, c.get('sessionId'), reading);
+  const url = new URL(c.req.url);
+  return c.json(
+    {
+      referral,
+      url: `${url.origin}/?ref=${encodeURIComponent(referral.token)}`,
+    },
+    201,
+  );
 });
 
 /* ───────── state 6a: keep reading the same three cards ───────── */
