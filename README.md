@@ -4,7 +4,7 @@ English · [中文](README_CN.md)
 
 An AI tarot reading built on Cloudflare Workers and Manyfold.
 
-Official site: [app.manyfold.ai/tarot/](url)
+Official site: https://app.manyfold.ai/tarot/
 
 One question. Three cards. One reading.
 
