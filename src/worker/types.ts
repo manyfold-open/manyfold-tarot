@@ -13,6 +13,11 @@ export interface Env {
   MANYFOLD_API_BASE_URL?: string;
   /** "production" enables https-only and private-IP checks on agent URLs. */
   ENVIRONMENT?: string;
+  /**
+   * Optional path prefix the site is also served under, e.g. /tarot for
+   * app.manyfold.ai/tarot. The root keeps working either way. See mount.ts.
+   */
+  BASE_PATH?: string;
   /** Optional: >=32 chars. Without it a key is generated and kept in D1. */
   CONFIG_ENCRYPTION_KEY?: string;
   /**

@@ -35,6 +35,7 @@ import {
 } from '../../shared/tarot/types';
 import { A2AError, safeErrorText } from '../a2a';
 import { consentRequiredFor, measurementIdFor } from '../analytics';
+import { mountOf, publicUrl } from '../mount';
 import { HttpError, type Env } from '../types';
 import { demoHint } from './demo';
 import { resolveDiviner } from './diviner';
@@ -101,9 +102,13 @@ tarot.use('*', async (c, next) => {
   c.set('clientIp', c.req.header('cf-connecting-ip') ?? null);
   await next();
   if (!existing) {
-    c.header('set-cookie', sessionCookieHeader(sessionId, isSecureRequest(c.req.url)), {
-      append: true,
-    });
+    // Scoped to the mount on a shared host, so the cookie is never sent to
+    // the other apps on app.manyfold.ai.
+    c.header(
+      'set-cookie',
+      sessionCookieHeader(sessionId, isSecureRequest(c.req.url), mountOf(c) || '/'),
+      { append: true },
+    );
   }
   if (shouldSweep()) c.executionCtx.waitUntil(sweep(c.env).catch(() => undefined));
 });
@@ -428,11 +433,10 @@ tarot.post('/readings/:id/interpretation', async (c) => {
 tarot.post('/readings/:id/referral', async (c) => {
   const reading = await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
   const referral = await createReferral(c.env, c.get('sessionId'), reading);
-  const url = new URL(c.req.url);
   return c.json(
     {
       referral,
-      url: `${url.origin}/?ref=${encodeURIComponent(referral.token)}`,
+      url: publicUrl(c, `/?ref=${encodeURIComponent(referral.token)}`),
     },
     201,
   );
@@ -518,8 +522,7 @@ tarot.post('/readings/:id/share', async (c) => {
   });
 
   const snapshot = await createShare(c.env, reading, body?.includeQuestion === true);
-  const url = new URL(c.req.url);
-  return c.json({ share: snapshot, url: `${url.origin}/s/${snapshot.token}` }, 201);
+  return c.json({ share: snapshot, url: publicUrl(c, `/s/${snapshot.token}`) }, 201);
 });
 
 /** Public: no session, no ownership. A share link is meant to be opened by anyone. */

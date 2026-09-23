@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_SIZE, type Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
+import { appUrl } from '../base';
 import {
   FOLLOW_UP_MAX_CHARS,
   QUESTION_MAX_CHARS,
@@ -850,7 +851,7 @@ export default function TarotApp() {
         <Signature locale={locale} />
         {/* Quiet, and always there. A privacy page reachable only from a banner
             is a privacy page that disappears the moment someone answers it. */}
-        <a className="taro-foot-link" href="/privacy">
+        <a className="taro-foot-link" href={appUrl('/privacy')}>
           {copy.consent.more}
         </a>
       </footer>

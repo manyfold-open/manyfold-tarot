@@ -11,10 +11,22 @@
   "name": "manyfold-tarot",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-08-01",
+  // tarot.manyfold.ai is the site's own host. It is also mounted at
+  // app.manyfold.ai/tarot — two routes on the manyfold.ai zone, which is shared
+  // with other apps, so neither pattern reaches past /tarot. Forks: delete the
+  // two app.manyfold.ai entries and BASE_PATH below.
   "routes": [
     {
       "pattern": "tarot.manyfold.ai",
       "custom_domain": true
+    },
+    {
+      "pattern": "app.manyfold.ai/tarot",
+      "zone_name": "manyfold.ai"
+    },
+    {
+      "pattern": "app.manyfold.ai/tarot/*",
+      "zone_name": "manyfold.ai"
     }
   ],
   "observability": {
@@ -28,8 +40,10 @@
     // The API, plus the three paths that serve an HTML document: the Worker
     // writes the Google tag into their <head> on the way past (and does nothing
     // at all when GA_MEASUREMENT_ID is unset). Card images and hashed bundles
-    // are not in this list and never wake the Worker.
-    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy"]
+    // are not in this list and never wake the Worker — except under BASE_PATH,
+    // where everything does, because the prefix has to come off before the
+    // assets runtime can find anything (src/worker/mount.ts).
+    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/tarot", "/tarot/*"]
   },
   "d1_databases": [
     {
@@ -46,7 +60,10 @@
     // GA4 measurement id. Empty means no analytics is served at all, which is
     // what a fork should inherit — put your own id here to measure your own
     // deployment. Consent Mode v2 defaults ship with it (src/worker/analytics.ts).
-    "GA_MEASUREMENT_ID": "G-CW6W545VTM"
+    "GA_MEASUREMENT_ID": "G-CW6W545VTM",
+    // Requests under this prefix are served as if they had arrived at the root.
+    // Keep it in step with the /tarot entries in routes and run_worker_first.
+    "BASE_PATH": "/tarot"
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
   //   ADMIN_PASSWORD          the operator password for /settings, and the only one.

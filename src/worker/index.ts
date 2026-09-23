@@ -22,6 +22,10 @@
  *
  * The tarot routes are open regardless: they are the product, and they are
  * metered instead. See isPublicPath below.
+ *
+ * The same map also answers under BASE_PATH (app.manyfold.ai/tarot/api/health
+ * and so on). The prefix comes off before any of this sees the request — see
+ * src/worker/mount.ts.
  */
 
 import { Hono } from 'hono';
@@ -42,6 +46,7 @@ import {
   verifyAgent,
 } from './connect';
 import { getConversation, handleChatTurn, resetConversation } from './chat';
+import { withMount } from './mount';
 import { tarot } from './tarot/routes';
 
 const SERVICE = 'manyfold-tarot';
@@ -233,4 +238,5 @@ app.all('*', async (c) => {
   });
 });
 
-export default app;
+// Served at the root and, when BASE_PATH is set, under it too.
+export default { fetch: withMount<Env>(app.fetch) } satisfies ExportedHandler<Env>;
