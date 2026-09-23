@@ -29,6 +29,7 @@ import { useEffect, useState } from 'react';
 import { cardArt, cardById, cardKeywords, type Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
+import { appPath, appUrl } from '../base';
 import CardSlot from './Card';
 import Consent from './Consent';
 import { Prose } from './Reading';
@@ -36,7 +37,7 @@ import Signature from './Signature';
 import Sky from './Sky';
 import { fetchShare } from './api';
 
-const tokenFromPath = (): string => decodeURIComponent(location.pathname.replace(/^\/s\//, ''));
+const tokenFromPath = (): string => decodeURIComponent(appPath().replace(/^\/s\//, ''));
 
 export default function SharePage() {
   const [snapshot, setSnapshot] = useState<ShareSnapshot | null>(null);
@@ -63,7 +64,7 @@ export default function SharePage() {
         <Sky />
         <main className="taro-stage">
           <p className="taro-error">{copy.share.notFound}</p>
-          <a className="taro-primary" href="/">
+          <a className="taro-primary" href={appUrl('/')}>
             {copy.share.startYours}
           </a>
         </main>
@@ -169,11 +170,11 @@ export default function SharePage() {
             snapshot's stored signature is no longer what stands here, because
             the heading at the top of the page already says what this is. */}
         <footer className="taro-foot">
-          <a className="taro-primary" href="/">
+          <a className="taro-primary" href={appUrl('/')}>
             {copy.share.startYours}
           </a>
           <Signature locale={locale} from="share" />
-          <a className="taro-foot-link" href="/privacy">
+          <a className="taro-foot-link" href={appUrl('/privacy')}>
             {copy.consent.more}
           </a>
         </footer>
@@ -223,7 +224,7 @@ function ReadCard({
         {entry && card && (
           <img
             className={`taro-read-face${card.reversed ? ' is-reversed' : ''}`}
-            src={cardArt(card.cardId)}
+            src={appUrl(cardArt(card.cardId))}
             // The name is printed right beside it; an alt here would say it twice.
             alt=""
             decoding="async"

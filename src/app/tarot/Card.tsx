@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { cardArt, cardById, type Locale } from '../../shared/tarot/deck';
 import { copyFor } from '../../shared/tarot/i18n';
+import { appUrl } from '../base';
 import type { DrawnCardView, SlotId } from '../../shared/tarot/types';
 
 export interface CardSlotProps {
@@ -50,7 +51,7 @@ export default function CardSlot({ slot, locale, card, settling = false }: CardS
                 <img
                   key={card.cardId}
                   className={`taro-card-photo${loaded === card.cardId ? ' is-loaded' : ''}`}
-                  src={cardArt(card.cardId)}
+                  src={appUrl(cardArt(card.cardId))}
                   // The caption names the card; an alt here would say it twice.
                   alt=""
                   decoding="async"

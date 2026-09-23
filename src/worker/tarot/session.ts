@@ -43,12 +43,13 @@ export function readSessionCookie(header: string | undefined | null): string | n
  *
  * HttpOnly because no script needs it; SameSite=Lax because the share links are
  * ordinary top-level navigations and nothing here is a cross-site POST; Secure
- * on https only, so local http dev still works.
+ * on https only, so local http dev still works. Path is `/` at the root of the
+ * site's own host and the mount (`/tarot`) on a shared one.
  */
-export function sessionCookieHeader(sessionId: string, secure: boolean): string {
+export function sessionCookieHeader(sessionId: string, secure: boolean, path = '/'): string {
   return [
     `${COOKIE_NAME}=${sessionId}`,
-    'Path=/',
+    `Path=${path}`,
     'HttpOnly',
     'SameSite=Lax',
     `Max-Age=${MAX_AGE_SECONDS}`,
