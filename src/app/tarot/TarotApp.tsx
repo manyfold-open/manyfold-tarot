@@ -657,8 +657,37 @@ export default function TarotApp() {
   const atTable = phase === 'shuffle' || phase === 'choose';
   /* Asking, and being answered. One thing on the screen each time, and it is the
      same thing in the same place — so the frame does not move between putting
-     the question and hearing it come back. */
-  const alone = phase === 'ask' || phase === 'greeting';
+     the question and hearing it come back. The locked home page is not one of
+     them: with the invite and the Stick offer it is taller than a phone, and a
+     footer pinned to the window would sit on top of it. */
+  const alone = (phase === 'ask' && access?.canRead !== false) || phase === 'greeting';
+
+  /**
+   * What happened to a Stick reward that was not saved. It sits inside the
+   * question (or locked) section, where the "saved" line goes, never above it:
+   * the language switch is out of the page flow at the top, and a line there
+   * lands on top of it on a phone.
+   */
+  const bonusNoticeLine = bonusNotice ? (
+    <p className="taro-referral-invite" role="status">
+      {
+        {
+          expired: copy.bridge.bonusExpired,
+          dailyLimit: copy.bridge.bonusDailyLimit,
+          unusable: copy.bridge.bonusUnusable,
+          failed: copy.bridge.bonusFailed,
+        }[bonusNotice]
+      }
+      {bonusNotice === 'failed' && (
+        <>
+          {' '}
+          <button type="button" className="taro-link" onClick={() => void claimStickBonus(true)}>
+            {copy.bridge.bonusRetry}
+          </button>
+        </>
+      )}
+    </p>
+  ) : null;
 
   return (
     <div className={`taro${alone ? ' is-alone' : ''}${atTable ? ' is-table' : ''}${phase === 'outro' ? ' is-outro' : ''}`}>
@@ -693,31 +722,11 @@ export default function TarotApp() {
           </p>
         )}
 
-        {phase === 'ask' && bonusNotice && (
-          <p className="taro-referral-invite" role="status">
-            {
-              {
-                expired: copy.bridge.bonusExpired,
-                dailyLimit: copy.bridge.bonusDailyLimit,
-                unusable: copy.bridge.bonusUnusable,
-                failed: copy.bridge.bonusFailed,
-              }[bonusNotice]
-            }
-            {bonusNotice === 'failed' && (
-              <>
-                {' '}
-                <button type="button" className="taro-link" onClick={() => void claimStickBonus(true)}>
-                  {copy.bridge.bonusRetry}
-                </button>
-              </>
-            )}
-          </p>
-        )}
-
         {/* ── 1 · the question ── */}
         {/* ── 1 · nothing left to spend: the invite is the whole page ── */}
         {phase === 'ask' && access?.canRead === false && (
           <section className="taro-ask taro-locked">
+            {bonusNoticeLine}
             <h1 className="taro-ask-title">
               {access.freeUsed && !access.dailyExtraUsed
                 ? copy.referral.lockedFreeTitle
@@ -753,7 +762,8 @@ export default function TarotApp() {
 
         {phase === 'ask' && access?.canRead !== false && (
           <section className="taro-ask">
-            {stickBonusReady || access?.stickBonusAvailable ? (
+            {bonusNoticeLine ??
+              (stickBonusReady || access?.stickBonusAvailable ? (
               <p className="taro-referral-invite">
                 {access?.freeUsed ? copy.bridge.bonusReadyNow : copy.bridge.bonusReady}
               </p>
@@ -761,7 +771,7 @@ export default function TarotApp() {
               <p className="taro-referral-invite">{copy.referral.invited}</p>
             ) : access?.freeUsed && access.credits > 0 ? (
               <p className="taro-referral-invite">{copy.referral.completed}</p>
-            ) : null}
+            ) : null)}
             <h1 className="taro-ask-title">{copy.ask.title}</h1>
             <form
               onSubmit={(event) => {

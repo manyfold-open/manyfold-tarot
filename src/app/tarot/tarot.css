@@ -624,8 +624,11 @@ html[data-app='taro'] body {
    than against whatever is left above the footer. Both screens, not just the
    first, because they are the same shot — a question is put and the same patch
    of dark answers it — and a frame that shifted by the height of a signature
-   between the two would make the answer look like a different page. */
-@media (min-height: 560px) {
+   between the two would make the answer look like a different page.
+   Only where the window has the room, though: below this height a pinned
+   footer covers the Begin line (a 375x667 phone does once the Stick reward
+   line is on the screen), so shorter windows keep the footer in the flow. */
+@media (min-height: 740px) {
   .taro.is-alone .taro-foot {
     position: fixed;
     left: 0;
@@ -1884,6 +1887,15 @@ html[data-app='taro'] body {
   line-height: 1.7;
 }
 
+/* The retry inside a Stick reward notice sits in a line of prose; give it a
+   thumb-sized target without moving the words around it. */
+.taro-referral-invite .taro-link {
+  display: inline-block;
+  min-height: 44px;
+  padding: 12px 6px;
+  font-size: 13px;
+}
+
 /* The other app's own mark, after the words of a link that goes there. */
 .taro-app-icon {
   display: inline-block;
@@ -1981,6 +1993,12 @@ html[data-app='taro'] body {
 /* On the home page the invite stands in for the question box. */
 .taro-referral-home {
   max-width: 440px;
+}
+
+/* The locked page scrolls (its footer is back in the flow), so its first line
+   can reach the top: keep it clear of the language switch above it. */
+.taro-ask.taro-locked {
+  padding-top: 72px;
 }
 
 .taro-locked > .taro-referral-copy {
