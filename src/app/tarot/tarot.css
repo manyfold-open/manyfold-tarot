@@ -1866,6 +1866,33 @@ html[data-app='taro'] body {
   width: 100%;
 }
 
+/* The Stick sits beside Share at the end of a reading, in the invite's old
+   place: the action on top, one line under it saying what it unlocks. */
+.taro-stick-action {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.taro-stick-action p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* The other app's own mark, after the words of a link that goes there. */
+.taro-app-icon {
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  margin-left: 0.4em;
+  vertical-align: -0.45em;
+}
+
 .taro-stick-bridge {
   width: min(var(--column), 100%);
   margin-inline: auto;

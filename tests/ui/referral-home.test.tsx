@@ -173,25 +173,28 @@ describe('the end of a round', () => {
     fetchReferral.mockResolvedValue({ referral: null, url: null });
   });
 
-  it('invites the way Share shares: one button, the link, then the wait', async () => {
+  it('puts the Stick beside Share, in a new tab, instead of the invite', async () => {
     fetchAccess.mockResolvedValue({
       freeUsed: true,
       credits: 0,
       canRead: false,
+      dailyExtraUsed: false,
+      stickBonusAvailable: false,
       inviteReadingId: 'r1',
     });
 
     render(<TarotApp />);
 
-    const invite = await screen.findByRole('button', { name: 'Invite a friend to play one more' });
+    const stick = await screen.findByRole('link', { name: 'Draw a stick for today' });
+    expect(stick.getAttribute('target')).toBe('_blank');
+    expect(stick.getAttribute('rel')).toContain('noopener');
+    const href = new URL(stick.getAttribute('href')!);
+    expect(href.searchParams.get('utm_content')).toBe('outro');
+    expect(href.searchParams.get('tarot_return')).toBe(`${location.origin}/`);
+    expect(screen.getByText('Draw a stick, then ask Tarot one more question today.')).toBeTruthy();
+    // The invite lives on the home page now, not at the end of a round.
+    expect(screen.queryByRole('button', { name: 'Invite a friend to play one more' })).toBeNull();
     expect(screen.queryByText('Want to ask again?')).toBeNull();
-    fireEvent.click(invite);
-
-    await waitFor(() => expect(createReferral).toHaveBeenCalledWith('r1'));
-    expect(await screen.findByDisplayValue(LINK)).toBeTruthy();
-    expect(
-      screen.getByText('Waiting for your friend, then this will update when they finish.'),
-    ).toBeTruthy();
   });
 
   it('only promises another question when there is one to ask', async () => {

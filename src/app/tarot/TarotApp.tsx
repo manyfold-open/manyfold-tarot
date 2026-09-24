@@ -36,6 +36,7 @@ import Consent from './Consent';
 import Fan from './Fan';
 import Reading, { Prose } from './Reading';
 import ReferralBox from './ReferralBox';
+import StickIcon from './StickIcon';
 import ShareBox from './ShareBox';
 import Signature from './Signature';
 import Sky from './Sky';
@@ -738,9 +739,12 @@ export default function TarotApp() {
                 <a
                   className="taro-secondary"
                   href={stickLink(fortuneStickUrl, 'locked')}
+                  target="_blank"
+                  rel="noopener"
                   onClick={() => track('stick_opened', { from: 'locked' })}
                 >
                   {copy.bridge.stickCta}
+                  <StickIcon />
                 </a>
               </div>
             )}
@@ -994,33 +998,34 @@ export default function TarotApp() {
             ) : null}
 
             <section className="taro-outro">
+              {/* The Stick takes the invite's place beside Share: it is the
+                  one next step we most want taken. Invites still live on the
+                  home page once nothing is left to spend. It opens in a new
+                  tab so this reading stays where it is. */}
               <div className="taro-outro-actions">
                 <ShareBox reading={reading} locale={locale} />
-                <ReferralBox
-                  readingId={reading.readingId}
-                  locale={locale}
-                  onCompleted={() => void refreshAccess()}
-                />
-              </div>
-
-              <div className="taro-stick-bridge">
-                <p>
-                  {/* Only offer to unlock what is still locked: a visitor with a
-                      reward or invite already waiting is not sent for another. */}
-                  {access?.freeUsed &&
-                  !access.dailyExtraUsed &&
-                  !access.stickBonusAvailable &&
-                  access.credits === 0
-                    ? copy.bridge.outroOffer
-                    : copy.bridge.outroContinue}
-                </p>
-                <a
-                  className="taro-secondary"
-                  href={stickLink(fortuneStickUrl, 'outro')}
-                  onClick={() => track('stick_opened', { from: 'outro' })}
-                >
-                  {copy.bridge.stickCta}
-                </a>
+                <div className="taro-stick-action">
+                  <a
+                    className="taro-primary"
+                    href={stickLink(fortuneStickUrl, 'outro')}
+                    target="_blank"
+                    rel="noopener"
+                    onClick={() => track('stick_opened', { from: 'outro' })}
+                  >
+                    {copy.bridge.stickCta}
+                    <StickIcon />
+                  </a>
+                  <p>
+                    {/* Only offer to unlock what is still locked: a visitor with a
+                        reward or invite already waiting is not sent for another. */}
+                    {access?.freeUsed &&
+                    !access.dailyExtraUsed &&
+                    !access.stickBonusAvailable &&
+                    access.credits === 0
+                      ? copy.bridge.outroOffer
+                      : copy.bridge.outroContinue}
+                  </p>
+                </div>
               </div>
 
               <button type="button" className="taro-secondary taro-new-reading" onClick={newRound}>

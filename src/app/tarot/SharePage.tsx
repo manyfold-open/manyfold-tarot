@@ -34,6 +34,7 @@ import Consent from './Consent';
 import { Prose } from './Reading';
 import Signature from './Signature';
 import Sky from './Sky';
+import StickIcon from './StickIcon';
 import { track } from './analytics';
 import { fetchReader, fetchShare } from './api';
 import { appAssetUrl, appPath, appUrl } from '../base';
@@ -197,9 +198,12 @@ export default function SharePage() {
             <a
               className="taro-secondary"
               href={shareStickUrl(fortuneStickUrl)}
+              target="_blank"
+              rel="noopener"
               onClick={() => track('stick_opened', { from: 'share' })}
             >
               {copy.share.goToStick}
+              <StickIcon />
             </a>
           </div>
           <Signature locale={locale} from="share" />
