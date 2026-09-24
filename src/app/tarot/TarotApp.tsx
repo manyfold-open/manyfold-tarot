@@ -103,8 +103,11 @@ const phaseFor = (reading: ReadingView): Phase => {
   }
 };
 
+// A root path: streamDiviner puts it under the mount itself (appUrl), so doing it
+// here too would ask for /tarot/tarot/api/… — which falls through to the assets
+// runtime and comes back as a bare 405 on app.manyfold.ai/tarot.
 const readingPath = (id: string, suffix: string): string =>
-  appUrl(`/api/tarot/readings/${encodeURIComponent(id)}${suffix}`);
+  `/api/tarot/readings/${encodeURIComponent(id)}${suffix}`;
 
 /** Adds a freshly turned card without ever duplicating one. */
 const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
