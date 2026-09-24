@@ -36,7 +36,6 @@ import CardSlot from './Card';
 import Consent from './Consent';
 import Fan from './Fan';
 import Reading, { Prose } from './Reading';
-import ReferralBox from './ReferralBox';
 import StickIcon from './StickIcon';
 import ShareBox from './ShareBox';
 import Signature from './Signature';
@@ -726,37 +725,35 @@ export default function TarotApp() {
         {/* ── 1 · nothing left to spend: the invite is the whole page ── */}
         {phase === 'ask' && access?.canRead === false && (
           <section className="taro-ask taro-locked">
-            {bonusNoticeLine}
+            {/* The title already says the day's extra is gone; saying it twice
+                in a notice above it is noise. */}
+            {bonusNotice !== 'dailyLimit' && bonusNoticeLine}
             <h1 className="taro-ask-title">
               {access.freeUsed && !access.dailyExtraUsed
                 ? copy.referral.lockedFreeTitle
                 : copy.referral.lockedTitle}
             </h1>
-            {access.inviteReadingId ? (
-              <ReferralBox
-                readingId={access.inviteReadingId}
-                locale={locale}
-                intro
-                onCompleted={() => void refreshAccess()}
-              />
-            ) : (
-              <p className="taro-referral-copy">{copy.referral.lockedNoInvite}</p>
-            )}
-            {access.freeUsed && !access.dailyExtraUsed && (
-              <div className="taro-stick-bridge">
-                <p>{copy.bridge.lockedOffer}</p>
-                <a
-                  className="taro-secondary"
-                  href={stickLink(fortuneStickUrl, 'locked')}
-                  target="_blank"
-                  rel="noopener"
-                  onClick={() => track('stick_opened', { from: 'locked' })}
-                >
-                  {copy.bridge.stickCta}
-                  <StickIcon />
-                </a>
-              </div>
-            )}
+            {/* The Stick is the way on from here, in place of the invite. While
+                the day's extra is still locked it unlocks one more reading;
+                once it is spent the Stick is offered for its own sake, without
+                a promise the next round could not keep. */}
+            <div className="taro-stick-bridge taro-locked-stick">
+              <p className="taro-referral-copy">
+                {access.freeUsed && !access.dailyExtraUsed
+                  ? copy.bridge.lockedOffer
+                  : copy.bridge.lockedDoneOffer}
+              </p>
+              <a
+                className="taro-primary"
+                href={stickLink(fortuneStickUrl, 'locked')}
+                target="_blank"
+                rel="noopener"
+                onClick={() => track('stick_opened', { from: 'locked' })}
+              >
+                {copy.bridge.stickCta}
+                <StickIcon />
+              </a>
+            </div>
           </section>
         )}
 

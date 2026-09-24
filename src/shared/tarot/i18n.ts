@@ -139,6 +139,8 @@ export interface Copy {
     outroOffer: string;
     outroContinue: string;
     lockedOffer: string;
+    /** The locked page once the day's extra is spent too: no promise of another round. */
+    lockedDoneOffer: string;
     /** A Stick reward is waiting behind today's free reading. */
     bonusReady: string;
     /** A Stick reward is waiting and the free reading is already spent. */
@@ -314,7 +316,8 @@ const zh: Copy = {
     stickCta: '抽一支今天的签',
     outroOffer: '抽完一支签，今天还可以再问一次塔罗。',
     outroContinue: '也可以来求一支签，看看今天的提示。',
-    lockedOffer: '抽一支签，解锁今天额外一次塔罗。',
+    lockedOffer: '去抽一支签，今天就能再问一次塔罗。',
+    lockedDoneOffer: '去抽一支签，看看签怎么说；明天塔罗又能再问。',
     bonusReady: '求签奖励已保存。今天先用免费解读，之后还可以再问一次。',
     bonusReadyNow: '求签奖励已解锁，今天还可以再问一次。',
     bonusExpired: '这支签的奖励只在抽签当天有效，已经过期了。',
@@ -507,7 +510,8 @@ const en: Copy = {
     stickCta: 'Draw a stick for today',
     outroOffer: 'Draw a stick, then ask Tarot one more question today.',
     outroContinue: 'You can also draw a stick for a thought about today.',
-    lockedOffer: 'Draw a stick to unlock one more Tarot reading today.',
+    lockedOffer: 'Draw a stick and you can ask Tarot one more question today.',
+    lockedDoneOffer: 'Draw a stick to see what it says. Tarot opens again tomorrow.',
     bonusReady: 'Your Stick reward is saved. After today’s free reading, you can ask one more question.',
     bonusReadyNow: 'Your Stick reward is unlocked. You can ask one more question today.',
     bonusExpired: 'That stick’s reward was only good on the day it was drawn, and it has expired.',

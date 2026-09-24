@@ -1905,6 +1905,12 @@ html[data-app='taro'] body {
   vertical-align: -0.45em;
 }
 
+/* On the locked page the Stick is the page's one action, so it gets the room
+   the invite box had. */
+.taro-locked-stick {
+  gap: 18px;
+}
+
 .taro-stick-bridge {
   width: min(var(--column), 100%);
   margin-inline: auto;
