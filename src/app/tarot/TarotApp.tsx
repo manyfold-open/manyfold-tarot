@@ -744,7 +744,7 @@ export default function TarotApp() {
                   : copy.bridge.lockedDoneOffer}
               </p>
               <a
-                className="taro-primary"
+                className="taro-primary taro-to-stick"
                 href={stickLink(fortuneStickUrl, 'locked')}
                 target="_blank"
                 rel="noopener"
@@ -1013,7 +1013,7 @@ export default function TarotApp() {
                 <ShareBox reading={reading} locale={locale} />
                 <div className="taro-stick-action">
                   <a
-                    className="taro-primary"
+                    className="taro-primary taro-to-stick"
                     href={stickLink(fortuneStickUrl, 'outro')}
                     target="_blank"
                     rel="noopener"

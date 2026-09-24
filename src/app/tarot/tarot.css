@@ -1896,6 +1896,26 @@ html[data-app='taro'] body {
   font-size: 13px;
 }
 
+/* The way out to the Stick: full ink, a touch heavier, and a rule in the
+   torii's vermilion instead of the faint white one, so it reads as the next
+   step and shows where it goes before the click. */
+.taro-to-stick {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.taro-to-stick::after {
+  height: 2px;
+  background: #d9573f;
+  opacity: 0.85;
+  transform: scaleX(1);
+}
+
+.taro-to-stick:hover::after,
+.taro-to-stick:focus-visible::after {
+  opacity: 1;
+}
+
 /* The other app's own mark, after the words of a link that goes there. */
 .taro-app-icon {
   display: inline-block;
