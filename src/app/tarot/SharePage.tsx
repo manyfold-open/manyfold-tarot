@@ -34,13 +34,27 @@ import Consent from './Consent';
 import { Prose } from './Reading';
 import Signature from './Signature';
 import Sky from './Sky';
-import { fetchShare } from './api';
+import { track } from './analytics';
+import { fetchReader, fetchShare } from './api';
+import { appAssetUrl, appPath, appUrl } from '../base';
 
-const tokenFromPath = (): string => decodeURIComponent(location.pathname.replace(/^\/s\//, ''));
+const SHARE_TAROT_URL = appUrl('/?utm_source=tarot-share&utm_medium=share&new=1');
+const DEFAULT_STICK_URL = 'https://app.manyfold.ai/fortune-stick/';
+
+const tokenFromPath = (): string =>
+  decodeURIComponent(appPath(location.pathname).replace(/^\/s\//, ''));
+
+const shareStickUrl = (base: string): string => {
+  const url = new URL(base, location.href);
+  url.searchParams.set('utm_source', 'tarot-share');
+  url.searchParams.set('utm_medium', 'share');
+  return url.toString();
+};
 
 export default function SharePage() {
   const [snapshot, setSnapshot] = useState<ShareSnapshot | null>(null);
   const [missing, setMissing] = useState(false);
+  const [fortuneStickUrl, setFortuneStickUrl] = useState(DEFAULT_STICK_URL);
   const locale = snapshot ? snapshot.locale : normalizeLocale(navigator.language);
   const copy = copyFor(locale);
 
@@ -48,6 +62,9 @@ export default function SharePage() {
     void fetchShare(tokenFromPath())
       .then(({ share }) => setSnapshot(share))
       .catch(() => setMissing(true));
+    void fetchReader()
+      .then(({ fortuneStickUrl: url }) => setFortuneStickUrl(url))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -63,7 +80,7 @@ export default function SharePage() {
         <Sky />
         <main className="taro-stage">
           <p className="taro-error">{copy.share.notFound}</p>
-          <a className="taro-primary" href="/">
+          <a className="taro-primary" href={appUrl('/')}>
             {copy.share.startYours}
           </a>
         </main>
@@ -169,11 +186,24 @@ export default function SharePage() {
             snapshot's stored signature is no longer what stands here, because
             the heading at the top of the page already says what this is. */}
         <footer className="taro-foot">
-          <a className="taro-primary" href="/">
-            {copy.share.startYours}
-          </a>
+          <div className="taro-share-actions">
+            <a
+              className="taro-primary"
+              href={SHARE_TAROT_URL}
+              onClick={() => track('tarot_share_cta_clicked', { destination: 'tarot' })}
+            >
+              {copy.share.startYours}
+            </a>
+            <a
+              className="taro-secondary"
+              href={shareStickUrl(fortuneStickUrl)}
+              onClick={() => track('stick_opened', { from: 'share' })}
+            >
+              {copy.share.goToStick}
+            </a>
+          </div>
           <Signature locale={locale} from="share" />
-          <a className="taro-foot-link" href="/privacy">
+          <a className="taro-foot-link" href={appUrl('/privacy')}>
             {copy.consent.more}
           </a>
         </footer>
@@ -223,7 +253,7 @@ function ReadCard({
         {entry && card && (
           <img
             className={`taro-read-face${card.reversed ? ' is-reversed' : ''}`}
-            src={cardArt(card.cardId)}
+            src={appAssetUrl(cardArt(card.cardId))}
             // The name is printed right beside it; an alt here would say it twice.
             alt=""
             decoding="async"

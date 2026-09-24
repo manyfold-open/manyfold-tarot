@@ -61,7 +61,7 @@ html[data-app='taro'] body {
      back has no keyline to lose, but it is cut to the same figure: two cards from
      one deck do not have two different corners. */
   --card-round: 1.2;
-  --card-back: url('/cards/back.webp');
+  --card-back: url('/tarot/cards/back.webp');
   /* What a card is before its picture is on it — the deck's ink run almost all
      the way down to black, so a card that has not loaded is still this deck. */
   --card-stock: linear-gradient(160deg, #101521, #04060c 62%);
@@ -1866,6 +1866,23 @@ html[data-app='taro'] body {
   width: 100%;
 }
 
+.taro-stick-bridge {
+  width: min(var(--column), 100%);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.taro-stick-bridge p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 @media (max-width: 560px) {
   .taro-outro-actions {
     grid-template-columns: 1fr;
@@ -2142,6 +2159,13 @@ html[data-app='taro'] body {
   padding: clamp(18px, 2.6vh, 26px) 0 0;
   border-top: 1px solid var(--line);
   margin-top: 0;
+}
+
+.taro-share-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 /* ── misc ── */

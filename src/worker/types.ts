@@ -31,6 +31,12 @@ export interface Env {
   TAROT_AGENT_ID?: string;
   /** Set to "1" to force the built-in demo reader even when an agent is connected. */
   TAROT_DEMO?: string;
+  /** Shared HMAC secret used only to verify one-time Fortune Stick rewards. */
+  TAROT_BRIDGE_SECRET?: string;
+  /** Fortune Stick app URL; preview builds can point to the matching Stick preview. */
+  FORTUNE_STICK_URL?: string;
+  /** Optional path prefix for the shared app.manyfold.ai host, e.g. /tarot. */
+  BASE_PATH?: string;
 
   /**
    * Optional: a GA4 measurement id (`G-…`). Set it and the Worker writes the

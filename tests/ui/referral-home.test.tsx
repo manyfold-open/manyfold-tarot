@@ -43,6 +43,8 @@ type Access = {
   freeUsed: boolean;
   credits: number;
   canRead: boolean;
+  dailyExtraUsed?: boolean;
+  stickBonusAvailable?: boolean;
   inviteReadingId: string | null;
 };
 type Referral = {
@@ -102,7 +104,11 @@ describe('the home page with no reading left', () => {
 
     render(<TarotApp />);
 
-    expect(await screen.findByRole('heading', { name: 'Your free reading is used.' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', {
+        name: "Today's free and extra readings are used. Come back tomorrow.",
+      }),
+    ).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Invite a friend to play one more' }));
@@ -124,7 +130,7 @@ describe('the home page with no reading left', () => {
     expect(
       await screen.findByText('Your friend finished — one more reading is unlocked.'),
     ).toBeTruthy();
-    expect(screen.getByRole('textbox')).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeTruthy());
     expect(createReferral).not.toHaveBeenCalled();
   });
 

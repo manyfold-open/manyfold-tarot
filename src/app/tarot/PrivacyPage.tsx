@@ -19,6 +19,7 @@ import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import Signature from './Signature';
 import Sky from './Sky';
 import { setConsent, storedConsent, type Consent } from './analytics';
+import { appUrl } from '../base';
 
 const LOCALE_KEY = 'taro.locale';
 
@@ -103,7 +104,7 @@ export default function PrivacyPage() {
           </section>
 
           <p>
-            <a className="taro-link" href="/">
+            <a className="taro-link" href={appUrl('/')}>
               {copy.privacy.back}
             </a>
           </p>

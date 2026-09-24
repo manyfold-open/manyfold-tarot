@@ -23,6 +23,7 @@ import type { Locale } from '../../shared/tarot/deck';
 import { copyFor } from '../../shared/tarot/i18n';
 import { measuring, setConsent, storedConsent, type Consent as Choice } from './analytics';
 import { fetchReader } from './api';
+import { appUrl } from '../base';
 
 export default function Consent({
   locale,
@@ -67,7 +68,7 @@ export default function Consent({
     <aside className="taro-consent" role="region" aria-label={copy.consent.label}>
       <p className="taro-consent-line">
         {copy.consent.line}{' '}
-        <a className="taro-link" href="/privacy">
+        <a className="taro-link" href={appUrl('/privacy')}>
           {copy.consent.more}
         </a>
       </p>

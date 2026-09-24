@@ -46,10 +46,22 @@ import {
   fetchAccess,
   fetchReader,
   fetchReading,
+  redeemStickBonus,
   startReading,
   stopShuffle,
   streamDiviner,
 } from './api';
+import { readTarotHandoff } from './bridge';
+import { appUrl } from '../base';
+
+const DEFAULT_STICK_URL = 'https://app.manyfold.ai/fortune-stick/';
+const stickLink = (base: string, placement: 'outro' | 'locked'): string => {
+  const url = new URL(base, location.href);
+  url.searchParams.set('utm_source', 'tarot');
+  url.searchParams.set('utm_medium', 'referral');
+  url.searchParams.set('utm_content', placement);
+  return url.toString();
+};
 
 type Phase = 'ask' | 'greeting' | 'shuffle' | 'choose' | 'reveal' | 'reading' | 'outro';
 
@@ -86,7 +98,7 @@ const phaseFor = (reading: ReadingView): Phase => {
 };
 
 const readingPath = (id: string, suffix: string): string =>
-  `/api/tarot/readings/${encodeURIComponent(id)}${suffix}`;
+  appUrl(`/api/tarot/readings/${encodeURIComponent(id)}${suffix}`);
 
 /** Adds a freshly turned card without ever duplicating one. */
 const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
@@ -99,13 +111,15 @@ const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
       };
 
 export default function TarotApp() {
+  const [handoff] = useState(() => readTarotHandoff(location.href));
+  const [stickBonusReady, setStickBonusReady] = useState(false);
   /** The invite this browser arrived with. Spent by the first round it starts,
    *  so a later round from the same page does not carry a used link along. */
   const [referralToken, setReferralToken] = useState(() =>
     new URLSearchParams(location.search).get('ref'),
   );
   const [locale, setLocale] = useState<Locale>(() =>
-    normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language),
+    handoff.locale ?? normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language),
   );
   const copy = useMemo(() => copyFor(locale), [locale]);
 
@@ -122,6 +136,7 @@ export default function TarotApp() {
   const [followLive, setFollowLive] = useState<string | null>(null);
   const [suggestsNew, setSuggestsNew] = useState(false);
   const [demoReader, setDemoReader] = useState(false);
+  const [fortuneStickUrl, setFortuneStickUrl] = useState(DEFAULT_STICK_URL);
   /** Null until the Worker answers; the banner draws nothing before that. */
   const [consentRequired, setConsentRequired] = useState<boolean | undefined>(undefined);
   const [loadingLine, setLoadingLine] = useState(0);
@@ -157,12 +172,35 @@ export default function TarotApp() {
     void fetchReader()
       .then((info) => {
         setDemoReader(info.demo);
+        setFortuneStickUrl(info.fortuneStickUrl);
         setConsentRequired(info.consentRequired);
       })
       .catch(() => undefined);
   }, []);
 
   useEffect(() => {
+    const shouldStartAtQuestion = handoff.fromStick || handoff.forceQuestion || Boolean(handoff.bonusToken);
+    if (handoff.hasBridgeFragment || handoff.forceQuestion) {
+      const cleanUrl = new URL(location.href);
+      if (handoff.hasBridgeFragment) cleanUrl.hash = '';
+      if (handoff.forceQuestion) cleanUrl.searchParams.delete('new');
+      history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+    }
+
+    if (handoff.fromStick && handoff.bonusToken) {
+      void redeemStickBonus(handoff.bonusToken)
+        .then(({ status }) => {
+          if (status === 'granted' || status === 'already_available') {
+            setStickBonusReady(true);
+            void fetchAccess().then(setAccess).catch(() => undefined);
+          }
+          if (status === 'granted') track('tarot_bonus_redeemed', { source: 'fortune-stick' });
+        })
+        .catch(() => undefined);
+    }
+
+    if (shouldStartAtQuestion) return;
+
     const stored = localStorage.getItem(READING_KEY);
     if (!stored) return;
     let cancelled = false;
@@ -272,7 +310,7 @@ export default function TarotApp() {
     setBusy(true);
     setError('');
     try {
-      const { reading: created } = await startReading({
+      const { reading: created, accessSource } = await startReading({
         question: text,
         locale,
         previousReadingId: previousReadingId.current,
@@ -289,7 +327,15 @@ export default function TarotApp() {
       setPhase('greeting');
       // The reading events are the product funnel, in order — never its content.
       // What goes out is that a question was asked, not what was asked.
-      track('reading_started', { locale, returning: previousReadingId.current !== null });
+      track('reading_started', {
+        locale,
+        returning: previousReadingId.current !== null,
+        from_stick: handoff.fromStick,
+        source: handoff.source ?? 'direct',
+      });
+      if (accessSource !== 'free') {
+        track('tarot_extra_reading_started', { source: accessSource });
+      }
       void runGreeting(created.readingId);
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'rate_limited') {
@@ -307,7 +353,7 @@ export default function TarotApp() {
     } finally {
       setBusy(false);
     }
-  }, [busy, question, locale, copy, referralToken, runGreeting, refreshAccess]);
+  }, [busy, question, locale, copy, referralToken, runGreeting, refreshAccess, handoff]);
 
   /** The field is a line, not a box: it opens one row high and grows downward
    *  with the question instead of reserving room for one nobody has written. */
@@ -528,7 +574,7 @@ export default function TarotApp() {
   const newRound = useCallback(() => {
     previousReadingId.current = reading?.readingId ?? null;
     localStorage.removeItem(READING_KEY);
-    history.replaceState(null, '', '/');
+    history.replaceState(null, '', appUrl('/'));
     greetedFor.current = null;
     drawnFor.current = null;
     turning.current = null;
@@ -608,12 +654,26 @@ export default function TarotApp() {
             ) : (
               <p className="taro-referral-copy">{copy.referral.lockedNoInvite}</p>
             )}
+            {access.freeUsed && !access.dailyExtraUsed && (
+              <div className="taro-stick-bridge">
+                <p>{copy.bridge.lockedOffer}</p>
+                <a
+                  className="taro-secondary"
+                  href={stickLink(fortuneStickUrl, 'locked')}
+                  onClick={() => track('stick_opened', { from: 'locked' })}
+                >
+                  {copy.bridge.stickCta}
+                </a>
+              </div>
+            )}
           </section>
         )}
 
         {phase === 'ask' && access?.canRead !== false && (
           <section className="taro-ask">
-            {referralToken ? (
+            {stickBonusReady || access?.stickBonusAvailable ? (
+              <p className="taro-referral-invite">{copy.bridge.bonusReady}</p>
+            ) : referralToken ? (
               <p className="taro-referral-invite">{copy.referral.invited}</p>
             ) : access?.freeUsed && access.credits > 0 ? (
               <p className="taro-referral-invite">{copy.referral.completed}</p>
@@ -863,6 +923,21 @@ export default function TarotApp() {
                 />
               </div>
 
+              <div className="taro-stick-bridge">
+                <p>
+                  {access?.freeUsed && !access.dailyExtraUsed
+                    ? copy.bridge.outroOffer
+                    : copy.bridge.outroContinue}
+                </p>
+                <a
+                  className="taro-secondary"
+                  href={stickLink(fortuneStickUrl, 'outro')}
+                  onClick={() => track('stick_opened', { from: 'outro' })}
+                >
+                  {copy.bridge.stickCta}
+                </a>
+              </div>
+
               <button type="button" className="taro-secondary taro-new-reading" onClick={newRound}>
                 {/* Always the way home. It only promises another question when
                     there is one to ask; otherwise home is where the invite is. */}
@@ -914,7 +989,7 @@ export default function TarotApp() {
         <Signature locale={locale} />
         {/* Quiet, and always there. A privacy page reachable only from a banner
             is a privacy page that disappears the moment someone answers it. */}
-        <a className="taro-foot-link" href="/privacy">
+        <a className="taro-foot-link" href={appUrl('/privacy')}>
           {copy.consent.more}
         </a>
       </footer>

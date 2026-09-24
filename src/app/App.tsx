@@ -13,8 +13,9 @@ import ChatView from './components/ChatView';
 import SettingsView from './components/SettingsView';
 import PasswordGate from './components/PasswordGate';
 import { tabFor, type Tab } from './route';
+import { appPath } from './base';
 
-const currentTab = (): Tab => tabFor(location.pathname, location.hash);
+const currentTab = (): Tab => tabFor(appPath(location.pathname), location.hash);
 
 export default function App() {
   const [state, setState] = useState<AppState | null>(null);

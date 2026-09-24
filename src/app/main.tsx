@@ -23,10 +23,11 @@ import { isConsolePath, isPrivacyPath, isSharePath } from './route';
 import PrivacyPage from './tarot/PrivacyPage';
 import SharePage from './tarot/SharePage';
 import TarotApp from './tarot/TarotApp';
+import { appPath } from './base';
 import './styles.css';
 import './tarot/tarot.css';
 
-const path = location.pathname;
+const path = appPath(location.pathname);
 const isConsole = isConsolePath(path);
 const isShare = isSharePath(path);
 const isPrivacy = isPrivacyPath(path);

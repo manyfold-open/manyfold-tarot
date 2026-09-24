@@ -15,6 +15,10 @@
     {
       "pattern": "tarot.manyfold.ai",
       "custom_domain": true
+    },
+    {
+      "pattern": "app.manyfold.ai/tarot*",
+      "zone_name": "manyfold.ai"
     }
   ],
   "observability": {
@@ -25,11 +29,10 @@
     "directory": "./dist/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    // The API, plus the three paths that serve an HTML document: the Worker
-    // writes the Google tag into their <head> on the way past (and does nothing
-    // at all when GA_MEASUREMENT_ID is unset). Card images and hashed bundles
-    // are not in this list and never wake the Worker.
-    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy"]
+    // The API, plus routes that need a Worker response. Mounted /tarot/* paths
+    // pass through the Worker so it can strip the prefix before serving assets.
+    // The legacy root routes still use the asset-first fast path where possible.
+    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/tarot", "/tarot/*"]
   },
   "d1_databases": [
     {
@@ -46,7 +49,11 @@
     // GA4 measurement id. Empty means no analytics is served at all, which is
     // what a fork should inherit — put your own id here to measure your own
     // deployment. Consent Mode v2 defaults ship with it (src/worker/analytics.ts).
-    "GA_MEASUREMENT_ID": "G-CW6W545VTM"
+    "GA_MEASUREMENT_ID": "G-CW6W545VTM",
+    // Preview builds can override this to the matching Fortune Stick preview URL.
+    "FORTUNE_STICK_URL": "https://app.manyfold.ai/fortune-stick/",
+    // The public app is mounted under this path on the shared app.manyfold.ai host.
+    "BASE_PATH": "/tarot"
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
   //   ADMIN_PASSWORD          the operator password for /settings, and the only one.

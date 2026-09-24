@@ -233,4 +233,30 @@ app.all('*', async (c) => {
   });
 });
 
-export default app;
+/* ───────── mount path ───────── */
+
+// The Worker also serves app.manyfold.ai/tarot while remaining available at
+// the root of its workers.dev URL and legacy tarot.manyfold.ai custom domain.
+// Mounted requests are rewritten before Hono and the assets binding see them.
+const mountPath = (env: Env): string => (env.BASE_PATH ?? '').trim().replace(/\/+$/, '');
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const base = mountPath(env);
+    const url = new URL(request.url);
+    if (!base || (url.pathname !== base && !url.pathname.startsWith(`${base}/`))) {
+      return app.fetch(request, env, ctx);
+    }
+    if (url.pathname === base) {
+      url.pathname = `${base}/`;
+      return Response.redirect(url.toString(), 308);
+    }
+    url.pathname = url.pathname.slice(base.length);
+    const response = await app.fetch(new Request(url.toString(), request), env, ctx);
+    const location = response.headers.get('location');
+    if (!location?.startsWith('/') || location.startsWith('//')) return response;
+    const redirected = new Response(response.body, response);
+    redirected.headers.set('location', base + location);
+    return redirected;
+  },
+} satisfies ExportedHandler<Env>;

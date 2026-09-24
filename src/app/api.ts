@@ -8,6 +8,7 @@
  */
 
 import type { ApiErrorBody } from '../shared/types';
+import { appUrl } from './base';
 
 const PASSWORD_KEY = 'adminPassword';
 
@@ -41,7 +42,7 @@ export function authHeaders(): Record<string, string> {
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(appUrl(path), {
     ...init,
     headers: {
       ...(init.body ? { 'content-type': 'application/json' } : {}),
