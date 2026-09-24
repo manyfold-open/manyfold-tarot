@@ -35,10 +35,10 @@
 #   npx wrangler secret put CONFIG_ENCRYPTION_KEY
 # CONFIG_ENCRYPTION_KEY=
 
-# Use the same random 32+ character secret in both the Tarot and Fortune Stick
-# repos for local bridge development. Production: set this secret in both Workers.
-#   npx wrangler secret put TAROT_BRIDGE_SECRET
-# TAROT_BRIDGE_SECRET=
+# Local development only: Tarot checks Fortune Stick reward codes with the Stick's
+# Worker. In production that goes over the STICK service binding in wrangler.jsonc;
+# locally, where the Stick runs as its own dev server, point this at it instead.
+# STICK_CLAIMS_URL=http://localhost:5174/
 
 # Optional: point local/preview Tarot links at the matching Fortune Stick app.
 # FORTUNE_STICK_URL=http://localhost:5174/

@@ -89,7 +89,7 @@
 - 後續籤仍可照常抽、照常導向塔羅，但不再發額外次數；因此求籤也能獨立留住用戶，不依賴重複發獎
 - 求籤 checkout 開工時與 `origin/main` 同步；兩邊都從 `main` 建立 `codex/stick-tarot-bridge` 分支，不在 `main` 上改動
 - 正式 Tarot 網址掛在共享網域 `app.manyfold.ai/tarot/`；Tarot Worker 用 `/tarot` mount path，並為 API、分享頁與靜態資產保留此前綴。舊 `tarot.manyfold.ai` route 暫時保留相容
-- 兩個 Worker 都需要設定相同的 `TAROT_BRIDGE_SECRET`，以 `npx wrangler secret put TAROT_BRIDGE_SECRET` 分別寫入；不能把真正的值 commit
+- 不需要任何共享 secret：Stick 為每支完成的籤存一個隨機兌換碼（`tarot_claims` 表），Tarot 透過 Service Binding（`wrangler.jsonc` 的 `services`，binding 名稱 `STICK`）呼叫 Stick 的 `GET /api/tarot-claims/:id` 核對後才發獎勵；本機開發改用 `STICK_CLAIMS_URL` 走 HTTP
 - 新增 `src/app/tarotBridge.ts`：`tarotHandoffUrl({ lang, bonusToken })` 組連結，不接收籤解或問題內容
 - `src/app/components/ReadingResult.tsx`：在四段解讀下面加一行文案和連結，沿用 `.text-action` 樣式（符合「動作是紙上的一行字」的設計規則）；按下時向 Stick Worker 取簽名憑證
 - `src/shared/i18n/zh.ts`、`en.ts`：加文案 key（有測試檢查兩張表的 key 一致、英文裡不能有漢字）
@@ -142,5 +142,5 @@
 
 - Tarot 與 Fortune Stick 的本機 checkout 都在 `codex/stick-tarot-bridge`；目前只改本機分支，未推送、未部署
 - 已加雙 Worker HMAC 憑證流程、每日共用額外次數上限、塔羅收尾／鎖定頁與分享頁入口、求籤解讀頁回跳和隱私文案
-- 發布前要在兩個 Worker 設相同的 `TAROT_BRIDGE_SECRET`；尚未設任何 Cloudflare secret
+- 不需要在 Cloudflare 後台設定任何 secret；上線順序為先 Stick（兌換碼表與查詢 API）、再 Tarot（Service Binding）
 - 這一輪未跑測試或 build；review 後再做兩 repo 檢查、preview 端到端走查，按 Tarot → Fortune Stick 順序發布

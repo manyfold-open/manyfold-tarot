@@ -1,27 +1,20 @@
 /**
- * Verify a one-day Fortune Stick claim and attach it to Tarot's anonymous
- * browser session. The claim id is an opaque code derived from the Stick
- * reading, so nothing stored here can be used to look that reading up. The claim is a bearer token, but the HMAC is shared only by
- * the two Workers; the browser never gets the secret.
+ * Redeem a Fortune Stick reward and attach it to Tarot's anonymous browser
+ * session.
+ *
+ * The browser only carries a code. Tarot trusts none of it: it asks the Stick's
+ * own Worker whether it issued that code and for which day, over a service
+ * binding (env.STICK, `GET /api/tarot-claims/:id`). The code is 32 random bytes
+ * the Stick stored when it made the claim, so it cannot be guessed or forged,
+ * and there is no shared secret to configure or leak.
  */
 
 import { now } from '../db';
 import { HttpError, type Env } from '../types';
 import { freeDay } from './referrals';
 
-const encoder = new TextEncoder();
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-/** An HMAC of the Stick reading id, never the id itself (that would reveal the question). */
+/** 32 random bytes as base64url, exactly as the Stick issues them. */
 const CLAIM_ID = /^[A-Za-z0-9_-]{43}$/;
-
-interface StickClaim {
-  v: 1;
-  iss: 'fortune-stick';
-  aud: 'tarot';
-  id: string;
-  day: string;
-  exp: number;
-}
 
 export type StickRedeemStatus =
   | 'granted'
@@ -31,61 +24,40 @@ export type StickRedeemStatus =
   | 'invalid'
   | 'unavailable';
 
-const fromBase64Url = (value: string): Uint8Array | null => {
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+/**
+ * Ask the Stick about a code: the day it is good for, or null if it never
+ * issued it. Any other failure (the Stick down, mid-deploy, not bound) is a 503,
+ * which the page answers with a retry; the code is not spent by it.
+ *
+ * STICK_CLAIMS_URL is for local development only, where the two apps run as
+ * separate dev servers: when set, the Stick is reached over plain HTTP instead.
+ */
+async function lookupClaim(env: Env, code: string): Promise<{ day: string } | null> {
+  if (!CLAIM_ID.test(code)) return null;
+  const path = `/api/tarot-claims/${code}`;
+  let response: Response;
   try {
-    const base64 = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
-    const binary = atob(base64);
-    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const devBase = env.STICK_CLAIMS_URL?.trim();
+    if (devBase) {
+      response = await fetch(new URL(path, devBase));
+    } else if (env.STICK) {
+      response = await env.STICK.fetch(new Request(`https://fortune-stick${path}`));
+    } else {
+      throw new Error('no Stick binding');
+    }
   } catch {
-    return null;
+    throw new HttpError(503, 'bridge_unavailable', 'The Fortune Stick could not be reached.');
   }
-};
-
-async function verifyClaim(env: Env, token: string): Promise<StickClaim | null> {
-  const secret = env.TAROT_BRIDGE_SECRET?.trim();
-  if (!secret || secret.length < 32) {
-    throw new HttpError(503, 'bridge_unavailable', 'The Fortune Stick reward is not configured.');
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new HttpError(503, 'bridge_unavailable', 'The Fortune Stick could not be reached.');
   }
-  if (token.length > 2048) return null;
-  const [payloadPart, signaturePart, extra] = token.split('.');
-  if (!payloadPart || !signaturePart || extra !== undefined) return null;
-  const signature = fromBase64Url(signaturePart);
-  const payloadBytes = fromBase64Url(payloadPart);
-  if (!signature || !payloadBytes) return null;
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify'],
-  );
-  const valid = await crypto.subtle.verify('HMAC', key, signature, encoder.encode(payloadPart));
-  if (!valid) return null;
-
-  let claim: unknown;
-  try {
-    claim = JSON.parse(new TextDecoder().decode(payloadBytes));
-  } catch {
-    return null;
+  const body = (await response.json().catch(() => null)) as { claim?: { day?: unknown } } | null;
+  const day = body?.claim?.day;
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new HttpError(503, 'bridge_unavailable', 'The Fortune Stick answered in a way Tarot does not understand.');
   }
-  if (!claim || typeof claim !== 'object') return null;
-  const value = claim as Partial<StickClaim>;
-  if (
-    value.v !== 1 ||
-    value.iss !== 'fortune-stick' ||
-    value.aud !== 'tarot' ||
-    typeof value.id !== 'string' ||
-    !CLAIM_ID.test(value.id) ||
-    typeof value.day !== 'string' ||
-    !DAY.test(value.day) ||
-    typeof value.exp !== 'number' ||
-    !Number.isInteger(value.exp)
-  ) {
-    return null;
-  }
-  return value as StickClaim;
+  return { day };
 }
 
 /** Verify and store a claim once per Tarot session and Taiwan day. */
@@ -94,11 +66,10 @@ export async function redeemStickBonus(
   sessionId: string,
   token: string,
 ): Promise<{ status: StickRedeemStatus }> {
-  const claim = await verifyClaim(env, token);
-  if (!claim) return { status: 'invalid' };
-  if (claim.day !== freeDay() || claim.exp <= Math.floor(Date.now() / 1000)) {
-    return { status: 'expired' };
-  }
+  const found = await lookupClaim(env, token);
+  if (!found) return { status: 'invalid' };
+  if (found.day !== freeDay()) return { status: 'expired' };
+  const claim = { id: token, day: found.day };
 
   const used = await env.DB.prepare(
     'SELECT 1 AS used FROM tarot_daily_extra WHERE session_id = ? AND day = ?',

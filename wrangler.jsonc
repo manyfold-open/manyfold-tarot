@@ -45,6 +45,10 @@
     // assets runtime can find anything (src/worker/mount.ts).
     "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/tarot", "/tarot/*"]
   },
+  // Tarot asks the Fortune Stick Worker whether a reward code is real before it
+  // grants the extra reading (src/worker/tarot/bridge.ts). A service binding:
+  // Worker to Worker inside the account, no secret to set anywhere.
+  "services": [{ "binding": "STICK", "service": "manyfold-fortune-stick" }],
   "d1_databases": [
     {
       "binding": "DB",
