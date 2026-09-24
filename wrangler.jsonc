@@ -11,13 +11,21 @@
   "name": "manyfold-tarot",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-08-01",
+  // tarot.manyfold.ai is the site's own host. It is also mounted at
+  // app.manyfold.ai/tarot — two routes on the manyfold.ai zone, which is shared
+  // with other apps, so neither pattern reaches past /tarot. Forks: delete the
+  // two app.manyfold.ai entries and BASE_PATH below.
   "routes": [
     {
       "pattern": "tarot.manyfold.ai",
       "custom_domain": true
     },
     {
-      "pattern": "app.manyfold.ai/tarot*",
+      "pattern": "app.manyfold.ai/tarot",
+      "zone_name": "manyfold.ai"
+    },
+    {
+      "pattern": "app.manyfold.ai/tarot/*",
       "zone_name": "manyfold.ai"
     }
   ],
@@ -29,9 +37,12 @@
     "directory": "./dist/client",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    // The API, plus routes that need a Worker response. Mounted /tarot/* paths
-    // pass through the Worker so it can strip the prefix before serving assets.
-    // The legacy root routes still use the asset-first fast path where possible.
+    // The API, plus the three paths that serve an HTML document: the Worker
+    // writes the Google tag into their <head> on the way past (and does nothing
+    // at all when GA_MEASUREMENT_ID is unset). Card images and hashed bundles
+    // are not in this list and never wake the Worker — except under BASE_PATH,
+    // where everything does, because the prefix has to come off before the
+    // assets runtime can find anything (src/worker/mount.ts).
     "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/tarot", "/tarot/*"]
   },
   "d1_databases": [
@@ -52,7 +63,8 @@
     "GA_MEASUREMENT_ID": "G-CW6W545VTM",
     // Preview builds can override this to the matching Fortune Stick preview URL.
     "FORTUNE_STICK_URL": "https://app.manyfold.ai/fortune-stick/",
-    // The public app is mounted under this path on the shared app.manyfold.ai host.
+    // Requests under this prefix are served as if they had arrived at the root.
+    // Keep it in step with the /tarot entries in routes and run_worker_first.
     "BASE_PATH": "/tarot"
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:

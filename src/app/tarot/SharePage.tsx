@@ -29,6 +29,7 @@ import { useEffect, useState } from 'react';
 import { cardArt, cardById, cardKeywords, type Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
+import { appPath, appUrl } from '../base';
 import CardSlot from './Card';
 import Consent from './Consent';
 import { Prose } from './Reading';
@@ -37,13 +38,11 @@ import Sky from './Sky';
 import StickIcon from './StickIcon';
 import { track } from './analytics';
 import { fetchReader, fetchShare } from './api';
-import { appAssetUrl, appPath, appUrl } from '../base';
 
 const SHARE_TAROT_URL = appUrl('/?utm_source=tarot-share&utm_medium=share&new=1');
 const DEFAULT_STICK_URL = 'https://app.manyfold.ai/fortune-stick/';
 
-const tokenFromPath = (): string =>
-  decodeURIComponent(appPath(location.pathname).replace(/^\/s\//, ''));
+const tokenFromPath = (): string => decodeURIComponent(appPath().replace(/^\/s\//, ''));
 
 const shareStickUrl = (base: string): string => {
   const url = new URL(base, location.href);
@@ -257,7 +256,7 @@ function ReadCard({
         {entry && card && (
           <img
             className={`taro-read-face${card.reversed ? ' is-reversed' : ''}`}
-            src={appAssetUrl(cardArt(card.cardId))}
+            src={appUrl(cardArt(card.cardId))}
             // The name is printed right beside it; an alt here would say it twice.
             alt=""
             decoding="async"

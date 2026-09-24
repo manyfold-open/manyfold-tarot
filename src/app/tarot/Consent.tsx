@@ -21,9 +21,9 @@
 import { useEffect, useState } from 'react';
 import type { Locale } from '../../shared/tarot/deck';
 import { copyFor } from '../../shared/tarot/i18n';
+import { appUrl } from '../base';
 import { measuring, setConsent, storedConsent, type Consent as Choice } from './analytics';
 import { fetchReader } from './api';
-import { appUrl } from '../base';
 
 export default function Consent({
   locale,

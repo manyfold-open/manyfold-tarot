@@ -7,6 +7,7 @@
 
 import type { ChatEvent } from '../shared/types';
 import { ApiError, authHeaders } from './api';
+import { appUrl } from './base';
 import type { ApiErrorBody } from '../shared/types';
 
 export async function streamChat(
@@ -14,7 +15,7 @@ export async function streamChat(
   message: string,
   onEvent: (event: ChatEvent) => void,
 ): Promise<void> {
-  const response = await fetch(`/api/agents/${encodeURIComponent(agentId)}/chat`, {
+  const response = await fetch(appUrl(`/api/agents/${encodeURIComponent(agentId)}/chat`), {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ message }),

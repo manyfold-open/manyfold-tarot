@@ -14,20 +14,23 @@
  * Path-based rather than hash-based because a share link has to look like a
  * link; the Worker serves index.html for unknown paths (single-page-application
  * asset handling in wrangler.jsonc), so these resolve on a cold load too.
+ *
+ * Under app.manyfold.ai/tarot the same paths sit below the mount
+ * (/tarot/s/:token); appPath() takes it off first — see base.ts.
  */
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { appPath } from './base';
 import { isConsolePath, isPrivacyPath, isSharePath } from './route';
 import PrivacyPage from './tarot/PrivacyPage';
 import SharePage from './tarot/SharePage';
 import TarotApp from './tarot/TarotApp';
-import { appPath } from './base';
 import './styles.css';
 import './tarot/tarot.css';
 
-const path = appPath(location.pathname);
+const path = appPath();
 const isConsole = isConsolePath(path);
 const isShare = isSharePath(path);
 const isPrivacy = isPrivacyPath(path);

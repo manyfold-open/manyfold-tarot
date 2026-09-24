@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_SIZE, type Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
+import { appUrl } from '../base';
 import {
   FOLLOW_UP_MAX_CHARS,
   QUESTION_MAX_CHARS,
@@ -53,7 +54,6 @@ import {
   streamDiviner,
 } from './api';
 import { readTarotHandoff } from './bridge';
-import { appUrl } from '../base';
 
 const DEFAULT_STICK_URL = 'https://app.manyfold.ai/fortune-stick/';
 const stickLink = (base: string, placement: 'outro' | 'locked'): string => {

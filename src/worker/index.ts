@@ -22,6 +22,10 @@
  *
  * The tarot routes are open regardless: they are the product, and they are
  * metered instead. See isPublicPath below.
+ *
+ * The same map also answers under BASE_PATH (app.manyfold.ai/tarot/api/health
+ * and so on). The prefix comes off before any of this sees the request — see
+ * src/worker/mount.ts.
  */
 
 import { Hono } from 'hono';
@@ -42,6 +46,7 @@ import {
   verifyAgent,
 } from './connect';
 import { getConversation, handleChatTurn, resetConversation } from './chat';
+import { withMount } from './mount';
 import { tarot } from './tarot/routes';
 
 const SERVICE = 'manyfold-tarot';
@@ -233,58 +238,5 @@ app.all('*', async (c) => {
   });
 });
 
-/* ───────── mount path ───────── */
-
-// The Worker also serves app.manyfold.ai/tarot while remaining available at
-// the root of its workers.dev URL and legacy tarot.manyfold.ai custom domain.
-// Mounted requests are rewritten before Hono and the assets binding see them.
-const mountPath = (env: Env): string => (env.BASE_PATH ?? '').trim().replace(/\/+$/, '');
-
-declare global {
-  interface ImportMeta {
-    readonly env?: { readonly MODE?: string };
-  }
-}
-
-/**
- * Under `vite dev` the assets binding is Vite's own dev server, which serves the
- * app under its `base` (/tarot/) and redirects anything else there. A built
- * deployment serves dist/client from the root. So in dev the prefix goes back
- * on before the assets binding sees the path; stripping it there sent
- * /tarot/ -> / -> 302 /tarot/ -> /tarot/tarot/ and the page never loaded.
- */
-const withDevAssets = (env: Env, base: string): Env =>
-  import.meta.env?.MODE === 'development'
-    ? {
-        ...env,
-        ASSETS: {
-          fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-            const request = new Request(input, init);
-            const url = new URL(request.url);
-            url.pathname = `${base}${url.pathname}`;
-            return env.ASSETS.fetch(new Request(url.toString(), request));
-          },
-        } as Fetcher,
-      }
-    : env;
-
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const base = mountPath(env);
-    const url = new URL(request.url);
-    if (!base || (url.pathname !== base && !url.pathname.startsWith(`${base}/`))) {
-      return app.fetch(request, env, ctx);
-    }
-    if (url.pathname === base) {
-      url.pathname = `${base}/`;
-      return Response.redirect(url.toString(), 308);
-    }
-    url.pathname = url.pathname.slice(base.length);
-    const response = await app.fetch(new Request(url.toString(), request), withDevAssets(env, base), ctx);
-    const location = response.headers.get('location');
-    if (!location?.startsWith('/') || location.startsWith('//')) return response;
-    const redirected = new Response(response.body, response);
-    redirected.headers.set('location', base + location);
-    return redirected;
-  },
-} satisfies ExportedHandler<Env>;
+// Served at the root and, when BASE_PATH is set, under it too.
+export default { fetch: withMount<Env>(app.fetch) } satisfies ExportedHandler<Env>;

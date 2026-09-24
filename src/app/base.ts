@@ -1,18 +1,22 @@
-/** Paths for the Tarot app when it is mounted on the shared app.manyfold.ai host. */
-export const TAROT_MOUNT_PATH = '/tarot';
+/**
+ * Where the site is mounted, without a trailing slash: '' at the root of its own
+ * host (tarot.manyfold.ai, local dev), '/tarot' under app.manyfold.ai/tarot.
+ *
+ * The Worker says so in a <meta name="app-base"> it writes into the page when —
+ * and only when — the page was asked for under the prefix (src/worker/mount.ts).
+ * It is read rather than guessed from the URL because the URL cannot say where
+ * the mount ends: /tarot/s/abc and /tarot/anything both have to come out as
+ * '/tarot'. Pages never pushState to another page, so reading it once is enough.
+ */
 
-const isMountedPath = (path: string): boolean =>
-  path === TAROT_MOUNT_PATH || path.startsWith(`${TAROT_MOUNT_PATH}/`);
+export const baseFrom = (doc: Document): string =>
+  doc.querySelector<HTMLMetaElement>('meta[name="app-base"]')?.content ?? '';
 
-/** Remove the deployment prefix before matching the app's own page routes. */
-export const appPath = (path: string): string =>
-  isMountedPath(path) ? path.slice(TAROT_MOUNT_PATH.length) || '/' : path;
+export const BASE = baseFrom(document);
 
-/** Prefix internal links and requests only when the browser is inside the mount. */
-export const appUrl = (path: string): string => {
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  return `${isMountedPath(location.pathname) ? TAROT_MOUNT_PATH : ''}${normalized}`;
-};
+/** An in-app absolute path ('/api/state', '/privacy') as the browser must ask for it. */
+export const appUrl = (path: string): string => BASE + path;
 
-/** Public files need the same mount prefix as app routes. */
-export const appAssetUrl = (path: string): string => appUrl(path);
+/** The page's own path with the mount taken off: what the router matches on. */
+export const appPath = (pathname = location.pathname): string =>
+  (pathname.startsWith(BASE) ? pathname.slice(BASE.length) : pathname) || '/';

@@ -19,6 +19,7 @@ import type {
 } from '../../shared/tarot/types';
 import type { ApiErrorBody } from '../../shared/types';
 import { ApiError, api } from '../api';
+import { appUrl } from '../base';
 
 const base = '/api/tarot';
 const readingPath = (id: string, suffix = ''): string =>
@@ -99,7 +100,7 @@ export async function streamDiviner(
   body: unknown,
   onEvent: (event: DivinerEvent) => void,
 ): Promise<void> {
-  const response = await fetch(path, {
+  const response = await fetch(appUrl(path), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body ?? {}),

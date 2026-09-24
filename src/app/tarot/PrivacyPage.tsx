@@ -16,10 +16,10 @@
 import { useEffect, useState } from 'react';
 import type { Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
+import { appUrl } from '../base';
 import Signature from './Signature';
 import Sky from './Sky';
 import { setConsent, storedConsent, type Consent } from './analytics';
-import { appUrl } from '../base';
 
 const LOCALE_KEY = 'taro.locale';
 

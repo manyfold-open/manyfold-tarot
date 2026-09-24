@@ -61,7 +61,7 @@ html[data-app='taro'] body {
      back has no keyline to lose, but it is cut to the same figure: two cards from
      one deck do not have two different corners. */
   --card-round: 1.2;
-  --card-back: url('/tarot/cards/back.webp');
+  --card-back: url('/cards/back.webp');
   /* What a card is before its picture is on it — the deck's ink run almost all
      the way down to black, so a card that has not loaded is still this deck. */
   --card-stock: linear-gradient(160deg, #101521, #04060c 62%);

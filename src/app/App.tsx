@@ -9,13 +9,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AppState } from '../shared/types';
 import { api, onUnauthorized } from './api';
+import { appPath } from './base';
 import ChatView from './components/ChatView';
 import SettingsView from './components/SettingsView';
 import PasswordGate from './components/PasswordGate';
 import { tabFor, type Tab } from './route';
-import { appPath } from './base';
 
-const currentTab = (): Tab => tabFor(appPath(location.pathname), location.hash);
+const currentTab = (): Tab => tabFor(appPath(), location.hash);
 
 export default function App() {
   const [state, setState] = useState<AppState | null>(null);
