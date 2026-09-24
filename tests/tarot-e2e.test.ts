@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import app from '../src/worker/index';
 import type { Env } from '../src/worker/types';
 import { parseDraw } from '../src/worker/tarot/draw';
+import { freeDay } from '../src/worker/tarot/referrals';
 import type { DivinerEvent, ReadingView, ShareSnapshot } from '../src/shared/tarot/types';
 import { createD1, type FakeD1 } from './support/d1';
 
@@ -140,8 +141,13 @@ describe('the app still boots', () => {
     const reader = await (await call('/api/tarot/reader')).json<{
       demo: boolean;
       consentRequired: boolean;
+      fortuneStickUrl: string;
     }>();
-    expect(reader).toEqual({ demo: true, consentRequired: false });
+    expect(reader).toEqual({
+      demo: true,
+      consentRequired: false,
+      fortuneStickUrl: 'https://app.manyfold.ai/fortune-stick/',
+    });
   });
 
   it('refuses a cross-origin mutation', async () => {
@@ -547,8 +553,44 @@ describe('referring a friend', () => {
   });
 });
 
+describe('the daily free reading', () => {
+  it('turns over at midnight Taipei time, not UTC', () => {
+    expect(freeDay(Date.parse('2026-09-22T15:59:59Z'))).toBe('2026-09-22');
+    expect(freeDay(Date.parse('2026-09-22T16:00:00Z'))).toBe('2026-09-23');
+  });
+
+  it('allows one free reading a day, and gives it back the next day', async () => {
+    const visitor = await completeReading();
+
+    const again = await call('/api/tarot/readings', {
+      body: { question: '今天再问一次' },
+      cookie: visitor.session,
+    });
+    expect(again.status).toBe(429);
+    expect(await again.json<{ error: { code: string } }>()).toMatchObject({
+      error: { code: 'reading_limit' },
+    });
+
+    // Yesterday's spend is not today's.
+    await d1.db
+      .prepare('UPDATE tarot_daily_free SET day = ? WHERE session_id = ?')
+      .bind(freeDay(Date.now() - 24 * 60 * 60 * 1000), visitor.session!.slice('taro_sid='.length))
+      .run();
+    const access = await (
+      await call('/api/tarot/access', { cookie: visitor.session })
+    ).json<{ freeUsed: boolean; canRead: boolean }>();
+    expect(access).toMatchObject({ freeUsed: false, canRead: true });
+
+    const tomorrow = await call('/api/tarot/readings', {
+      body: { question: '第二天再问一次' },
+      cookie: visitor.session,
+    });
+    expect(tomorrow.status).toBe(201);
+  });
+});
+
 describe('the meter', () => {
-  it('cuts a session off once it has started too many rounds', async () => {
+  it('blocks a third daily round after the free and extra readings', async () => {
     const cookie = 'taro_sid=heavyhandedvisitorsession';
     for (let i = 0; i < 20; i += 1) {
       await d1.db
@@ -568,7 +610,7 @@ describe('the meter', () => {
     }
     expect(blocked, 'a session should eventually be refused').not.toBeNull();
     expect(await blocked!.json<{ error: { code: string } }>()).toMatchObject({
-      error: { code: 'rate_limited' },
+      error: { code: 'reading_limit' },
     });
   });
 });

@@ -8,7 +8,7 @@
  * they had already left. The home page itself has to be where that link is.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReadingView } from '../../src/shared/tarot/types';
 
@@ -43,6 +43,8 @@ type Access = {
   freeUsed: boolean;
   credits: number;
   canRead: boolean;
+  dailyExtraUsed?: boolean;
+  stickBonusAvailable?: boolean;
   inviteReadingId: string | null;
 };
 type Referral = {
@@ -91,55 +93,64 @@ afterEach(() => {
 });
 
 describe('the home page with no reading left', () => {
-  it('offers the invite in place of the question box', async () => {
+  // The Stick is the way on from here, in place of the invite.
+  it('with only the free reading spent, sends to the Stick to unlock one more', async () => {
     fetchAccess.mockResolvedValue({
       freeUsed: true,
       credits: 0,
       canRead: false,
+      dailyExtraUsed: false,
+      stickBonusAvailable: false,
       inviteReadingId: 'r1',
     });
-    fetchReferral.mockResolvedValue({ referral: null, url: null });
 
     render(<TarotApp />);
 
-    expect(await screen.findByRole('heading', { name: 'Your free reading is used.' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: "Today's free reading is used." })).toBeTruthy();
+    expect(screen.getByText('Draw a stick and you can ask Tarot one more question today.')).toBeTruthy();
+    const stick = screen.getByRole('link', { name: 'Draw a stick for today' });
+    expect(stick.getAttribute('target')).toBe('_blank');
+    expect(new URL(stick.getAttribute('href')!).searchParams.get('utm_content')).toBe('locked');
     expect(screen.queryByRole('textbox')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Invite a friend to play one more' }));
-    await waitFor(() => expect(createReferral).toHaveBeenCalledWith('r1'));
-    expect(((await screen.findByDisplayValue(LINK)) as HTMLInputElement).value).toBe(LINK);
+    expect(screen.queryByRole('button', { name: 'Invite a friend to play one more' })).toBeNull();
   });
 
-  it('shows the link that is already out, and gives the box back once it completes', async () => {
-    fetchAccess
-      .mockResolvedValueOnce({ freeUsed: true, credits: 0, canRead: false, inviteReadingId: 'r1' })
-      .mockResolvedValue({ freeUsed: true, credits: 1, canRead: true, inviteReadingId: null });
-    fetchReferral.mockResolvedValue({
-      referral: { ...pending.referral, status: 'completed' },
-      url: LINK,
+  it('once the extra is spent too, offers the Stick without promising another reading', async () => {
+    fetchAccess.mockResolvedValue({
+      freeUsed: true,
+      credits: 0,
+      canRead: false,
+      dailyExtraUsed: true,
+      stickBonusAvailable: false,
+      inviteReadingId: 'r1',
     });
 
     render(<TarotApp />);
 
     expect(
-      await screen.findByText('Your friend finished — one more reading is unlocked.'),
+      await screen.findByRole('heading', {
+        name: "Today's free and extra readings are used. Come back tomorrow.",
+      }),
     ).toBeTruthy();
-    expect(screen.getByRole('textbox')).toBeTruthy();
-    expect(createReferral).not.toHaveBeenCalled();
+    expect(screen.getByText('Draw a stick to see what it says. Tarot opens again tomorrow.')).toBeTruthy();
+    expect(screen.queryByText('Draw a stick and you can ask Tarot one more question today.')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Draw a stick for today' })).toBeTruthy();
   });
 
-  it('says what to do when there is no finished reading to invite from', async () => {
+  it('gives the box back when an invite reward is waiting', async () => {
     fetchAccess.mockResolvedValue({
       freeUsed: true,
-      credits: 0,
-      canRead: false,
+      credits: 1,
+      canRead: true,
+      dailyExtraUsed: false,
+      stickBonusAvailable: false,
       inviteReadingId: null,
     });
 
     render(<TarotApp />);
 
-    expect(await screen.findByText(/Finish a reading first/)).toBeTruthy();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeTruthy());
+    expect(createReferral).not.toHaveBeenCalled();
   });
 });
 
@@ -149,25 +160,28 @@ describe('the end of a round', () => {
     fetchReferral.mockResolvedValue({ referral: null, url: null });
   });
 
-  it('invites the way Share shares: one button, the link, then the wait', async () => {
+  it('puts the Stick beside Share, in a new tab, instead of the invite', async () => {
     fetchAccess.mockResolvedValue({
       freeUsed: true,
       credits: 0,
       canRead: false,
+      dailyExtraUsed: false,
+      stickBonusAvailable: false,
       inviteReadingId: 'r1',
     });
 
     render(<TarotApp />);
 
-    const invite = await screen.findByRole('button', { name: 'Invite a friend to play one more' });
+    const stick = await screen.findByRole('link', { name: 'Draw a stick for today' });
+    expect(stick.getAttribute('target')).toBe('_blank');
+    expect(stick.getAttribute('rel')).toContain('noopener');
+    const href = new URL(stick.getAttribute('href')!);
+    expect(href.searchParams.get('utm_content')).toBe('outro');
+    expect(href.searchParams.get('tarot_return')).toBe(`${location.origin}/`);
+    expect(screen.getByText('Draw a stick, then ask Tarot one more question today.')).toBeTruthy();
+    // The invite lives on the home page now, not at the end of a round.
+    expect(screen.queryByRole('button', { name: 'Invite a friend to play one more' })).toBeNull();
     expect(screen.queryByText('Want to ask again?')).toBeNull();
-    fireEvent.click(invite);
-
-    await waitFor(() => expect(createReferral).toHaveBeenCalledWith('r1'));
-    expect(await screen.findByDisplayValue(LINK)).toBeTruthy();
-    expect(
-      screen.getByText('Waiting for your friend, then this will update when they finish.'),
-    ).toBeTruthy();
   });
 
   it('only promises another question when there is one to ask', async () => {

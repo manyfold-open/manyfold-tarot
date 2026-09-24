@@ -12,9 +12,14 @@ export interface ReferralView {
 }
 
 export interface AccessView {
+  /** Whether today's free reading (see freeDay) has been spent. */
   freeUsed: boolean;
   credits: number;
   canRead: boolean;
+  /** The one daily extra slot has already been used, from any source. */
+  dailyExtraUsed: boolean;
+  /** A Stick reward is available for today's extra slot. */
+  stickBonusAvailable: boolean;
   /**
    * The finished reading an invite can hang off, so the home page can offer a
    * link without the visitor having to find their old reading. A reading whose
@@ -34,64 +39,101 @@ export function newReferralToken(): string {
   return toBase64Url(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)));
 }
 
-const ensureAccessRow = async (env: Env, sessionId: string): Promise<void> => {
-  const timestamp = now();
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO tarot_access (session_id, free_used, created_at, updated_at)
-     SELECT ?, CASE WHEN EXISTS (
-       SELECT 1 FROM tarot_readings WHERE session_id = ?
-     ) THEN 1 ELSE 0 END, ?, ?`,
-  )
-    .bind(sessionId, sessionId, timestamp, timestamp)
-    .run();
-};
+/**
+ * The day a free reading belongs to, as YYYY-MM-DD in UTC+8. The free reading
+ * comes back at midnight Taipei time, the same moment for every visitor, and
+ * UTC+8 has no daylight saving to make a day 23 or 25 hours long.
+ */
+export const freeDay = (nowMs: number = Date.now()): string =>
+  new Date(nowMs + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-/** Uses the one free reading, or exactly one completed referral reward. */
-export async function consumeReadingAccess(env: Env, sessionId: string): Promise<void> {
-  await ensureAccessRow(env, sessionId);
+/** Uses today's free reading, or one daily extra reward (Stick first, then invite). */
+export async function consumeReadingAccess(
+  env: Env,
+  sessionId: string,
+): Promise<'free' | 'stick' | 'referral'> {
   const timestamp = now();
 
   const free = await env.DB.prepare(
-    `UPDATE tarot_access SET free_used = 1, updated_at = ?
-     WHERE session_id = ? AND free_used = 0
+    `INSERT INTO tarot_daily_free (session_id, day, created_at) VALUES (?, ?, ?)
+     ON CONFLICT DO NOTHING
      RETURNING session_id`,
   )
-    .bind(timestamp, sessionId)
+    .bind(sessionId, freeDay(), timestamp)
     .first<{ session_id: string }>();
-  if (free) return;
+  if (free) return 'free';
 
-  const reward = await env.DB.prepare(
-    `UPDATE tarot_rewards SET redeemed_at = ?
-     WHERE session_id = ? AND redeemed_at IS NULL
-       AND referral_token = (
-         SELECT referral_token FROM tarot_rewards
+  const day = freeDay();
+  const batch = await env.DB.batch([
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO tarot_daily_extra
+         (session_id, day, source, source_id, created_at)
+       SELECT ?, ?, source, source_id, ?
+       FROM (
+         SELECT 'stick' AS source, token_id AS source_id, 0 AS priority
+         FROM tarot_stick_rewards
+         WHERE session_id = ? AND day = ? AND redeemed_at IS NULL
+         UNION ALL
+         SELECT 'referral' AS source, referral_token AS source_id, 1 AS priority
+         FROM tarot_rewards
          WHERE session_id = ? AND redeemed_at IS NULL
-         ORDER BY created_at, referral_token LIMIT 1
        )
-     RETURNING referral_token`,
-  )
-    .bind(timestamp, sessionId, sessionId)
-    .first<{ referral_token: string }>();
-  if (reward) return;
+       ORDER BY priority
+       LIMIT 1
+       RETURNING source, source_id`,
+    ).bind(sessionId, day, timestamp, sessionId, day, sessionId),
+    env.DB.prepare(
+      `UPDATE tarot_stick_rewards SET redeemed_at = ?
+       WHERE token_id = (
+         SELECT source_id FROM tarot_daily_extra
+         WHERE session_id = ? AND day = ? AND source = 'stick'
+       ) AND session_id = ? AND day = ? AND redeemed_at IS NULL`,
+    ).bind(timestamp, sessionId, day, sessionId, day),
+    env.DB.prepare(
+      `UPDATE tarot_rewards SET redeemed_at = ?
+       WHERE referral_token = (
+         SELECT source_id FROM tarot_daily_extra
+         WHERE session_id = ? AND day = ? AND source = 'referral'
+       ) AND session_id = ? AND redeemed_at IS NULL`,
+    ).bind(timestamp, sessionId, day, sessionId),
+  ]);
+  const slot = (batch[0]?.results?.[0] ?? null) as
+    | { source: 'stick' | 'referral'; source_id: string }
+    | null;
+  if (slot) return slot.source;
 
   throw new HttpError(
     429,
     'reading_limit',
-    'You have used your free reading. Invite a friend to unlock another one.',
+    'No reading is left for this browser today.',
   );
 }
 
 export async function accessFor(env: Env, sessionId: string): Promise<AccessView> {
-  await ensureAccessRow(env, sessionId);
-  const access = await env.DB.prepare('SELECT free_used FROM tarot_access WHERE session_id = ?')
-    .bind(sessionId)
-    .first<{ free_used: number }>();
-  const reward = await env.DB.prepare(
-    'SELECT COUNT(*) AS count FROM tarot_rewards WHERE session_id = ? AND redeemed_at IS NULL',
-  )
-    .bind(sessionId)
-    .first<{ count: number }>();
-  const source = await env.DB.prepare(
+  const day = freeDay();
+  const [spent, reward, extra, stick, source] = await Promise.all([
+    env.DB.prepare(
+      'SELECT 1 AS spent FROM tarot_daily_free WHERE session_id = ? AND day = ?',
+    )
+      .bind(sessionId, day)
+      .first<{ spent: number }>(),
+    env.DB.prepare(
+      'SELECT COUNT(*) AS count FROM tarot_rewards WHERE session_id = ? AND redeemed_at IS NULL',
+    )
+      .bind(sessionId)
+      .first<{ count: number }>(),
+    env.DB.prepare(
+      'SELECT 1 AS used FROM tarot_daily_extra WHERE session_id = ? AND day = ?',
+    )
+      .bind(sessionId, day)
+      .first<{ used: number }>(),
+    env.DB.prepare(
+      `SELECT 1 AS available FROM tarot_stick_rewards
+       WHERE session_id = ? AND day = ? AND redeemed_at IS NULL`,
+    )
+      .bind(sessionId, day)
+      .first<{ available: number }>(),
+    env.DB.prepare(
     `SELECT r.id FROM tarot_readings r
      LEFT JOIN tarot_referrals f
        ON f.source_reading_id = r.id AND f.inviter_session_id = r.session_id
@@ -100,15 +142,20 @@ export async function accessFor(env: Env, sessionId: string): Promise<AccessView
      ORDER BY CASE WHEN f.status = 'pending' AND f.expires_at > ? THEN 0 ELSE 1 END,
        r.created_at DESC
      LIMIT 1`,
-  )
-    .bind(sessionId, now())
-    .first<{ id: string }>();
-  const freeUsed = Number(access?.free_used ?? 0) === 1;
+    )
+      .bind(sessionId, now())
+      .first<{ id: string }>(),
+  ]);
+  const freeUsed = spent !== null;
   const credits = Number(reward?.count ?? 0);
+  const dailyExtraUsed = extra !== null;
+  const stickBonusAvailable = stick !== null && !dailyExtraUsed;
   return {
     freeUsed,
     credits,
-    canRead: !freeUsed || credits > 0,
+    canRead: !freeUsed || (!dailyExtraUsed && (stickBonusAvailable || credits > 0)),
+    dailyExtraUsed,
+    stickBonusAvailable,
     inviteReadingId: source?.id ?? null,
   };
 }

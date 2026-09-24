@@ -144,13 +144,15 @@ CREATE TABLE IF NOT EXISTS tarot_rate (
 
 CREATE INDEX IF NOT EXISTS idx_tarot_rate_window ON tarot_rate (window_start);
 
--- One free reading per anonymous browser session, followed by one reading for
--- each friend who completes a reading from that session's invite.
-CREATE TABLE IF NOT EXISTS tarot_access (
-  session_id TEXT PRIMARY KEY,
-  free_used  INTEGER NOT NULL DEFAULT 0,
+-- One free reading per anonymous browser session per day (UTC+8), plus one
+-- reading for each friend who completes a reading from that session's invite.
+-- A row is the day's free reading being spent, so the primary key is what makes
+-- spending it twice impossible. The older tarot_access table is no longer read.
+CREATE TABLE IF NOT EXISTS tarot_daily_free (
+  session_id TEXT NOT NULL,
+  day        TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  PRIMARY KEY (session_id, day)
 );
 
 -- An invite belongs to the finished reading that created it. A token can be
@@ -189,6 +191,30 @@ CREATE TABLE IF NOT EXISTS tarot_rewards (
 
 CREATE INDEX IF NOT EXISTS idx_tarot_rewards_session
   ON tarot_rewards (session_id, redeemed_at, created_at);
+
+-- A verified Fortune Stick draw can add one Tarot reward to an anonymous
+-- session for the same Taiwan calendar day. The token id is the Stick reading
+-- id, so minting multiple tokens for one draw cannot add multiple rewards.
+CREATE TABLE IF NOT EXISTS tarot_stick_rewards (
+  token_id     TEXT PRIMARY KEY,
+  session_id   TEXT NOT NULL,
+  day          TEXT NOT NULL,
+  redeemed_at  TEXT,
+  created_at   TEXT NOT NULL,
+  UNIQUE (session_id, day)
+);
+
+-- All extra Tarot readings share one daily slot, regardless of whether the
+-- source is a Stick draw or a completed friend invitation. Unspent invite
+-- rewards stay in tarot_rewards for a later day.
+CREATE TABLE IF NOT EXISTS tarot_daily_extra (
+  session_id TEXT NOT NULL,
+  day        TEXT NOT NULL,
+  source     TEXT NOT NULL,
+  source_id  TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (session_id, day)
+);
 `;
 
 /**

@@ -39,6 +39,7 @@ import { consentRequiredFor, measurementIdFor } from '../analytics';
 import { mountOf, publicUrl } from '../mount';
 import { HttpError, type Env } from '../types';
 import { demoHint } from './demo';
+import { redeemStickBonus } from './bridge';
 import { resolveDiviner } from './diviner';
 import { drawReading } from './draw';
 import {
@@ -208,12 +209,21 @@ tarot.get('/reader', async (c) => {
   // answer arrives (src/worker/analytics.ts).
   return c.json({
     demo: diviner.demo,
+    fortuneStickUrl: c.env.FORTUNE_STICK_URL ?? 'https://app.manyfold.ai/fortune-stick/',
     consentRequired:
       measurementIdFor(c.env) !== null && consentRequiredFor(c.req.header('cf-ipcountry')),
   });
 });
 
 tarot.get('/access', async (c) => c.json(await accessFor(c.env, c.get('sessionId'))));
+
+tarot.post('/bridge/redeem', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { token?: unknown } | null;
+  if (!body || typeof body.token !== 'string' || body.token.length === 0 || body.token.length > 2048) {
+    throw new HttpError(400, 'bad_request', 'A Stick reward token is required.');
+  }
+  return c.json(await redeemStickBonus(c.env, c.get('sessionId'), body.token));
+});
 
 /* ───────── state 1 → 2: the question ───────── */
 
@@ -240,7 +250,7 @@ tarot.post('/readings', async (c) => {
     rule: RULES.readings,
     ipRule: RULES.readingsPerIp,
   });
-  await consumeReadingAccess(c.env, sessionId);
+  const accessSource = await consumeReadingAccess(c.env, sessionId);
 
   // A new round is a new row and a new A2A context. The previous id is kept only
   // as a link between rounds — never as a way to mix two spreads.
@@ -252,7 +262,7 @@ tarot.post('/readings', async (c) => {
     previousReadingId: previous,
   });
   if (referralToken) await bindReferralToReading(c.env, reading.id, referralToken);
-  return c.json({ reading: await readingViewFor(c.env, reading) }, 201);
+  return c.json({ reading: await readingViewFor(c.env, reading), accessSource }, 201);
 });
 
 tarot.get('/readings/:id', async (c) => {
@@ -453,10 +463,9 @@ tarot.get('/readings/:id/referral', async (c) => {
   await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
   const referral = await findReferral(c.env, c.get('sessionId'), c.req.param('id'));
   if (!referral) return c.json({ referral: null, url: null });
-  const url = new URL(c.req.url);
   return c.json({
     referral,
-    url: `${url.origin}/?ref=${encodeURIComponent(referral.token)}`,
+    url: publicUrl(c, `/?ref=${encodeURIComponent(referral.token)}`),
   });
 });
 

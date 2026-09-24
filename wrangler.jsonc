@@ -45,6 +45,10 @@
     // assets runtime can find anything (src/worker/mount.ts).
     "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/tarot", "/tarot/*"]
   },
+  // Tarot asks the Fortune Stick Worker whether a reward code is real before it
+  // grants the extra reading (src/worker/tarot/bridge.ts). A service binding:
+  // Worker to Worker inside the account, no secret to set anywhere.
+  "services": [{ "binding": "STICK", "service": "manyfold-fortune-stick" }],
   "d1_databases": [
     {
       "binding": "DB",
@@ -61,6 +65,8 @@
     // what a fork should inherit — put your own id here to measure your own
     // deployment. Consent Mode v2 defaults ship with it (src/worker/analytics.ts).
     "GA_MEASUREMENT_ID": "G-CW6W545VTM",
+    // Preview builds can override this to the matching Fortune Stick preview URL.
+    "FORTUNE_STICK_URL": "https://app.manyfold.ai/fortune-stick/",
     // Requests under this prefix are served as if they had arrived at the root.
     // Keep it in step with the /tarot entries in routes and run_worker_first.
     "BASE_PATH": "/tarot"
