@@ -9,6 +9,7 @@
  */
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const redeemStickBonus = vi.fn<(token: string) => Promise<{ status: string }>>();
@@ -72,6 +73,41 @@ describe('a reward from the Fortune Stick', () => {
         'Your Stick reward is saved. After today’s free reading, you can ask one more question.',
       ),
     ).toBeTruthy();
+  });
+
+  it('waits for the first requests to settle, so the reward lands in the session the browser keeps', async () => {
+    // A new visitor has no cookie: each request the page makes on load mints a
+    // session, and the last Set-Cookie wins. Redeeming alongside them could save
+    // the reward to a session that is then thrown away.
+    let settleAccess: () => void = () => undefined;
+    fetchAccess.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          settleAccess = () =>
+            resolve({
+              freeUsed: false,
+              credits: 0,
+              canRead: true,
+              dailyExtraUsed: false,
+              stickBonusAvailable: false,
+              inviteReadingId: null,
+            });
+        }),
+    );
+    redeemStickBonus.mockResolvedValue({ status: 'granted' });
+    render(
+      <StrictMode>
+        <TarotApp />
+      </StrictMode>,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(redeemStickBonus).not.toHaveBeenCalled();
+    settleAccess();
+    await waitFor(() => expect(redeemStickBonus).toHaveBeenCalled());
+    // StrictMode runs the effect twice; the claim is still sent once.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(redeemStickBonus).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it.each([

@@ -240,6 +240,34 @@ app.all('*', async (c) => {
 // Mounted requests are rewritten before Hono and the assets binding see them.
 const mountPath = (env: Env): string => (env.BASE_PATH ?? '').trim().replace(/\/+$/, '');
 
+declare global {
+  interface ImportMeta {
+    readonly env?: { readonly MODE?: string };
+  }
+}
+
+/**
+ * Under `vite dev` the assets binding is Vite's own dev server, which serves the
+ * app under its `base` (/tarot/) and redirects anything else there. A built
+ * deployment serves dist/client from the root. So in dev the prefix goes back
+ * on before the assets binding sees the path; stripping it there sent
+ * /tarot/ -> / -> 302 /tarot/ -> /tarot/tarot/ and the page never loaded.
+ */
+const withDevAssets = (env: Env, base: string): Env =>
+  import.meta.env?.MODE === 'development'
+    ? {
+        ...env,
+        ASSETS: {
+          fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+            const request = new Request(input, init);
+            const url = new URL(request.url);
+            url.pathname = `${base}${url.pathname}`;
+            return env.ASSETS.fetch(new Request(url.toString(), request));
+          },
+        } as Fetcher,
+      }
+    : env;
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const base = mountPath(env);
@@ -252,7 +280,7 @@ export default {
       return Response.redirect(url.toString(), 308);
     }
     url.pathname = url.pathname.slice(base.length);
-    const response = await app.fetch(new Request(url.toString(), request), env, ctx);
+    const response = await app.fetch(new Request(url.toString(), request), withDevAssets(env, base), ctx);
     const location = response.headers.get('location');
     if (!location?.startsWith('/') || location.startsWith('//')) return response;
     const redirected = new Response(response.body, response);

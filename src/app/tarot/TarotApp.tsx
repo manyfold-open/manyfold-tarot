@@ -120,6 +120,16 @@ export default function TarotApp() {
   const [handoff] = useState(() => readTarotHandoff(location.href));
   const [stickBonusReady, setStickBonusReady] = useState(false);
   const [bonusNotice, setBonusNotice] = useState<BonusNotice | null>(null);
+  /**
+   * Requests the page makes while it loads. A new visitor has no session cookie
+   * yet, so each of these mints its own session and the browser keeps whichever
+   * Set-Cookie lands last. The Stick reward waits for all of them, or it could be
+   * saved to a session the browser has already thrown away.
+   */
+  const loadRequests = useRef<Promise<unknown>[]>([]);
+  const claimRun = useRef<Promise<void> | null>(null);
+  /** Set once the claim is on its way; later requests no longer need tracking. */
+  const claimSent = useRef(false);
   /** The invite this browser arrived with. Spent by the first round it starts,
    *  so a later round from the same page does not carry a used link along. */
   const [referralToken, setReferralToken] = useState(() =>
@@ -176,7 +186,9 @@ export default function TarotApp() {
   }, [locale, copy]);
 
   useEffect(() => {
-    void fetchReader()
+    const reader = fetchReader();
+    if (!claimSent.current) loadRequests.current.push(reader);
+    void reader
       .then((info) => {
         setDemoReader(info.demo);
         setFortuneStickUrl(info.fortuneStickUrl);
@@ -190,26 +202,42 @@ export default function TarotApp() {
    * here, and one that might pass (a network error, a Worker without its
    * secret yet) keeps the token in memory for a retry.
    */
-  const claimStickBonus = useCallback(async () => {
-    if (!handoff.bonusToken) return;
-    setBonusNotice(null);
-    try {
-      const { status } = await redeemStickBonus(handoff.bonusToken);
-      if (status === 'granted' || status === 'already_available') {
-        setStickBonusReady(true);
-        void fetchAccess().then(setAccess).catch(() => undefined);
-        if (status === 'granted') track('tarot_bonus_redeemed', { source: 'fortune-stick' });
-      } else if (status === 'expired') {
-        setBonusNotice('expired');
-      } else if (status === 'daily_limit') {
-        setBonusNotice('dailyLimit');
-      } else {
-        setBonusNotice('unusable');
-      }
-    } catch {
-      setBonusNotice('failed');
-    }
-  }, [handoff.bonusToken]);
+  const claimStickBonus = useCallback(
+    (retry = false): Promise<void> => {
+      const token = handoff.bonusToken;
+      if (!token) return Promise.resolve();
+      // One claim per page load, however many times effects run (StrictMode
+      // runs them twice in dev); only the retry button sends another.
+      if (claimRun.current && !retry) return claimRun.current;
+      const run = (async () => {
+        setBonusNotice(null);
+        try {
+          // Let every mount effect start its request, then wait for them all:
+          // after that the session cookie is settled and this request reuses it.
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          await Promise.allSettled(loadRequests.current);
+          claimSent.current = true;
+          const { status } = await redeemStickBonus(token);
+          if (status === 'granted' || status === 'already_available') {
+            setStickBonusReady(true);
+            void fetchAccess().then(setAccess).catch(() => undefined);
+            if (status === 'granted') track('tarot_bonus_redeemed', { source: 'fortune-stick' });
+          } else if (status === 'expired') {
+            setBonusNotice('expired');
+          } else if (status === 'daily_limit') {
+            setBonusNotice('dailyLimit');
+          } else {
+            setBonusNotice('unusable');
+          }
+        } catch {
+          setBonusNotice('failed');
+        }
+      })();
+      claimRun.current = run;
+      return run;
+    },
+    [handoff.bonusToken],
+  );
 
   useEffect(() => {
     const shouldStartAtQuestion = handoff.fromStick || handoff.forceQuestion || Boolean(handoff.bonusToken);
@@ -252,7 +280,9 @@ export default function TarotApp() {
 
   const refreshAccess = useCallback(async () => {
     try {
-      const current = await fetchAccess();
+      const pending = fetchAccess();
+      if (!claimSent.current) loadRequests.current.push(pending);
+      const current = await pending;
       setAccess(current);
       return current;
     } catch {
@@ -675,7 +705,7 @@ export default function TarotApp() {
             {bonusNotice === 'failed' && (
               <>
                 {' '}
-                <button type="button" className="taro-link" onClick={() => void claimStickBonus()}>
+                <button type="button" className="taro-link" onClick={() => void claimStickBonus(true)}>
                   {copy.bridge.bonusRetry}
                 </button>
               </>
