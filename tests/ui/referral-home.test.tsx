@@ -98,6 +98,7 @@ describe('the home page with no reading left', () => {
       freeUsed: true,
       credits: 0,
       canRead: false,
+      dailyExtraUsed: true,
       inviteReadingId: 'r1',
     });
     fetchReferral.mockResolvedValue({ referral: null, url: null });
@@ -114,6 +115,23 @@ describe('the home page with no reading left', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Invite a friend to play one more' }));
     await waitFor(() => expect(createReferral).toHaveBeenCalledWith('r1'));
     expect(((await screen.findByDisplayValue(LINK)) as HTMLInputElement).value).toBe(LINK);
+  });
+
+  it('with only the free reading spent, does not say the extra one is gone too', async () => {
+    fetchAccess.mockResolvedValue({
+      freeUsed: true,
+      credits: 0,
+      canRead: false,
+      dailyExtraUsed: false,
+      stickBonusAvailable: false,
+      inviteReadingId: 'r1',
+    });
+    fetchReferral.mockResolvedValue({ referral: null, url: null });
+
+    render(<TarotApp />);
+
+    expect(await screen.findByRole('heading', { name: "Today's free reading is used." })).toBeTruthy();
+    expect(screen.getByText('Draw a stick to unlock one more Tarot reading today.')).toBeTruthy();
   });
 
   it('shows the link that is already out, and gives the box back once it completes', async () => {

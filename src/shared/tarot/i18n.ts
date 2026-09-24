@@ -126,8 +126,10 @@ export interface Copy {
     pending: string;
     completed: string;
     expired: string;
-    /** The home page, once there is nothing left to spend. */
+    /** The home page, once today's free and extra readings are both spent. */
     lockedTitle: string;
+    /** The home page, when only the free reading is spent and the extra one is still to unlock. */
+    lockedFreeTitle: string;
     /** The same, when no reading has finished yet to invite from. */
     lockedNoInvite: string;
   };
@@ -137,7 +139,16 @@ export interface Copy {
     outroOffer: string;
     outroContinue: string;
     lockedOffer: string;
+    /** A Stick reward is waiting behind today's free reading. */
     bonusReady: string;
+    /** A Stick reward is waiting and the free reading is already spent. */
+    bonusReadyNow: string;
+    /** What happened to a Stick reward that could not be saved. */
+    bonusExpired: string;
+    bonusDailyLimit: string;
+    bonusUnusable: string;
+    bonusFailed: string;
+    bonusRetry: string;
   };
 
   /** The two lines at the foot of the page. Both are links out, so both say
@@ -295,6 +306,7 @@ const zh: Copy = {
     completed: '朋友已完成，你已解锁下一次。',
     expired: '这个邀请已过期，再生成一个新的邀请。',
     lockedTitle: '今天的免费和额外解读都用完了，明天再来。',
+    lockedFreeTitle: '今天的免费一次已经用过了。',
     lockedNoInvite: '完成一次解读后，才能邀请朋友来解锁下一次。',
   },
 
@@ -304,6 +316,12 @@ const zh: Copy = {
     outroContinue: '也可以来求一支签，看看今天的提示。',
     lockedOffer: '抽一支签，解锁今天额外一次塔罗。',
     bonusReady: '求签奖励已保存。今天先用免费解读，之后还可以再问一次。',
+    bonusReadyNow: '求签奖励已解锁，今天还可以再问一次。',
+    bonusExpired: '这支签的奖励只在抽签当天有效，已经过期了。',
+    bonusDailyLimit: '今天的额外一次已经领过或用过了，明天再来。',
+    bonusUnusable: '这个奖励链接用不了，可能已在别的浏览器领取过。回求签页再开一次塔罗即可。',
+    bonusFailed: '求签奖励暂时没能保存。',
+    bonusRetry: '再试一次',
   },
 
   footer: {
@@ -481,6 +499,7 @@ const en: Copy = {
     completed: 'Your friend finished — one more reading is unlocked.',
     expired: 'This invitation expired. Make a new one to try again.',
     lockedTitle: "Today's free and extra readings are used. Come back tomorrow.",
+    lockedFreeTitle: "Today's free reading is used.",
     lockedNoInvite: 'Finish a reading first, then invite a friend to unlock the next one.',
   },
 
@@ -490,6 +509,12 @@ const en: Copy = {
     outroContinue: 'You can also draw a stick for a thought about today.',
     lockedOffer: 'Draw a stick to unlock one more Tarot reading today.',
     bonusReady: 'Your Stick reward is saved. After today’s free reading, you can ask one more question.',
+    bonusReadyNow: 'Your Stick reward is unlocked. You can ask one more question today.',
+    bonusExpired: 'That stick’s reward was only good on the day it was drawn, and it has expired.',
+    bonusDailyLimit: 'Today’s extra reading has already been claimed or used. Come back tomorrow.',
+    bonusUnusable: 'This reward link cannot be used here. It may have been claimed in another browser. Open Tarot again from your stick.',
+    bonusFailed: 'Your Stick reward could not be saved just now.',
+    bonusRetry: 'Try again',
   },
 
   footer: {

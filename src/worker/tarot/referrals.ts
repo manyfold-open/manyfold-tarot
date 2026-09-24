@@ -105,7 +105,7 @@ export async function consumeReadingAccess(
   throw new HttpError(
     429,
     'reading_limit',
-    "You have used today's free and extra reading. Come back tomorrow.",
+    'No reading is left for this browser today.',
   );
 }
 

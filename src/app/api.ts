@@ -10,7 +10,9 @@
 import type { ApiErrorBody } from '../shared/types';
 import { appUrl } from './base';
 
-const PASSWORD_KEY = 'adminPassword';
+// Namespaced: on app.manyfold.ai this origin is shared with the Fortune Stick,
+// whose own console stores its (different) password as `adminPassword`.
+const PASSWORD_KEY = 'taro.adminPassword';
 
 export class ApiError extends Error {
   readonly code: string;

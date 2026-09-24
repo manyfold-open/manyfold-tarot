@@ -60,8 +60,14 @@ const stickLink = (base: string, placement: 'outro' | 'locked'): string => {
   url.searchParams.set('utm_source', 'tarot');
   url.searchParams.set('utm_medium', 'referral');
   url.searchParams.set('utm_content', placement);
+  // Where the Stick should send this visitor back to, so the reward lands in
+  // this host's session. The Stick Worker only honours hosts it knows.
+  url.searchParams.set('tarot_return', `${location.origin}${appUrl('/')}`);
   return url.toString();
 };
+
+/** What the page says about a Stick reward it could not save. */
+type BonusNotice = 'expired' | 'dailyLimit' | 'unusable' | 'failed';
 
 type Phase = 'ask' | 'greeting' | 'shuffle' | 'choose' | 'reveal' | 'reading' | 'outro';
 
@@ -113,6 +119,7 @@ const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
 export default function TarotApp() {
   const [handoff] = useState(() => readTarotHandoff(location.href));
   const [stickBonusReady, setStickBonusReady] = useState(false);
+  const [bonusNotice, setBonusNotice] = useState<BonusNotice | null>(null);
   /** The invite this browser arrived with. Spent by the first round it starts,
    *  so a later round from the same page does not carry a used link along. */
   const [referralToken, setReferralToken] = useState(() =>
@@ -178,6 +185,32 @@ export default function TarotApp() {
       .catch(() => undefined);
   }, []);
 
+  /**
+   * The token has already left the address bar, so a failure has to be said
+   * here, and one that might pass (a network error, a Worker without its
+   * secret yet) keeps the token in memory for a retry.
+   */
+  const claimStickBonus = useCallback(async () => {
+    if (!handoff.bonusToken) return;
+    setBonusNotice(null);
+    try {
+      const { status } = await redeemStickBonus(handoff.bonusToken);
+      if (status === 'granted' || status === 'already_available') {
+        setStickBonusReady(true);
+        void fetchAccess().then(setAccess).catch(() => undefined);
+        if (status === 'granted') track('tarot_bonus_redeemed', { source: 'fortune-stick' });
+      } else if (status === 'expired') {
+        setBonusNotice('expired');
+      } else if (status === 'daily_limit') {
+        setBonusNotice('dailyLimit');
+      } else {
+        setBonusNotice('unusable');
+      }
+    } catch {
+      setBonusNotice('failed');
+    }
+  }, [handoff.bonusToken]);
+
   useEffect(() => {
     const shouldStartAtQuestion = handoff.fromStick || handoff.forceQuestion || Boolean(handoff.bonusToken);
     if (handoff.hasBridgeFragment || handoff.forceQuestion) {
@@ -187,17 +220,7 @@ export default function TarotApp() {
       history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
     }
 
-    if (handoff.fromStick && handoff.bonusToken) {
-      void redeemStickBonus(handoff.bonusToken)
-        .then(({ status }) => {
-          if (status === 'granted' || status === 'already_available') {
-            setStickBonusReady(true);
-            void fetchAccess().then(setAccess).catch(() => undefined);
-          }
-          if (status === 'granted') track('tarot_bonus_redeemed', { source: 'fortune-stick' });
-        })
-        .catch(() => undefined);
-    }
+    if (handoff.fromStick && handoff.bonusToken) void claimStickBonus();
 
     if (shouldStartAtQuestion) return;
 
@@ -639,11 +662,36 @@ export default function TarotApp() {
           </p>
         )}
 
+        {phase === 'ask' && bonusNotice && (
+          <p className="taro-referral-invite" role="status">
+            {
+              {
+                expired: copy.bridge.bonusExpired,
+                dailyLimit: copy.bridge.bonusDailyLimit,
+                unusable: copy.bridge.bonusUnusable,
+                failed: copy.bridge.bonusFailed,
+              }[bonusNotice]
+            }
+            {bonusNotice === 'failed' && (
+              <>
+                {' '}
+                <button type="button" className="taro-link" onClick={() => void claimStickBonus()}>
+                  {copy.bridge.bonusRetry}
+                </button>
+              </>
+            )}
+          </p>
+        )}
+
         {/* ── 1 · the question ── */}
         {/* ── 1 · nothing left to spend: the invite is the whole page ── */}
         {phase === 'ask' && access?.canRead === false && (
           <section className="taro-ask taro-locked">
-            <h1 className="taro-ask-title">{copy.referral.lockedTitle}</h1>
+            <h1 className="taro-ask-title">
+              {access.freeUsed && !access.dailyExtraUsed
+                ? copy.referral.lockedFreeTitle
+                : copy.referral.lockedTitle}
+            </h1>
             {access.inviteReadingId ? (
               <ReferralBox
                 readingId={access.inviteReadingId}
@@ -672,7 +720,9 @@ export default function TarotApp() {
         {phase === 'ask' && access?.canRead !== false && (
           <section className="taro-ask">
             {stickBonusReady || access?.stickBonusAvailable ? (
-              <p className="taro-referral-invite">{copy.bridge.bonusReady}</p>
+              <p className="taro-referral-invite">
+                {access?.freeUsed ? copy.bridge.bonusReadyNow : copy.bridge.bonusReady}
+              </p>
             ) : referralToken ? (
               <p className="taro-referral-invite">{copy.referral.invited}</p>
             ) : access?.freeUsed && access.credits > 0 ? (
@@ -925,7 +975,12 @@ export default function TarotApp() {
 
               <div className="taro-stick-bridge">
                 <p>
-                  {access?.freeUsed && !access.dailyExtraUsed
+                  {/* Only offer to unlock what is still locked: a visitor with a
+                      reward or invite already waiting is not sent for another. */}
+                  {access?.freeUsed &&
+                  !access.dailyExtraUsed &&
+                  !access.stickBonusAvailable &&
+                  access.credits === 0
                     ? copy.bridge.outroOffer
                     : copy.bridge.outroContinue}
                 </p>

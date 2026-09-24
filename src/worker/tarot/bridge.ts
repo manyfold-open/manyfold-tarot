@@ -1,6 +1,7 @@
 /**
  * Verify a one-day Fortune Stick claim and attach it to Tarot's anonymous
- * browser session. The claim is a bearer token, but the HMAC is shared only by
+ * browser session. The claim id is an opaque code derived from the Stick
+ * reading, so nothing stored here can be used to look that reading up. The claim is a bearer token, but the HMAC is shared only by
  * the two Workers; the browser never gets the secret.
  */
 
@@ -10,7 +11,8 @@ import { freeDay } from './referrals';
 
 const encoder = new TextEncoder();
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const READING_ID = /^[0-9a-f-]{36}$/i;
+/** An HMAC of the Stick reading id, never the id itself (that would reveal the question). */
+const CLAIM_ID = /^[A-Za-z0-9_-]{43}$/;
 
 interface StickClaim {
   v: 1;
@@ -75,7 +77,7 @@ async function verifyClaim(env: Env, token: string): Promise<StickClaim | null> 
     value.iss !== 'fortune-stick' ||
     value.aud !== 'tarot' ||
     typeof value.id !== 'string' ||
-    !READING_ID.test(value.id) ||
+    !CLAIM_ID.test(value.id) ||
     typeof value.day !== 'string' ||
     !DAY.test(value.day) ||
     typeof value.exp !== 'number' ||
