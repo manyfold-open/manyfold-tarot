@@ -500,7 +500,8 @@ html[data-app='taro'] body {
   width: 100%;
   max-width: 780px;
   margin: 0 auto;
-  padding: 0 24px;
+  /* Clear of the fixed header: the top of a screen is content, not chrome. */
+  padding: 56px 24px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -760,8 +761,9 @@ html[data-app='taro'] body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  /* Symmetrical, so "centred" is true rather than approximately true. */
-  padding: 48px 0;
+  /* The stage already keeps clear of the header above; this keeps the question
+     off the footer below. */
+  padding: 0 0 48px;
   gap: clamp(22px, 4.5vh, 40px);
 }
 
@@ -2307,7 +2309,7 @@ html[data-app='taro'] body {
   }
 
   .taro-stage {
-    padding: 0 20px;
+    padding: 52px 20px 0;
   }
 
   .taro-cards {
