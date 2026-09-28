@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { appUrl } from '../base';
 import type { Locale } from '../../shared/tarot/deck';
 import { cardById } from '../../shared/tarot/deck';
 import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
@@ -81,7 +82,7 @@ export default function JournalPage() {
       <Sky />
       <header className="taro-top">
         <nav className="taro-product-nav" aria-label="Tarot">
-          <a href="/">{copy.navigation.back}</a><a href="/daily">{copy.navigation.daily}</a>
+          <a href={appUrl('/')}>{copy.navigation.back}</a><a href={appUrl('/daily')}>{copy.navigation.daily}</a>
         </nav>
         <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
           <button type="button" className={locale === 'zh' ? 'is-on' : ''} aria-pressed={locale === 'zh'} onClick={() => setLocale('zh')}>中文</button>
@@ -105,7 +106,7 @@ export default function JournalPage() {
           <p>{copy.journal.reminderHint}</p>
         </section>
 
-        <a className="taro-secondary taro-weekly-start" href="/?spread=weekly-review&prompt=weekly">{copy.navigation.weeklyReview}</a>
+        <a className="taro-secondary taro-weekly-start" href={appUrl('/?spread=weekly-review&prompt=weekly')}>{copy.navigation.weeklyReview}</a>
 
         {error && <p className="taro-error" role="alert">{error}</p>}
         {loading ? <p className="taro-instruction">…</p> : entries.length === 0 ? (
@@ -154,7 +155,7 @@ export default function JournalPage() {
                     </div>
                   )}
                   <footer className="taro-journal-entry-actions">
-                    <a className="taro-link" href={`/?reading=${encodeURIComponent(entry.readingId)}`}>{copy.journal.openReading}</a>
+                    <a className="taro-link" href={appUrl(`/?reading=${encodeURIComponent(entry.readingId)}`)}>{copy.journal.openReading}</a>
                     <button type="button" className="taro-link" onClick={() => void remove(entry)}>{copy.journal.delete}</button>
                   </footer>
                 </article>
@@ -164,7 +165,7 @@ export default function JournalPage() {
         )}
         <button type="button" className="taro-danger-link" disabled={!entries.length} onClick={() => void clearAll()}>{copy.journal.clear}</button>
       </main>
-      <footer className="taro-foot"><Signature locale={locale} /><a className="taro-foot-link" href="/privacy">{copy.consent.more}</a></footer>
+      <footer className="taro-foot"><Signature locale={locale} /><a className="taro-foot-link" href={appUrl('/privacy')}>{copy.consent.more}</a></footer>
     </div>
   );
 }

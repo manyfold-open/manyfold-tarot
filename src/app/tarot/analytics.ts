@@ -8,10 +8,10 @@
  * of a fork, of `npm run dev`, and of every test in this repo, and none of them
  * should have to know what an event is.
  *
- * The six events are the reading itself, in order. They are here so a campaign
- * can be judged on whether anyone got a reading rather than on whether anyone
+ * Reading milestones and the cross-app bridge events are here so a campaign can
+ * be judged on whether anyone got a reading rather than on whether anyone
  * arrived — `reading_completed` is the one worth importing into Google Ads as a
- * conversion; the rest are the funnel that explains it.
+ * conversion; the rest explain the funnel.
  */
 
 export const CONSENT_KEY = 'taro.consent';

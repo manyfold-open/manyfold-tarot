@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Locale } from '../../shared/tarot/deck';
+import { appUrl } from '../base';
 import { copyFor } from '../../shared/tarot/i18n';
 import type { ReadingView } from '../../shared/tarot/types';
 import { track } from './analytics';
@@ -60,7 +61,7 @@ export default function JournalPanel({ reading, locale }: { reading: ReadingView
   return (
     <section className="taro-journal-panel">
       <div className="taro-journal-panel-head">
-        <a className="taro-link" href="/journal">{copy.navigation.journal}</a>
+        <a className="taro-link" href={appUrl('/journal')}>{copy.navigation.journal}</a>
         {!saved && <button type="button" className="taro-secondary" disabled={saving} onClick={() => void persist()}>
           {saving ? copy.outro.sharing : copy.journal.save}
         </button>}

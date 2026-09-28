@@ -51,6 +51,12 @@ The template is designed to be extended and reshaped; these are the load-bearing
    - the operator console is not measured, and no event ever carries the question, the cards
      or the reading;
    - accept and decline stay the same size in `Consent.tsx`.
+9. **Keep the site mountable under a prefix.** It is served at the root of tarot.manyfold.ai
+   and under `BASE_PATH` at app.manyfold.ai/tarot (`src/worker/mount.ts`). In the browser,
+   every in-app URL — fetches, links, card art — goes through `appUrl()` and every route
+   match through `appPath()` (`src/app/base.ts`); a bare `'/api/…'` or `href="/…"` works
+   at the root and breaks under the mount. In the Worker, links handed to the browser are
+   built with `publicUrl()`, not `url.origin`.
 
 ## Checks
 

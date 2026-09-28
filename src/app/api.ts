@@ -8,8 +8,11 @@
  */
 
 import type { ApiErrorBody } from '../shared/types';
+import { appUrl } from './base';
 
-const PASSWORD_KEY = 'adminPassword';
+// Namespaced: on app.manyfold.ai this origin is shared with the Fortune Stick,
+// whose own console stores its (different) password as `adminPassword`.
+const PASSWORD_KEY = 'taro.adminPassword';
 
 export class ApiError extends Error {
   readonly code: string;
@@ -41,7 +44,7 @@ export function authHeaders(): Record<string, string> {
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(appUrl(path), {
     ...init,
     headers: {
       ...(init.body ? { 'content-type': 'application/json' } : {}),

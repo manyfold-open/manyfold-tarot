@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { appUrl } from '../base';
 import type { Locale } from '../../shared/tarot/deck';
 import { cardById } from '../../shared/tarot/deck';
 import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
@@ -43,7 +44,7 @@ export default function DailyPage() {
       <Sky />
       <header className="taro-top">
         <nav className="taro-product-nav" aria-label="Tarot">
-          <a href="/">{copy.navigation.back}</a><a href="/journal">{copy.navigation.journal}</a>
+          <a href={appUrl('/')}>{copy.navigation.back}</a><a href={appUrl('/journal')}>{copy.navigation.journal}</a>
         </nav>
         <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
           <button type="button" className={locale === 'zh' ? 'is-on' : ''} aria-pressed={locale === 'zh'} onClick={() => setLocale('zh')}>中文</button>
@@ -65,7 +66,7 @@ export default function DailyPage() {
               <h2>{copy.result.reflection}</h2>
               <p>{daily.reflection}</p>
             </section>
-            <a className="taro-primary" href={`/?spread=next-step&prompt=daily`}>{copy.daily.openReading}</a>
+            <a className="taro-primary" href={appUrl(`/?spread=next-step&prompt=daily`)}>{copy.daily.openReading}</a>
           </>
         )}
         <section className="taro-reminder-settings">
@@ -81,7 +82,7 @@ export default function DailyPage() {
           <p>{copy.daily.reminderHint}</p>
         </section>
       </main>
-      <footer className="taro-foot"><Signature locale={locale} /><a className="taro-foot-link" href="/privacy">{copy.consent.more}</a></footer>
+      <footer className="taro-foot"><Signature locale={locale} /><a className="taro-foot-link" href={appUrl('/privacy')}>{copy.consent.more}</a></footer>
     </div>
   );
 }

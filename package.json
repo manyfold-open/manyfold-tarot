@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check": "tsc -b && vite build && wrangler deploy --dry-run",
-    "test": "vitest run",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
     "deploy": "wrangler deploy",
     "smoke": "node scripts/smoke.mjs"
   },

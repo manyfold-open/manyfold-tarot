@@ -52,6 +52,7 @@ vi.mock('../../src/app/tarot/api', () => ({
   ApiError: class ApiError extends Error {},
   errorText: (error: unknown, fallback: string) =>
     error instanceof Error && error.message ? error.message : fallback,
+  fetchAccess: vi.fn(async () => ({ freeUsed: false, credits: 0, canRead: true, inviteReadingId: null })),
   fetchReader: vi.fn(async () => ({ demo: false })),
   fetchReading: vi.fn(async () => ({ reading: drawn })),
   startReading: vi.fn(),

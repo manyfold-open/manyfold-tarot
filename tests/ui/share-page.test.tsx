@@ -63,6 +63,11 @@ let served: ShareSnapshot = full;
 vi.mock('../../src/app/tarot/api', () => ({
   ApiError: class ApiError extends Error {},
   errorText: (_error: unknown, fallback: string) => fallback,
+  fetchReader: async () => ({
+    demo: false,
+    consentRequired: false,
+    fortuneStickUrl: 'https://app.manyfold.ai/fortune-stick/',
+  }),
   fetchShare: async () => ({ share: served }),
 }));
 

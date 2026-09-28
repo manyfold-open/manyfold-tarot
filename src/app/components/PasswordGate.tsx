@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import { setStoredPassword } from '../api';
+import { appUrl } from '../base';
 
 /** The half that can be typed past. */
 function Locked(props: { onSubmitted: () => Promise<void> }) {
@@ -37,7 +38,7 @@ function Locked(props: { onSubmitted: () => Promise<void> }) {
       <h2>Admin password required</h2>
       <p className="muted">
         The operator console is locked. The reading itself is not — it is at{' '}
-        <a href="/">the front page</a>, and needs no password.
+        <a href={appUrl('/')}>the front page</a>, and needs no password.
       </p>
       <input
         type="password"
@@ -71,7 +72,7 @@ function Unconfigured() {
         checkout: <code>npx wrangler secret put ADMIN_PASSWORD</code>.
       </p>
       <p className="muted">
-        The reading is unaffected — it is at <a href="/">the front page</a> and needs no password.
+        The reading is unaffected — it is at <a href={appUrl('/')}>the front page</a> and needs no password.
       </p>
     </div>
   );

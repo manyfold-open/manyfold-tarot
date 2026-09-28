@@ -156,6 +156,7 @@ npm run smoke -- https://your-worker.workers.dev
 | `MANYFOLD_API_BASE_URL` | var | `wrangler.jsonc` | Manyfold API 地址，默认 `https://api.manyfold.ai`。 |
 | `ENVIRONMENT` | var | `wrangler.jsonc` | `production` 会强制 https-only，并拒绝私有/回环地址的 agent URL。 |
 | `GA_MEASUREMENT_ID` | var | `wrangler.jsonc` | GA4 测量 id（`G-…`）。留空（默认）则完全不加载任何统计代码。见[统计](#统计)。 |
+| `BASE_PATH` | var | `wrangler.jsonc` | 站点同时挂在共享域名下的路径前缀，例如 `/tarot`（对应 `app.manyfold.ai/tarot/`）。根路径照常可用。要和 `routes`、`run_worker_first` 里的 `/tarot` 条目保持一致；fork 出去的站点把这几处一起删掉即可。 |
 
 secret 永远不进仓库。`.dev.vars.example` 里对本地开发列了同一组变量 —— 复制成 `.dev.vars`
 即可，该文件已被 git 忽略。

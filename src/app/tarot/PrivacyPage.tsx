@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react';
 import type { Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
+import { appUrl } from '../base';
 import Signature from './Signature';
 import Sky from './Sky';
 import { setConsent, storedConsent, type Consent } from './analytics';
@@ -103,7 +104,7 @@ export default function PrivacyPage() {
           </section>
 
           <p>
-            <a className="taro-link" href="/">
+            <a className="taro-link" href={appUrl('/')}>
               {copy.privacy.back}
             </a>
           </p>

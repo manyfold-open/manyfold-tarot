@@ -1877,8 +1877,7 @@ html[data-app='taro'] body {
   gap: 20px;
 }
 
-.taro-outro-actions > .taro-share,
-.taro-outro-actions > .taro-referral {
+.taro-outro-actions > .taro-share {
   box-sizing: border-box;
 }
 
@@ -1891,11 +1890,83 @@ html[data-app='taro'] body {
   width: 100%;
 }
 
-.taro-outro-actions > .taro-referral {
-  border-top: 0;
-  padding-top: 0;
-  justify-content: flex-start;
-  gap: 16px;
+/* The Stick sits beside Share at the end of a reading, in the invite's old
+   place: the action on top, one line under it saying what it unlocks. */
+.taro-stick-action {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.taro-stick-action p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* The retry inside a Stick reward notice sits in a line of prose; give it a
+   thumb-sized target without moving the words around it. */
+.taro-referral-invite .taro-link {
+  display: inline-block;
+  min-height: 44px;
+  padding: 12px 6px;
+  font-size: 13px;
+}
+
+/* The way out to the Stick: full ink, a touch heavier, and a rule in the
+   torii's vermilion instead of the faint white one, so it reads as the next
+   step and shows where it goes before the click. */
+.taro-to-stick {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.taro-to-stick::after {
+  height: 2px;
+  background: #d9573f;
+  opacity: 0.85;
+  transform: scaleX(1);
+}
+
+.taro-to-stick:hover::after,
+.taro-to-stick:focus-visible::after {
+  opacity: 1;
+}
+
+/* The other app's own mark, after the words of a link that goes there. */
+.taro-app-icon {
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  margin-left: 0.4em;
+  vertical-align: -0.45em;
+}
+
+/* On the locked page the Stick is the page's one action, so it gets the room
+   the invite box had. */
+.taro-locked-stick {
+  gap: 18px;
+}
+
+.taro-stick-bridge {
+  width: min(var(--column), 100%);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.taro-stick-bridge p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 @media (max-width: 560px) {
@@ -1933,27 +2004,9 @@ html[data-app='taro'] body {
   gap: 16px;
 }
 
-.taro-referral {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 0 4px;
-  border-top: 1px solid var(--line);
-}
-
-.taro-referral-title,
 .taro-referral-copy {
   margin: 0;
   text-align: center;
-}
-
-.taro-referral-title {
-  font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  color: var(--ink-3);
 }
 
 .taro-referral-copy,
@@ -1981,6 +2034,23 @@ html[data-app='taro'] body {
 
 .taro-referral-invite {
   margin: 0 0 24px;
+  text-align: center;
+}
+
+/* On the home page the invite stands in for the question box. */
+.taro-referral-home {
+  max-width: 440px;
+}
+
+/* The locked page scrolls (its footer is back in the flow), so its first line
+   can reach the top: keep it clear of the language switch above it. */
+.taro-ask.taro-locked {
+  padding-top: 72px;
+}
+
+.taro-locked > .taro-referral-copy {
+  max-width: 440px;
+  margin: 0;
   text-align: center;
 }
 
@@ -2181,6 +2251,13 @@ html[data-app='taro'] body {
   padding: clamp(18px, 2.6vh, 26px) 0 0;
   border-top: 1px solid var(--line);
   margin-top: 0;
+}
+
+.taro-share-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 /* ── misc ── */

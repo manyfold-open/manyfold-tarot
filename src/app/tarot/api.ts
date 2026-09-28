@@ -21,6 +21,7 @@ import type {
 import type { Locale } from '../../shared/tarot/deck';
 import type { ApiErrorBody } from '../../shared/types';
 import { ApiError, api } from '../api';
+import { appUrl } from '../base';
 
 const base = '/api/tarot';
 const readingPath = (id: string, suffix = ''): string =>
@@ -33,11 +34,30 @@ const readingPath = (id: string, suffix = ''): string =>
  * the same moment — the page asks this on load either way, and a separate
  * request to learn one boolean would be a request for nothing.
  */
-export const fetchReader = (): Promise<{ demo: boolean; consentRequired: boolean }> =>
+export const fetchReader = (): Promise<{
+  demo: boolean;
+  consentRequired: boolean;
+  fortuneStickUrl: string;
+}> =>
   api(`${base}/reader`);
 
-export const startReading = (body: CreateReadingBody): Promise<{ reading: ReadingView }> =>
+/** Whether this browser may start a round, and what an invite can be made from. */
+export const fetchAccess = (): Promise<{
+  freeUsed: boolean;
+  credits: number;
+  canRead: boolean;
+  dailyExtraUsed: boolean;
+  stickBonusAvailable: boolean;
+  inviteReadingId: string | null;
+}> => api(`${base}/access`);
+
+export const startReading = (
+  body: CreateReadingBody,
+): Promise<{ reading: ReadingView; accessSource: 'free' | 'stick' | 'referral' }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });
+
+export const redeemStickBonus = (token: string): Promise<{ status: string }> =>
+  api(`${base}/bridge/redeem`, { method: 'POST', body: JSON.stringify({ token }) });
 
 export const createReferral = (
   id: string,
@@ -112,7 +132,7 @@ export async function streamDiviner(
   body: unknown,
   onEvent: (event: DivinerEvent) => void,
 ): Promise<void> {
-  const response = await fetch(path, {
+  const response = await fetch(appUrl(path), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body ?? {}),

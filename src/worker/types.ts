@@ -13,6 +13,11 @@ export interface Env {
   MANYFOLD_API_BASE_URL?: string;
   /** "production" enables https-only and private-IP checks on agent URLs. */
   ENVIRONMENT?: string;
+  /**
+   * Optional path prefix the site is also served under, e.g. /tarot for
+   * app.manyfold.ai/tarot. The root keeps working either way. See mount.ts.
+   */
+  BASE_PATH?: string;
   /** Optional: >=32 chars. Without it a key is generated and kept in D1. */
   CONFIG_ENCRYPTION_KEY?: string;
   /**
@@ -31,6 +36,15 @@ export interface Env {
   TAROT_AGENT_ID?: string;
   /** Set to "1" to force the built-in demo reader even when an agent is connected. */
   TAROT_DEMO?: string;
+  /**
+   * Service binding to the Fortune Stick Worker, which Tarot asks whether a
+   * reward code is real before granting it. Declared in wrangler.jsonc.
+   */
+  STICK?: Fetcher;
+  /** Local development only: reach the Stick over HTTP (e.g. http://localhost:5174/) instead of the binding. */
+  STICK_CLAIMS_URL?: string;
+  /** Fortune Stick app URL; preview builds can point to the matching Stick preview. */
+  FORTUNE_STICK_URL?: string;
 
   /**
    * Optional: a GA4 measurement id (`G-…`). Set it and the Worker writes the
