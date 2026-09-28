@@ -117,6 +117,9 @@ export interface Copy {
     notePlaceholder: string;
     saveNote: string;
     reviewDue: string;
+    reviewWhen: string;
+    reviewOptions: [string, string, string];
+    reviewIsDue: string;
     reviewNow: string;
     reviewPrompt: string;
     reviewPlaceholder: string;
@@ -334,6 +337,9 @@ const zh: Copy = {
     notePlaceholder: '记下此刻的想法；这段笔记不会被分享。',
     saveNote: '保存笔记',
     reviewDue: '一周后回顾',
+    reviewWhen: '多久之后回顾',
+    reviewOptions: ['1 周', '2 周', '1 个月'],
+    reviewIsDue: '该回顾了',
     reviewNow: '写下回顾',
     reviewPrompt: '从那次阅读之后，有什么改变？',
     reviewPlaceholder: '记下后续发展或新的理解。',
@@ -567,6 +573,9 @@ const en: Copy = {
     notePlaceholder: 'Write down what is on your mind. This note is never shared.',
     saveNote: 'Save note',
     reviewDue: 'Review in a week',
+    reviewWhen: 'Review after',
+    reviewOptions: ['1 week', '2 weeks', '1 month'],
+    reviewIsDue: 'Review due',
     reviewNow: 'Write a review',
     reviewPrompt: 'What has changed since that reading?',
     reviewPlaceholder: 'Note what happened next or what you understand differently now.',

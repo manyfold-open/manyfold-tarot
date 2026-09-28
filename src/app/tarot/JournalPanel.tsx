@@ -11,6 +11,8 @@ const localDateAfter = (days: number) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
+const REVIEW_DAYS = [7, 14, 30] as const;
+
 const localDateFromIso = (value: string) => {
   const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -69,9 +71,15 @@ export default function JournalPanel({ reading, locale }: { reading: ReadingView
           <label className="taro-journal-label" htmlFor="taro-private-note">{copy.journal.note}</label>
           <textarea id="taro-private-note" className="taro-note-input" value={note} maxLength={4000}
             placeholder={copy.journal.notePlaceholder} onChange={(event) => setNote(event.target.value)} />
-          <div className="taro-journal-review-date">
-            <label htmlFor="taro-review-date">{copy.journal.reviewDue}</label>
-            <input id="taro-review-date" type="date" value={reviewDate} onChange={(event) => setReviewDate(event.target.value)} />
+          <div className="taro-journal-review-date" role="radiogroup" aria-label={copy.journal.reviewWhen}>
+            <span className="taro-journal-label">{copy.journal.reviewWhen}</span>
+            <div className="taro-chips">
+              {REVIEW_DAYS.map((days, index) => (
+                <button key={days} type="button" role="radio" aria-checked={reviewDate === localDateAfter(days)}
+                  className={`taro-chip${reviewDate === localDateAfter(days) ? ' is-on' : ''}`}
+                  onClick={() => setReviewDate(localDateAfter(days))}>{copy.journal.reviewOptions[index]}</button>
+              ))}
+            </div>
           </div>
           <button type="button" className="taro-secondary" disabled={saving} onClick={() => void persist()}>
             {saving ? copy.outro.sharing : copy.journal.saveNote}

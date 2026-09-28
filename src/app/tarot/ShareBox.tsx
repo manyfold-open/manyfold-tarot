@@ -95,15 +95,21 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
           </label>
         ))}
         {mode === 'card' && (
-          <label className="taro-share-select">
-            {copy.share.selectedCard}
-            <select value={cardIndex} onChange={(event) => { setCardIndex(Number(event.target.value)); setUrl(''); setCopied(false); }}>
+          <div className="taro-share-select" role="radiogroup" aria-label={copy.share.selectedCard}>
+            <span className="taro-journal-label">{copy.share.selectedCard}</span>
+            <div className="taro-chips">
               {reading.cards.map((card, index) => {
                 const entry = cardById(card.cardId);
-                return <option value={index} key={card.index}>{spread.slots[card.slot].title} · {entry?.name[locale]}</option>;
+                return (
+                  <button key={card.index} type="button" role="radio" aria-checked={cardIndex === index}
+                    className={`taro-chip${cardIndex === index ? ' is-on' : ''}`}
+                    onClick={() => { setCardIndex(index); setUrl(''); setCopied(false); }}>
+                    {spread.slots[card.slot].title} · {entry?.name[locale]}
+                  </button>
+                );
               })}
-            </select>
-          </label>
+            </div>
+          </div>
         )}
         <label className="taro-share-question">
           <input type="checkbox" checked={includeQuestion} onChange={(event) => { setIncludeQuestion(event.target.checked); setUrl(''); setCopied(false); }} />

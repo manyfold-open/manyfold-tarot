@@ -122,7 +122,7 @@ export default function JournalPage() {
                       <h2>{spread.title}</h2>
                       <p>{new Intl.DateTimeFormat(locale === 'zh' ? 'zh-Hans' : 'en-GB', { dateStyle: 'medium' }).format(new Date(entry.createdAt))}</p>
                     </div>
-                    {due && <span className="taro-review-due">{copy.journal.reviewDue}</span>}
+                    {due && <span className="taro-review-due">{copy.journal.reviewIsDue}</span>}
                   </div>
                   <ol className="taro-journal-cards">
                     {entry.cards.map((card) => {
