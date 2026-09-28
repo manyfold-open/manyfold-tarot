@@ -269,7 +269,7 @@ export function demoFollowUp(followUp: string, cards: DrawnCard[], locale: Local
   if (spreadId !== 'current') {
     const titles = cards.map((card) => slotTitle(card.slot, locale, spreadId));
     const body = locale === 'zh'
-      ? `关於「${asked}」，可以先回到${names[1]}所在的「${titles[1]}」：它提供了一个重新看待问题的角度。再把${names[0]}指出的现况，和${names[2]}带出的方向放在一起，挑出最能落实的一小步。`
+      ? `关于「${asked}」，可以先回到${names[1]}所在的「${titles[1]}」：它提供了一个重新看待问题的角度。再把${names[0]}指出的现况，和${names[2]}带出的方向放在一起，挑出最能落实的一小步。`
       : `About “${asked}”, return first to ${names[1]} in “${titles[1]}”: it offers another angle on the question. Then place the situation described by ${names[0]} beside the direction in ${names[2]} and choose one small step you can put into practice.`;
     return newTopic ? `${body}\n\n[[${NEW_READING_MARKER}]]` : body;
   }

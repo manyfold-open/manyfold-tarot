@@ -54,11 +54,11 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
     id: 'weekly-review',
     title: { zh: '每周回顾', en: 'Weekly review' },
     description: { zh: '回看这周发生的事、带走一个领悟，并为下周留出空间。', en: 'Look back at the week, name what you learned, and make room for next week.' },
-    instruction: { zh: '请协助来访者回顾一周，而非预言未来：整理这周的主题、辨认留下的领悟，再提出一个下周可以带著走的意图。', en: 'Help the visitor reflect on the week rather than predict the future: name its theme, identify a lesson, and suggest an intention to carry into next week.' },
+    instruction: { zh: '请协助来访者回顾一周，而非预言未来：整理这周的主题、辨认留下的领悟，再提出一个下周可以带着走的意图。', en: 'Help the visitor reflect on the week rather than predict the future: name its theme, identify a lesson, and suggest an intention to carry into next week.' },
     slots: {
       situation: { title: { zh: '这周的主题', en: 'The theme of the week' }, prompt: { zh: '第一张，回望这周最鲜明的主题。', en: 'The first card looks back at the week’s clearest theme.' } },
       hidden: { title: { zh: '带走的领悟', en: 'What you are taking from it' }, prompt: { zh: '第二张，照出这周留下的领悟。', en: 'The second card reveals what this week has taught you.' } },
-      guidance: { title: { zh: '下周的意图', en: 'An intention for next week' }, prompt: { zh: '最后一张，为下周指出一个可以带著走的意图。', en: 'The last card offers an intention to carry into next week.' } },
+      guidance: { title: { zh: '下周的意图', en: 'An intention for next week' }, prompt: { zh: '最后一张，为下周指出一个可以带着走的意图。', en: 'The last card offers an intention to carry into next week.' } },
     },
   },
 };
