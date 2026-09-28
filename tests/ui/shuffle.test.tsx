@@ -31,6 +31,8 @@ const drawn: ReadingView = { ...greeting, status: 'drawn', pending: 3 };
 const stopShuffle = vi.fn(async (_id: string) => ({ reading: drawn }));
 
 vi.mock('../../src/app/tarot/api', () => ({
+  fetchJournal: vi.fn(async () => ({ entries: [] })),
+  saveJournal: vi.fn(),
   ApiError: class ApiError extends Error {},
   errorText: (error: unknown, fallback: string) =>
     error instanceof Error && error.message ? error.message : fallback,

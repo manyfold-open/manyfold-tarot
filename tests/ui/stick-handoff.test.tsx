@@ -23,6 +23,8 @@ const fetchAccess = vi.fn(async () => ({
 }));
 
 vi.mock('../../src/app/tarot/api', () => ({
+  fetchJournal: vi.fn(async () => ({ entries: [] })),
+  saveJournal: vi.fn(),
   ApiError: class ApiError extends Error {},
   errorText: (_error: unknown, fallback: string) => fallback,
   fetchAccess: () => fetchAccess(),

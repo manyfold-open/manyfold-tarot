@@ -1,13 +1,13 @@
 /**
  * @vitest-environment jsdom
  *
- * One press to share.
+ * One press to share, with the choices already on the page.
  *
  * The rule this file exists to hold: pressing the share button once mints the
- * link, sends the question with it, and puts the link on the clipboard. There is
- * no panel to open first, no box to tick, and no second press required — the two
- * steps that used to stand between "I want to share this" and "the link is on my
- * clipboard" are gone, and this is where they stay gone.
+ * link and puts it on the clipboard. What is shared (one card, the summary, the
+ * full reading) is chosen by options that are always visible — there is no panel
+ * to open first and no second press required. The question is NOT sent unless
+ * the person ticked the box: private by default.
  *
  * The second rule is quieter and matters more: pressing again does not mint a
  * second link. A public snapshot is a row in a table and a URL somebody may keep;
@@ -37,9 +37,9 @@ const reading: ReadingView = {
 const minted: Array<{ id: string; includeQuestion: boolean }> = [];
 let mintFails = false;
 
-const createShare = vi.fn(async (id: string, includeQuestion: boolean) => {
+const createShare = vi.fn(async (id: string, options: { includeQuestion: boolean }) => {
   if (mintFails) throw new Error('牌一时没有回应。');
-  minted.push({ id, includeQuestion });
+  minted.push({ id, includeQuestion: options.includeQuestion });
   return { share: {}, url: `https://example.test/s/tok${minted.length}` };
 });
 
@@ -47,7 +47,7 @@ vi.mock('../../src/app/tarot/api', () => ({
   ApiError: class ApiError extends Error {},
   errorText: (error: unknown, fallback: string) =>
     error instanceof Error && error.message ? error.message : fallback,
-  createShare: (id: string, includeQuestion: boolean) => createShare(id, includeQuestion),
+  createShare: (id: string, options: { includeQuestion: boolean }) => createShare(id, options),
 }));
 
 // Imported after the mock is registered.
@@ -84,23 +84,27 @@ afterEach(() => {
 });
 
 describe('the share button', () => {
-  it('is one press: no panel, no checkbox, nothing to open first', () => {
+  it('is one press: the options are already on the page, and the question is off', () => {
     render(<ShareBox reading={reading} locale="zh" />);
 
     expect(button()).toBeTruthy();
     expect(button().textContent).toBe('分享这次解读');
-    // The two things that used to stand in the way.
-    expect(document.querySelector('.taro-check')).toBeNull();
-    expect(document.querySelector('input[type="checkbox"]')).toBeNull();
+    // Three things to share, the summary chosen; nothing to open first.
+    const modes = document.querySelectorAll('.taro-share-options input[type="radio"]');
+    expect(modes).toHaveLength(3);
+    expect((modes[1] as HTMLInputElement).checked).toBe(true);
+    // The question is private until somebody ticks the box.
+    const question = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(question.checked).toBe(false);
   });
 
-  it('mints the link with the question in it and copies it, on that one press', async () => {
+  it('mints the link without the question and copies it, on that one press', async () => {
     render(<ShareBox reading={reading} locale="zh" />);
     fireEvent.click(button());
 
     await waitFor(() => expect(written).toHaveLength(1));
 
-    expect(minted).toEqual([{ id: 'r1', includeQuestion: true }]);
+    expect(minted).toEqual([{ id: 'r1', includeQuestion: false }]);
     expect(written[0]).toBe('https://example.test/s/tok1');
     await screen.findByText('已复制');
   });

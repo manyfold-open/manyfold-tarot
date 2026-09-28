@@ -69,10 +69,10 @@ export default function Consent({
     if (!banner) return;
     const reserve = () => root.style.setProperty('--consent-space', `${banner.offsetHeight + 32}px`);
     reserve();
-    const observer = new ResizeObserver(reserve);
-    observer.observe(banner);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserve);
+    observer?.observe(banner);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
       root.style.removeProperty('--consent-space');
     };
   }, [visible, locale]);
