@@ -19,17 +19,22 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { isConsolePath, isPrivacyPath, isSharePath } from './route';
+import { isConsolePath, isDailyPath, isJournalPath, isPrivacyPath, isSharePath } from './route';
 import PrivacyPage from './tarot/PrivacyPage';
 import SharePage from './tarot/SharePage';
 import TarotApp from './tarot/TarotApp';
+import DailyPage from './tarot/DailyPage';
+import JournalPage from './tarot/JournalPage';
 import './styles.css';
 import './tarot/tarot.css';
+import './tarot/features.css';
 
 const path = location.pathname;
 const isConsole = isConsolePath(path);
 const isShare = isSharePath(path);
 const isPrivacy = isPrivacyPath(path);
+const isJournal = isJournalPath(path);
+const isDaily = isDailyPath(path);
 
 // Lets the tarot stylesheet own the page background without touching the
 // console's own :root theme.
@@ -39,6 +44,10 @@ const page = isConsole ? (
   <App />
 ) : isPrivacy ? (
   <PrivacyPage />
+) : isJournal ? (
+  <JournalPage />
+) : isDaily ? (
+  <DailyPage />
 ) : isShare ? (
   <SharePage />
 ) : (

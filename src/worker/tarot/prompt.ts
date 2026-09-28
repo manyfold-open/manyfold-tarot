@@ -15,14 +15,15 @@
  */
 
 import { cardById, cardLabel, cardKeywords, type Locale } from '../../shared/tarot/deck';
-import { copyFor } from '../../shared/tarot/i18n';
 import {
   FOLLOW_UP_MAX_CHARS,
   QUESTION_MAX_CHARS,
   SLOT_ORDER,
   type Interpretation,
   type SlotId,
+  type SpreadId,
 } from '../../shared/tarot/types';
+import { spreadFor } from '../../shared/tarot/spreads';
 import type { DrawnCard } from './draw';
 
 /* ───────── section protocol ───────── */
@@ -136,12 +137,12 @@ const NEVER_PICK = {
   en: 'The cards are already drawn and their orientations are fixed. Read exactly the cards given. Never swap, add, drop or re-pick a card, and never suggest a re-draw.',
 };
 
-function slotTitle(slot: SlotId, locale: Locale): string {
-  return copyFor(locale).slots[slot].title;
+function slotTitle(slot: SlotId, locale: Locale, spreadId: SpreadId = 'current'): string {
+  return spreadFor(spreadId, locale).slots[slot].title;
 }
 
 /** The card list handed to the agent: position, name, orientation, keywords. */
-export function describeCards(cards: DrawnCard[], locale: Locale): string {
+export function describeCards(cards: DrawnCard[], locale: Locale, spreadId: SpreadId = 'current'): string {
   return cards
     .map((drawn, index) => {
       const card = cardById(drawn.cardId);
@@ -149,8 +150,8 @@ export function describeCards(cards: DrawnCard[], locale: Locale): string {
       const label = cardLabel(card, drawn.reversed, locale);
       const keywords = cardKeywords(card, drawn.reversed, locale);
       return locale === 'zh'
-        ? `${index + 1}. 牌位「${slotTitle(drawn.slot, locale)}」：${label}。传统关键词：${keywords}。`
-        : `${index + 1}. Position "${slotTitle(drawn.slot, locale)}": ${label}. Traditional keywords: ${keywords}.`;
+        ? `${index + 1}. 牌位「${slotTitle(drawn.slot, locale, spreadId)}」：${label}。传统关键词：${keywords}。`
+        : `${index + 1}. Position "${slotTitle(drawn.slot, locale, spreadId)}": ${label}. Traditional keywords: ${keywords}.`;
     })
     .filter(Boolean)
     .join('\n');
@@ -159,6 +160,7 @@ export function describeCards(cards: DrawnCard[], locale: Locale): string {
 export interface GreetingPromptInput {
   question: string;
   locale: Locale;
+  spreadId?: SpreadId;
 }
 
 /**
@@ -166,8 +168,9 @@ export interface GreetingPromptInput {
  * forbids naming any — a greeting that guesses the spread would be a lie the
  * draw then has to live with.
  */
-export function buildGreetingPrompt({ question, locale }: GreetingPromptInput): string {
-  const positions = SLOT_ORDER.map((slot) => slotTitle(slot, locale)).join(
+export function buildGreetingPrompt({ question, locale, spreadId = 'current' }: GreetingPromptInput): string {
+  const spread = spreadFor(spreadId, locale);
+  const positions = SLOT_ORDER.map((slot) => slotTitle(slot, locale, spreadId)).join(
     locale === 'zh' ? '、' : ', ',
   );
   if (locale === 'zh') {
@@ -175,6 +178,7 @@ export function buildGreetingPrompt({ question, locale }: GreetingPromptInput): 
       PERSONA.zh,
       '',
       '来访者刚刚说出了他们的问题。请用一到三句话回应：让对方感到问题被接住了，点出你听见的真正关切，然后说明你将为他们抽三张牌。',
+      `这次使用「${spread.title}」牌阵：${spread.instruction}`,
       `这三个牌位固定是：${positions}。`,
       '不要复述整段问题，不要罗列要点，不要提任何具体的牌名——牌还没有抽出。',
       '不要提问，也不要要求对方补充信息，除非这句话完全无法理解。',
@@ -187,6 +191,7 @@ export function buildGreetingPrompt({ question, locale }: GreetingPromptInput): 
     PERSONA.en,
     '',
     'The person has just spoken their question. Reply in one to three sentences: let them feel the question landed, name the real concern you heard, then say you will draw three cards for them.',
+    `This reading uses the "${spread.title}" spread: ${spread.instruction}`,
     `The three positions are fixed: ${positions}.`,
     'Do not restate their whole question, do not use bullet points, and do not name any card — nothing has been drawn yet.',
     'Do not ask them anything or request more detail unless the question is genuinely unintelligible.',
@@ -201,6 +206,7 @@ export interface HintPromptInput {
   locale: Locale;
   card: DrawnCard;
   index: number;
+  spreadId?: SpreadId;
 }
 
 /**
@@ -208,18 +214,19 @@ export interface HintPromptInput {
  * beat in the ritual, not the reading, and the full interpretation must still
  * have somewhere to go.
  */
-export function buildHintPrompt({ question, locale, card, index }: HintPromptInput): string {
+export function buildHintPrompt({ question, locale, card, index, spreadId = 'current' }: HintPromptInput): string {
   const deckCard = cardById(card.cardId);
   const label = deckCard ? cardLabel(deckCard, card.reversed, locale) : card.cardId;
   const keywords = deckCard ? cardKeywords(deckCard, card.reversed, locale) : '';
-  const position = slotTitle(card.slot, locale);
+  const position = slotTitle(card.slot, locale, spreadId);
+  const slotCopy = spreadFor(spreadId, locale).slots[card.slot];
   if (locale === 'zh') {
     return [
       PERSONA.zh,
       NEVER_PICK.zh,
       '',
       `来访者刚刚翻开第 ${index + 1} 张牌。`,
-      `牌位：${position}。牌：${label}。传统关键词：${keywords}。`,
+      `牌阵：${spreadFor(spreadId, locale).title}。牌位：${position}（${slotCopy.prompt}）。牌：${label}。传统关键词：${keywords}。`,
       '请用一到两句话，把这张牌与他们的问题连起来。先说牌名和正逆位，再说它在这个牌位上意味着什么。',
       '控制在 60 个字以内。不要给出完整解读，不要提到其他两张牌，不要给行动建议——那是后面的事。',
       '只输出这句话本身。',
@@ -232,7 +239,7 @@ export function buildHintPrompt({ question, locale, card, index }: HintPromptInp
     NEVER_PICK.en,
     '',
     `They have just turned over card ${index + 1}.`,
-    `Position: ${position}. Card: ${label}. Traditional keywords: ${keywords}.`,
+    `Spread: ${spreadFor(spreadId, locale).title}. Position: ${position} (${slotCopy.prompt}). Card: ${label}. Traditional keywords: ${keywords}.`,
     'In one or two sentences, connect this card to their question. Name the card and its orientation first, then what it means in this position.',
     'Keep it under 40 words. Do not give the full reading, do not mention the other two cards, and do not give advice yet — that comes later.',
     'Output only that line.',
@@ -245,6 +252,7 @@ export interface ReadingPromptInput {
   question: string;
   locale: Locale;
   cards: DrawnCard[];
+  spreadId?: SpreadId;
 }
 
 /**
@@ -253,15 +261,17 @@ export interface ReadingPromptInput {
  * The tags are what make the result renderable as structure instead of a wall
  * of text — and what let the share card quote a real one-sentence conclusion.
  */
-export function buildReadingPrompt({ question, locale, cards }: ReadingPromptInput): string {
-  const list = describeCards(cards, locale);
-  const titles = SLOT_ORDER.map((slot) => slotTitle(slot, locale));
+export function buildReadingPrompt({ question, locale, cards, spreadId = 'current' }: ReadingPromptInput): string {
+  const spread = spreadFor(spreadId, locale);
+  const list = describeCards(cards, locale, spreadId);
+  const titles = SLOT_ORDER.map((slot) => slotTitle(slot, locale, spreadId));
   if (locale === 'zh') {
     return [
       PERSONA.zh,
       NEVER_PICK.zh,
       '',
       '三张牌已经全部翻开。请给出完整解读。',
+      `牌阵主题：${spread.title}。${spread.instruction}`,
       '',
       '牌面：',
       list,
@@ -298,6 +308,7 @@ export function buildReadingPrompt({ question, locale, cards }: ReadingPromptInp
     NEVER_PICK.en,
     '',
     'All three cards are face up. Give the full reading.',
+    `Spread focus: ${spread.title}. ${spread.instruction}`,
     '',
     'The spread:',
     list,
@@ -339,6 +350,7 @@ export interface FollowUpPromptInput {
   followUp: string;
   /** Earlier follow-ups in this reading, oldest first. */
   history: { role: 'user' | 'diviner'; content: string }[];
+  spreadId?: SpreadId;
 }
 
 /**
@@ -350,7 +362,9 @@ export interface FollowUpPromptInput {
  */
 export function buildFollowUpPrompt(input: FollowUpPromptInput): string {
   const { locale } = input;
-  const list = describeCards(input.cards, locale);
+  const spreadId = input.spreadId ?? 'current';
+  const spread = spreadFor(spreadId, locale);
+  const list = describeCards(input.cards, locale, spreadId);
   const history = input.history
     .slice(-6)
     .map((entry) =>
@@ -366,6 +380,7 @@ export function buildFollowUpPrompt(input: FollowUpPromptInput): string {
       NEVER_PICK.zh,
       '',
       '来访者在同一次占卜里继续追问。请只用已经摊开的这三张牌回答，不要抽新牌，也不要假设有第四张牌。',
+      `本次牌阵是「${spread.title}」：${spread.instruction}`,
       '',
       '牌面：',
       list,
@@ -388,6 +403,7 @@ export function buildFollowUpPrompt(input: FollowUpPromptInput): string {
     NEVER_PICK.en,
     '',
     'They are asking more within the same reading. Answer using only the three cards already on the table — no new draw, no imagined fourth card.',
+    `This is the "${spread.title}" spread: ${spread.instruction}`,
     '',
     'The spread:',
     list,

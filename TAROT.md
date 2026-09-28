@@ -18,15 +18,30 @@ renders — see `src/worker/admin.ts`. The reading never does.
 
 | # | State | What happens |
 | --- | --- | --- |
-| 1 | 提问 | One input, one button. No welcome page, no examples, no spread picker. |
+| 1 | 提問 | One question and a choice of a few purpose-built spreads. |
 | 2 | 接住 | The reader answers the question in one to three sentences. Nothing is drawn yet, so nothing may be named. |
 | 3 | 洗牌 | The deck shuffles itself for a few seconds — there is nothing to press. **The server commits three cards** the moment it settles. |
 | 4 | 抽牌 | The whole pack is spread face down. The visitor picks three backs out of it, and each turns over in its position, with its orientation and one line. |
-| 5 | 解读 | One reading of all three cards in eight fixed sections — never three meanings stapled together. |
-| 6 | 收尾 | 分享这次解读 · 再问一件事 · 继续解读这三张牌 |
+| 5 | 解讀 | A short conclusion and overview first; card positions, connections and the answer can be opened for more detail. |
+| 6 | 收尾 | Follow-up prompts, save to the private journal, share options, or continue reading these cards. |
 
-Positions are fixed and not configurable: **此刻的处境 · 隐藏的影响 · 接下来的指引**.
-Reversals are always on. The three cards are always distinct.
+The three cards stay distinct and reversals are always on. The selected spread changes each
+position's question and the reader's instructions: understand the current situation, make a
+decision, reflect on a next step, or review the week.
+
+## Return visits
+
+`/journal` lists only saved readings and keeps the original question out of the list. Notes and
+review entries are private to the browser session; an entry can be opened, deleted, or cleared
+with the rest of that session's reading history. `/daily` shows a deterministic card and a short
+reflection. Daily and weekly in-site reminders are opt-in and never request push permission.
+
+## Spreads
+
+The spread picker is backed by `src/shared/tarot/spreads.ts`. Every spread has its own title,
+position prompts and interpretation instruction, and the chosen id is saved beside the reading
+so a reload or journal entry keeps its original layout. The Worker still chooses the cards and
+does not accept a client-supplied card or orientation.
 
 ## Where the cards come from
 
@@ -113,16 +128,17 @@ Chain of Thought / 内部工具调用. There is a test that enforces this over e
 
 ## Sharing
 
-`分享这次解读` always shares the round currently on screen. Each round is its own record and a
-new round never overwrites an old one.
+The visitor can share one selected card, a summary, or the full card reading from the round
+currently on screen. The question starts hidden and is included only after an explicit opt-in.
+Each round is its own record and a new round never overwrites an old one.
 
 A share is a **frozen copy**, not a view: the snapshot is serialized into `tarot_shares` at
 share time, and nothing that happens to the reading afterwards can change what a link already
 handed out. Two shares of the same reading are two independent records.
 
-Shared by default: the three cards, their positions, upright/reversed, the one-sentence
-conclusion, and the product signature. Never shared: the private conversation, the visitor's
-identity, other rounds. The original question is included only if the visitor ticks the box.
+Shared according to the selected mode: a card and its keywords, a summary, or the complete
+card-by-card reading. The private follow-up conversation, journal notes, visitor identity and
+other rounds are never shared. The original question is included only if the visitor opts in.
 
 ## Who a reading belongs to
 
@@ -153,6 +169,8 @@ cannot be asked for the operator password before they are allowed to ask a quest
 | `src/app/tarot/TarotApp.tsx` | The six states |
 | `src/app/tarot/Fan.tsx` | The spread the visitor picks from. Knows no card ids |
 | `src/app/tarot/SharePage.tsx` | `/s/:token` — reads the snapshot, never the reading |
+| `src/app/tarot/JournalPage.tsx` | Private saved readings and follow-up reviews |
+| `src/app/tarot/DailyPage.tsx` | Daily card, reflection and opt-in in-site reminder |
 
 New tables: `tarot_readings`, `tarot_followups`, `tarot_shares`, `tarot_rate`. They are created
 by `SCHEMA` in `src/worker/db.ts` on the next request, like everything else here.

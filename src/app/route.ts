@@ -26,6 +26,8 @@ export const isConsolePath = (path: string): boolean =>
   under(path, '/console') || under(path, '/settings');
 
 export const isSharePath = (path: string): boolean => path.startsWith('/s/');
+export const isJournalPath = (path: string): boolean => under(path, '/journal');
+export const isDailyPath = (path: string): boolean => under(path, '/daily');
 
 /** The prose page the consent banner points at. One path, no aliases. */
 export const isPrivacyPath = (path: string): boolean => under(path, '/privacy');

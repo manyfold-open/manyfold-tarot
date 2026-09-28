@@ -16,6 +16,7 @@
  */
 
 import type { Locale } from '../../shared/tarot/deck';
+import type { SpreadId } from '../../shared/tarot/types';
 import { A2AError, consumeA2AStream } from '../a2a';
 import { credentialFor } from '../connect';
 import type { Env } from '../types';
@@ -30,9 +31,9 @@ import {
 } from './prompt';
 
 export type DivinerRequest =
-  | { kind: 'greeting'; locale: Locale; question: string }
-  | { kind: 'hint'; locale: Locale; question: string; card: DrawnCard; index: number }
-  | { kind: 'interpretation'; locale: Locale; question: string; cards: DrawnCard[] }
+  | { kind: 'greeting'; locale: Locale; question: string; spreadId?: SpreadId }
+  | { kind: 'hint'; locale: Locale; question: string; card: DrawnCard; index: number; spreadId?: SpreadId }
+  | { kind: 'interpretation'; locale: Locale; question: string; cards: DrawnCard[]; spreadId?: SpreadId }
   | {
       kind: 'followup';
       locale: Locale;
@@ -41,6 +42,7 @@ export type DivinerRequest =
       conclusion: string;
       followUp: string;
       history: { role: 'user' | 'diviner'; content: string }[];
+      spreadId?: SpreadId;
     };
 
 export interface TurnOptions {
@@ -79,19 +81,21 @@ const TIMEOUT_MS: Record<DivinerRequest['kind'], number> = {
 function buildPrompt(request: DivinerRequest): string {
   switch (request.kind) {
     case 'greeting':
-      return buildGreetingPrompt({ question: request.question, locale: request.locale });
+      return buildGreetingPrompt({ question: request.question, locale: request.locale, spreadId: request.spreadId ?? 'current' });
     case 'hint':
       return buildHintPrompt({
         question: request.question,
         locale: request.locale,
         card: request.card,
         index: request.index,
+        spreadId: request.spreadId ?? 'current',
       });
     case 'interpretation':
       return buildReadingPrompt({
         question: request.question,
         locale: request.locale,
         cards: request.cards,
+        spreadId: request.spreadId ?? 'current',
       });
     case 'followup':
       return buildFollowUpPrompt({
@@ -101,6 +105,7 @@ function buildPrompt(request: DivinerRequest): string {
         conclusion: request.conclusion,
         followUp: request.followUp,
         history: request.history,
+        spreadId: request.spreadId ?? 'current',
       });
   }
 }
@@ -186,13 +191,13 @@ class DemoDiviner implements Diviner {
   private compose(request: DivinerRequest): string {
     switch (request.kind) {
       case 'greeting':
-        return demoGreeting(request.question, request.locale);
+        return demoGreeting(request.question, request.locale, request.spreadId);
       case 'hint':
-        return demoHint(request.card, request.locale);
+        return demoHint(request.card, request.locale, request.spreadId);
       case 'interpretation':
-        return demoReading(request.question, request.cards, request.locale);
+        return demoReading(request.question, request.cards, request.locale, request.spreadId);
       case 'followup':
-        return demoFollowUp(request.followUp, request.cards, request.locale);
+        return demoFollowUp(request.followUp, request.cards, request.locale, request.spreadId);
     }
   }
 }

@@ -25,11 +25,12 @@ export interface CardSlotProps {
   card: DrawnCardView | null;
   /** Face-down cards animate in place while the deck is still settling. */
   settling?: boolean;
+  positionTitle?: string;
 }
 
-export default function CardSlot({ slot, locale, card, settling = false }: CardSlotProps) {
+export default function CardSlot({ slot, locale, card, settling = false, positionTitle }: CardSlotProps) {
   const copy = copyFor(locale);
-  const slotCopy = copy.slots[slot];
+  const slotCopy = positionTitle ?? copy.slots[slot].title;
   const entry = card ? cardById(card.cardId) : null;
   const faceUp = Boolean(card && entry);
 
@@ -64,7 +65,7 @@ export default function CardSlot({ slot, locale, card, settling = false }: CardS
       </div>
 
       <figcaption className="taro-slot-caption">
-        <span className="taro-slot-title">{slotCopy.title}</span>
+        <span className="taro-slot-title">{slotCopy}</span>
         {faceUp && entry && card ? (
           <span className="taro-card-label">
             <strong>{entry.name[locale]}</strong>

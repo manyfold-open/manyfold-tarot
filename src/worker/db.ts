@@ -110,6 +110,26 @@ CREATE TABLE IF NOT EXISTS tarot_readings (
 
 CREATE INDEX IF NOT EXISTS idx_tarot_readings_session ON tarot_readings (session_id, created_at);
 
+-- Spread definitions are stored beside a reading so old rounds keep their original positions.
+CREATE TABLE IF NOT EXISTS tarot_reading_spreads (
+  reading_id TEXT PRIMARY KEY,
+  spread_id  TEXT NOT NULL DEFAULT 'current'
+);
+
+-- Saved journal entries and private reflections, scoped to the anonymous browser session.
+CREATE TABLE IF NOT EXISTS tarot_journal (
+  reading_id   TEXT PRIMARY KEY,
+  session_id   TEXT NOT NULL,
+  note         TEXT NOT NULL DEFAULT '',
+  review_due_at TEXT,
+  review_note  TEXT NOT NULL DEFAULT '',
+  reviewed_at  TEXT,
+  saved_at     TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tarot_journal_session ON tarot_journal (session_id, saved_at DESC);
+
 -- Follow-up turns inside one reading, i.e. "继续解读这三张牌".
 CREATE TABLE IF NOT EXISTS tarot_followups (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

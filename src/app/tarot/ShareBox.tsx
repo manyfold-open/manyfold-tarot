@@ -21,9 +21,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import type { Locale } from '../../shared/tarot/deck';
+import { cardById, type Locale } from '../../shared/tarot/deck';
 import { copyFor } from '../../shared/tarot/i18n';
-import type { ReadingView } from '../../shared/tarot/types';
+import type { ReadingView, ShareMode } from '../../shared/tarot/types';
+import { spreadFor } from '../../shared/tarot/spreads';
 import { track } from './analytics';
 import { createShare, errorText } from './api';
 
@@ -33,12 +34,19 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<ShareMode>('summary');
+  const [cardIndex, setCardIndex] = useState(0);
+  const [includeQuestion, setIncludeQuestion] = useState(false);
+  const spread = spreadFor(reading.spreadId, locale);
 
   // A different round is on screen: nothing from the last one carries over.
   useEffect(() => {
     setUrl('');
     setCopied(false);
     setError('');
+    setMode('summary');
+    setCardIndex(0);
+    setIncludeQuestion(false);
   }, [reading.readingId]);
 
   const share = async () => {
@@ -46,12 +54,9 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
     setBusy(true);
     setError('');
     try {
-      const link = url || (await createShare(reading.readingId, true)).url;
+      const link = url || (await createShare(reading.readingId, { includeQuestion, mode, cardIndex })).url;
       setUrl(link);
-      // Counted where the snapshot is minted, not where the button is pressed:
-      // pressing again re-copies a link that already exists, and one round that
-      // was shared once is one share.
-      if (!url) track('reading_shared', { locale });
+      if (!url) track('reading_shared', { locale, mode, question_included: includeQuestion });
       try {
         await navigator.clipboard.writeText(link);
         setCopied(true);
@@ -81,6 +86,31 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
 
   return (
     <div className="taro-share">
+      <fieldset className="taro-share-options">
+        <legend>{copy.share.modeTitle}</legend>
+        {(['card', 'summary', 'full'] as ShareMode[]).map((value) => (
+          <label key={value}>
+            <input type="radio" name={`share-mode-${reading.readingId}`} checked={mode === value} onChange={() => { setMode(value); setUrl(''); setCopied(false); }} />
+            {value === 'card' ? copy.share.modeCard : value === 'full' ? copy.share.modeFull : copy.share.modeSummary}
+          </label>
+        ))}
+        {mode === 'card' && (
+          <label className="taro-share-select">
+            {copy.share.selectedCard}
+            <select value={cardIndex} onChange={(event) => { setCardIndex(Number(event.target.value)); setUrl(''); setCopied(false); }}>
+              {reading.cards.map((card, index) => {
+                const entry = cardById(card.cardId);
+                return <option value={index} key={card.index}>{spread.slots[card.slot].title} · {entry?.name[locale]}</option>;
+              })}
+            </select>
+          </label>
+        )}
+        <label className="taro-share-question">
+          <input type="checkbox" checked={includeQuestion} onChange={(event) => { setIncludeQuestion(event.target.checked); setUrl(''); setCopied(false); }} />
+          {copy.share.includeQuestion}
+        </label>
+      </fieldset>
+
       <button type="button" className="taro-primary" onClick={() => void share()} disabled={busy}>
         {label}
       </button>

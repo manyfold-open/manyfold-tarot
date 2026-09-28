@@ -29,7 +29,9 @@ import {
   type DrawnCardView,
   type FollowUpMessage,
   type ReadingView,
+  type SpreadId,
 } from '../../shared/tarot/types';
+import { allSpreads, isSpreadId, spreadFor } from '../../shared/tarot/spreads';
 import { track } from './analytics';
 import CardSlot from './Card';
 import Consent from './Consent';
@@ -40,6 +42,7 @@ import ShareBox from './ShareBox';
 import Signature from './Signature';
 import Sky from './Sky';
 import Speaking from './Speaking';
+import JournalPanel from './JournalPanel';
 import {
   ApiError,
   errorText,
@@ -54,6 +57,7 @@ type Phase = 'ask' | 'greeting' | 'shuffle' | 'choose' | 'reveal' | 'reading' | 
 
 const READING_KEY = 'taro.readingId';
 const LOCALE_KEY = 'taro.locale';
+const LAST_COMPLETED_KEY = 'taro.lastCompletedAt';
 
 /** How long the deck shuffles before it is spread out. Long enough to feel like
  *  a ritual, short enough that nobody reaches for the tab bar — and exactly one
@@ -68,6 +72,22 @@ const COUNTER_FROM = 60;
  *  three do not land as a single event. */
 const TURN_FIRST_MS = 900;
 const TURN_GAP_MS = 1500;
+
+const WEEKLY_REMINDER_KEY = 'taro.weeklyReviewReminder';
+const DAILY_REMINDER_KEY = 'taro.dailyReminder';
+
+function consumeReminder(enabledKey: string, shownKey: string, cadence: 'day' | 'week'): boolean {
+  if (localStorage.getItem(enabledKey) !== 'on') return false;
+  const today = new Date();
+  if (cadence === 'week') {
+    const offset = (today.getDay() + 6) % 7;
+    today.setDate(today.getDate() - offset);
+  }
+  const stamp = today.toISOString().slice(0, 10);
+  if (localStorage.getItem(shownKey) === stamp) return false;
+  localStorage.setItem(shownKey, stamp);
+  return true;
+}
 
 const phaseFor = (reading: ReadingView): Phase => {
   switch (reading.status) {
@@ -98,15 +118,28 @@ const withCard = (reading: ReadingView, card: DrawnCardView): ReadingView =>
       };
 
 export default function TarotApp() {
-  const referralToken = useMemo(() => new URLSearchParams(location.search).get('ref'), []);
+  const launchQuery = useMemo(() => new URLSearchParams(location.search), []);
+  const referralToken = launchQuery.get('ref');
+  const [acquisitionSource, setAcquisitionSource] = useState<'share' | 'direct'>(() => launchQuery.get('source') === 'share' ? 'share' : 'direct');
   const [locale, setLocale] = useState<Locale>(() =>
     normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language),
   );
   const copy = useMemo(() => copyFor(locale), [locale]);
+  const [selectedSpread, setSelectedSpread] = useState<SpreadId>(() =>
+    isSpreadId(launchQuery.get('spread')) ? launchQuery.get('spread') as SpreadId : 'current',
+  );
+  const [dailyReminderVisible, setDailyReminderVisible] = useState(false);
+  const [weeklyReminderVisible, setWeeklyReminderVisible] = useState(false);
 
   const [phase, setPhase] = useState<Phase>('ask');
   const [reading, setReading] = useState<ReadingView | null>(null);
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState(() => {
+    const prompt = launchQuery.get('prompt');
+    const startingLocale = normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language);
+    if (prompt === 'daily') return copyFor(startingLocale).spreadPicker.dailyQuestion;
+    if (prompt === 'weekly') return copyFor(startingLocale).spreadPicker.weeklyQuestion;
+    return '';
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   /** Live text of the turn currently being spoken; null when nobody is speaking. */
@@ -126,6 +159,7 @@ export default function TarotApp() {
 
   /** Rounds are linked only so the reader knows this visitor was just here. */
   const previousReadingId = useRef<string | null>(null);
+  const shareAttributionFor = useRef<string | null>(localStorage.getItem('taro.shareReadingId'));
   /** Guards the greeting stream against a double start (StrictMode, fast clicks). */
   const greetedFor = useRef<string | null>(null);
   /** Same guard for the draw, which now fires from a timer rather than a click. */
@@ -134,6 +168,7 @@ export default function TarotApp() {
    *  timer, so without this StrictMode would ask for the same card twice. */
   const turning = useRef<string | null>(null);
   const questionBox = useRef<HTMLTextAreaElement | null>(null);
+  const reminderCheckDone = useRef(false);
 
   /* ───────── boot: language, reader, and any round still in progress ───────── */
 
@@ -146,6 +181,16 @@ export default function TarotApp() {
   }, [locale, copy]);
 
   useEffect(() => {
+    // Keep localStorage writes out of state initializers: StrictMode invokes
+    // those twice in development, which would otherwise consume the reminder
+    // before the visible render gets a chance to show it.
+    if (reminderCheckDone.current) return;
+    reminderCheckDone.current = true;
+    setDailyReminderVisible(consumeReminder(DAILY_REMINDER_KEY, 'taro.dailyReminderShown', 'day'));
+    setWeeklyReminderVisible(consumeReminder(WEEKLY_REMINDER_KEY, 'taro.weeklyReviewReminderShown', 'week'));
+  }, []);
+
+  useEffect(() => {
     void fetchReader()
       .then((info) => {
         setDemoReader(info.demo);
@@ -155,16 +200,24 @@ export default function TarotApp() {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem(READING_KEY);
+    const requested = launchQuery.get('reading');
+    // The daily card and the weekly review arrive with a spread and a starting
+    // question already chosen: that is a new round, not a return to the last one.
+    if (!requested && (launchQuery.has('spread') || launchQuery.has('prompt'))) return;
+    const stored = requested || localStorage.getItem(READING_KEY);
     if (!stored) return;
+    if (requested) localStorage.setItem(READING_KEY, requested);
     let cancelled = false;
     void fetchReading(stored)
       .then(({ reading: found }) => {
         if (cancelled) return;
         setReading(found);
         setFollowUps(found.followUps);
+        setQuestion(found.question);
+        setSelectedSpread(found.spreadId ?? 'current');
         setLocale(found.locale);
         setPhase(phaseFor(found));
+        if (requested) history.replaceState(null, '', '/');
         if (found.greeting) greetedFor.current = found.readingId;
         if (found.status !== 'greeting') drawnFor.current = found.readingId;
         // Which backs were set aside before the reload is not worth storing: a
@@ -249,18 +302,35 @@ export default function TarotApp() {
       const { reading: created } = await startReading({
         question: text,
         locale,
+        spreadId: selectedSpread,
         previousReadingId: previousReadingId.current,
         referralToken,
       });
-      if (referralToken) history.replaceState(null, '', location.pathname);
+      if (location.search) history.replaceState(null, '', location.pathname);
       localStorage.setItem(READING_KEY, created.readingId);
+      if (acquisitionSource === 'share') {
+        shareAttributionFor.current = created.readingId;
+        localStorage.setItem('taro.shareReadingId', created.readingId);
+      }
+      setAcquisitionSource('direct');
       setReading(created);
       setFollowUps([]);
       setSuggestsNew(false);
       setPhase('greeting');
       // The reading events are the product funnel, in order — never its content.
       // What goes out is that a question was asked, not what was asked.
-      track('reading_started', { locale, returning: previousReadingId.current !== null });
+      const lastCompletedAt = Number(localStorage.getItem(LAST_COMPLETED_KEY));
+      const daysSincePriorCompletion = Number.isFinite(lastCompletedAt) && lastCompletedAt > 0
+        ? Math.max(0, Math.floor((Date.now() - lastCompletedAt) / 86_400_000))
+        : undefined;
+      track('reading_started', {
+        locale,
+        spread_id: selectedSpread,
+        source: acquisitionSource,
+        returning: daysSincePriorCompletion !== undefined,
+        days_since_prior_completion: daysSincePriorCompletion,
+      });
+      if (acquisitionSource === 'share') track('share_link_started', { locale, spread_id: selectedSpread });
       void runGreeting(created.readingId);
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'rate_limited') {
@@ -275,7 +345,7 @@ export default function TarotApp() {
     } finally {
       setBusy(false);
     }
-  }, [busy, question, locale, copy, referralToken, runGreeting]);
+  }, [busy, question, locale, selectedSpread, acquisitionSource, copy, referralToken, runGreeting]);
 
   /** The field is a line, not a box: it opens one row high and grows downward
    *  with the question instead of reserving room for one nobody has written. */
@@ -437,6 +507,7 @@ export default function TarotApp() {
     if (!reading || busy) return;
     setPhase('reading');
     setBusy(true);
+    const generationStartedAt = performance.now();
     await runTurn(readingPath(reading.readingId, '/interpretation'), {}, (event) => {
       // `delta` is deliberately ignored here: the raw turn is a tagged draft, and
       // watching a machine assemble one is not what anyone came for.
@@ -448,10 +519,17 @@ export default function TarotApp() {
         // The one worth calling a conversion: a visitor who got the thing they
         // came for. Everything before it is a step towards this.
         track('reading_completed', { locale: reading.locale, demo: reading.demo });
+        localStorage.setItem(LAST_COMPLETED_KEY, String(Date.now()));
+        track('reading_generation_time', { locale: reading.locale, generation_ms: Math.round(performance.now() - generationStartedAt) });
+        if (shareAttributionFor.current === reading.readingId) {
+          track('share_link_completed', { locale: reading.locale, spread_id: reading.spreadId });
+          shareAttributionFor.current = null;
+          localStorage.removeItem('taro.shareReadingId');
+        }
       } else if (event.type === 'error') setError(event.message);
     });
     setBusy(false);
-  }, [reading, busy, runTurn]);
+  }, [reading, busy, runTurn, acquisitionSource]);
 
   // Two lines, alternating, so the wait has a voice instead of a spinner label.
   useEffect(() => {
@@ -463,11 +541,42 @@ export default function TarotApp() {
     return () => window.clearInterval(timer);
   }, [phase, copy]);
 
+  useEffect(() => {
+    if (phase !== 'outro' || !reading?.interpretation) return;
+    let activeSince = document.visibilityState === 'visible' ? performance.now() : null;
+    let activeMs = 0;
+    let flushed = false;
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        activeSince = performance.now();
+      } else if (activeSince !== null) {
+        activeMs += performance.now() - activeSince;
+        activeSince = null;
+      }
+    };
+    const flush = () => {
+      if (flushed) return;
+      flushed = true;
+      if (activeSince !== null) activeMs += performance.now() - activeSince;
+      activeSince = null;
+      if (activeMs >= 1000) {
+        track('result_active_time', { locale: reading.locale, active_ms: Math.round(activeMs), spread_id: reading.spreadId });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush, { once: true });
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [phase, reading?.readingId, reading?.interpretation, reading?.locale, reading?.spreadId]);
+
   /* ───────── state 7: keep going, or start again ───────── */
 
-  const askFollowUp = useCallback(async () => {
+  const askFollowUp = useCallback(async (suggestedText?: string) => {
     if (!reading || busy) return;
-    const text = followDraft.trim();
+    const text = (suggestedText ?? followDraft).trim();
     if (!text) return;
     setBusy(true);
     setFollowDraft('');
@@ -534,6 +643,10 @@ export default function TarotApp() {
       {/* The only chrome on the page. There is no mark and no name: the first
           thing anyone sees should be the question, not a logo. */}
       <header className="taro-top">
+        <nav className="taro-product-nav" aria-label="Tarot">
+          <a href="/daily">{copy.navigation.daily}</a>
+          <a href="/journal">{copy.navigation.journal}</a>
+        </nav>
         <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
           <button
             type="button"
@@ -561,11 +674,28 @@ export default function TarotApp() {
           </p>
         )}
 
+        {phase === 'ask' && dailyReminderVisible && (
+          <p className="taro-return-reminder"><a href="/daily">{copy.daily.title} · {copy.daily.prompt}</a></p>
+        )}
+        {phase === 'ask' && weeklyReminderVisible && (
+          <p className="taro-return-reminder"><a href="/?spread=weekly-review&prompt=weekly">{copy.navigation.weeklyReview} · {copy.spreadPicker.weeklyQuestion}</a></p>
+        )}
+
         {/* ── 1 · the question ── */}
         {phase === 'ask' && (
           <section className="taro-ask">
             {referralToken && <p className="taro-referral-invite">{copy.referral.invited}</p>}
             <h1 className="taro-ask-title">{copy.ask.title}</h1>
+            <fieldset className="taro-spread-picker">
+              <legend>{copy.spreadPicker.title}</legend>
+              {allSpreads(locale).map((item) => (
+                <label className={selectedSpread === item.id ? 'is-selected' : ''} key={item.id}>
+                  <input type="radio" name="tarot-spread" value={item.id} checked={selectedSpread === item.id}
+                    onChange={() => setSelectedSpread(item.id)} />
+                  <span><strong>{item.title}</strong><small>{item.description}</small></span>
+                </label>
+              ))}
+            </fieldset>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -711,6 +841,7 @@ export default function TarotApp() {
                   locale={locale}
                   card={reading.cards.find((card) => card.index === index) ?? null}
                   settling={phase === 'reveal' && index === revealedCount && !busy}
+                  positionTitle={spreadFor(reading.spreadId, locale).slots[slot].title}
                 />
               ))}
             </div>
@@ -720,7 +851,7 @@ export default function TarotApp() {
                 {reading.cards.map((card) =>
                   card.hint ? (
                     <p className="taro-hint" key={card.index}>
-                      <span className="taro-hint-slot">{copy.slots[card.slot].title}</span>
+                      <span className="taro-hint-slot">{spreadFor(reading.spreadId, locale).slots[card.slot].title}</span>
                       {card.hint}
                     </p>
                   ) : null,
@@ -730,7 +861,7 @@ export default function TarotApp() {
                 {/* One line for the card that is about to turn, and nothing to
                     press: the visitor already made every choice they get. */}
                 {!allRevealed && nextSlot && !error && (
-                  <p className="taro-instruction">{copy.slots[nextSlot].prompt}</p>
+                  <p className="taro-instruction">{spreadFor(reading.spreadId, locale).slots[nextSlot].prompt}</p>
                 )}
 
                 {!allRevealed && error && (
@@ -772,6 +903,8 @@ export default function TarotApp() {
               interpretation={reading.interpretation}
               cards={reading.cards}
               locale={locale}
+              spreadId={reading.spreadId}
+              onFollowUpPrompt={(prompt) => void askFollowUp(prompt)}
             />
 
             {followUps.length > 0 || followLive !== null ? (
@@ -845,6 +978,7 @@ export default function TarotApp() {
                   </button>
                 </form>
               ) : null}
+              <JournalPanel reading={reading} locale={locale} />
             </section>
           </>
         )}

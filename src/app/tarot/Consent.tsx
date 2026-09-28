@@ -56,7 +56,27 @@ export default function Consent({
     };
   }, [required, answered]);
 
-  if (answered || owed !== true || !measuring()) return null;
+  const visible = !(answered || owed !== true || !measuring());
+
+  /* The banner is fixed to the bottom of the window, so on a phone it sits on
+     top of whatever is last on the page — a button, a footer link. Reserve its
+     height under the page while it is up, so everything can be scrolled clear. */
+  useEffect(() => {
+    if (!visible) return;
+    const root = document.documentElement;
+    const banner = document.querySelector<HTMLElement>('.taro-consent');
+    if (!banner) return;
+    const reserve = () => root.style.setProperty('--consent-space', `${banner.offsetHeight + 32}px`);
+    reserve();
+    const observer = new ResizeObserver(reserve);
+    observer.observe(banner);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--consent-space');
+    };
+  }, [visible, locale]);
+
+  if (!visible) return null;
 
   const answer = (choice: Choice) => {
     setConsent(choice);

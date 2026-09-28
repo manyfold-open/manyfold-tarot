@@ -13,8 +13,10 @@ import type { Locale } from './deck';
 
 export type { Locale };
 
-/** The three fixed positions, in reveal order. Never configurable — see AGENTS.md. */
+/** The three positions in every spread, in reveal order. */
 export type SlotId = 'situation' | 'hidden' | 'guidance';
+
+export type SpreadId = 'current' | 'decision' | 'next-step' | 'weekly-review';
 
 export const SLOT_ORDER: readonly SlotId[] = ['situation', 'hidden', 'guidance'] as const;
 
@@ -71,6 +73,8 @@ export interface FollowUpMessage {
 /** Everything the browser needs to render a reading at any point in its life. */
 export interface ReadingView {
   readingId: string;
+  /** Missing only on responses from an older deployed Worker. */
+  spreadId?: SpreadId;
   status: ReadingStatus;
   locale: Locale;
   question: string;
@@ -122,7 +126,11 @@ export interface ShareSnapshot {
   /** Product identity / diviner signature shown on the shared card. */
   signature: string;
   createdAt: string;
+  mode?: ShareMode;
+  spreadId?: SpreadId;
 }
+
+export type ShareMode = 'card' | 'summary' | 'full';
 
 /**
  * Events streamed to the browser while the diviner speaks (SSE `data:` payloads).
@@ -150,10 +158,13 @@ export interface CreateReadingBody {
   previousReadingId?: string | null;
   /** Opaque invite token carried by a friend opening a referral link. */
   referralToken?: string | null;
+  spreadId?: SpreadId;
 }
 
 export interface ShareBody {
   includeQuestion?: boolean;
+  mode?: ShareMode;
+  cardIndex?: number;
 }
 
 export const QUESTION_MAX_CHARS = 500;

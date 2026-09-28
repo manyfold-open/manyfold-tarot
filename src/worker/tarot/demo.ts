@@ -14,11 +14,13 @@
  */
 
 import { cardById, cardLabel, cardKeywords, type Locale } from '../../shared/tarot/deck';
-import { copyFor } from '../../shared/tarot/i18n';
+import { spreadFor } from '../../shared/tarot/spreads';
 import { NEW_READING_MARKER } from './prompt';
 import type { DrawnCard } from './draw';
+import type { SpreadId } from '../../shared/tarot/types';
 
-const slotTitle = (slot: DrawnCard['slot'], locale: Locale) => copyFor(locale).slots[slot].title;
+const slotTitle = (slot: DrawnCard['slot'], locale: Locale, spreadId: SpreadId = 'current') =>
+  spreadFor(spreadId, locale).slots[slot].title;
 
 const label = (card: DrawnCard, locale: Locale): string => {
   const deckCard = cardById(card.cardId);
@@ -38,8 +40,14 @@ function questionEcho(question: string, locale: Locale): string {
   return `${compact.slice(0, limit)}${locale === 'zh' ? '……' : '…'}`;
 }
 
-export function demoGreeting(question: string, locale: Locale): string {
+export function demoGreeting(question: string, locale: Locale, spreadId: SpreadId = 'current'): string {
   const echo = questionEcho(question, locale);
+  const spread = spreadFor(spreadId, locale);
+  if (spreadId !== 'current') {
+    return locale === 'zh'
+      ? `你问的是「${echo}」。这次用「${spread.title}」牌阵，让三张牌从不同角度陪你整理这件事。`
+      : `You are asking about “${echo}”. We will use the ${spread.title} spread to look at this from three different angles.`;
+  }
   if (locale === 'zh') {
     return [
       `你问的是「${echo}」——我听见的，是你已经在心里翻来覆去想了很久的那一件事。`,
@@ -52,13 +60,83 @@ export function demoGreeting(question: string, locale: Locale): string {
   ].join('');
 }
 
-export function demoHint(card: DrawnCard, locale: Locale): string {
+export function demoHint(card: DrawnCard, locale: Locale, spreadId: SpreadId = 'current'): string {
   const name = label(card, locale);
   const meaning = keywords(card, locale);
   if (locale === 'zh') {
-    return `${name}。在「${slotTitle(card.slot, locale)}」这个位置上，它说的是：${meaning}。`;
+    return `${name}。在「${slotTitle(card.slot, locale, spreadId)}」这个位置上，它说的是：${meaning}。`;
   }
-  return `${name}. In the position of "${slotTitle(card.slot, locale)}", it speaks of ${meaning}.`;
+  return `${name}. In the position of "${slotTitle(card.slot, locale, spreadId)}", it speaks of ${meaning}.`;
+}
+
+interface SpreadFrame {
+  conclusion: string;
+  overview: string;
+  actions: [string, string];
+  reflection: string;
+  closing: string;
+}
+
+/**
+ * What each non-default spread is *for*, said in its own terms: a decision reads
+ * as a trade-off, a next step as one small move, a weekly review as a look back.
+ * The card paragraphs stay shared; only the framing around them changes.
+ */
+function spreadFrame(spreadId: SpreadId, locale: Locale, title: string, names: string[], titles: string[]): SpreadFrame {
+  const [a, b, c] = names;
+  const [ta, tb, tc] = titles;
+  if (locale === 'zh') {
+    if (spreadId === 'decision') {
+      return {
+        conclusion: `「${title}」这个牌阵没有替你决定答案，而是把值得衡量的部分摊开。${a}、${b}和${c}各自指出一个可以思考的角度。`,
+        overview: `从「${ta}」到「${tb}」，再到「${tc}」，这三张牌带你先看清要决定的是什么，再看见拉扯你的力量，最后落到一个可以依循的原则。`,
+        actions: ['写下你已经确定的事实，以及一个仍需确认的问题。', '把两个选项各自最坏和最好的结果列出来，再看哪一个你更能承担。'],
+        reflection: '哪一个角度让你看这个选择的方式稍微不同了？',
+        closing: '不必今天就做出决定。先把要衡量的东西看清楚。',
+      };
+    }
+    if (spreadId === 'next-step') {
+      return {
+        conclusion: `「${title}」把焦点收窄到眼前：先看${ta}指出的重点，再从${tb}里挑出一个小步骤。${a}、${b}和${c}合起来，指向的是下一步，而不是整个未来。`,
+        overview: `从「${ta}」到「${tb}」，再到「${tc}」，这三张牌带你从现在最值得关注的事，走到一个可以开始的小动作，以及之后要留意的信号。`,
+        actions: ['选一个小到今天就能开始的行动，把它写下来。', '决定一个你会留意的信号，一周后再回头看它有没有出现。'],
+        reflection: '如果只做一件小事，你希望它是什么？',
+        closing: '先走出一小步，比想清楚整条路更有用。',
+      };
+    }
+    return {
+      conclusion: `「${title}」是一次回望，而不是预言。${a}、${b}和${c}把这一周整理成三件事：主题、领悟，以及带进下周的意图。`,
+      overview: `从「${ta}」到「${tb}」，再到「${tc}」，这三张牌带你先看这一周的主题，再收下带得走的领悟，最后为下周留出空间。`,
+      actions: ['写下这一周里一件做得还不错的事，和一件想调整的事。', '为下周挑一个小意图，把它放在你会看到的地方。'],
+      reflection: '这周有什么改变，是你想带进下周的？',
+      closing: '这一周已经过去，你可以只带走真正有用的部分。',
+    };
+  }
+  if (spreadId === 'decision') {
+    return {
+      conclusion: `The ${title} spread does not decide for you. It lays out what is worth weighing: ${a}, ${b} and ${c} each offer a different angle.`,
+      overview: `From “${ta}” through “${tb}” to “${tc}”, these cards first name what is really being decided, then the pull beneath it, and finally a principle you can decide by.`,
+      actions: ['Write down what you already know for certain and one thing you still need to find out.', 'List the best and worst realistic outcome of each option, then notice which you could live with.'],
+      reflection: 'Which angle changed how you see this choice, even a little?',
+      closing: 'You do not have to decide today. Start by seeing what is being weighed.',
+    };
+  }
+  if (spreadId === 'next-step') {
+    return {
+      conclusion: `The ${title} spread narrows things to what is in front of you: ${a}, ${b} and ${c} point at one small move, not the whole future.`,
+      overview: `From “${ta}” through “${tb}” to “${tc}”, these cards move from what deserves attention now, to a small move you can begin, to a signal worth watching.`,
+      actions: ['Pick a step small enough to begin today, and write it down.', 'Choose one signal to watch for, and look again in a week.'],
+      reflection: 'If you did only one small thing, what would you want it to be?',
+      closing: 'One small step is worth more than a fully mapped road.',
+    };
+  }
+  return {
+    conclusion: `The ${title} is a look back, not a forecast: ${a}, ${b} and ${c} sort the week into a theme, a lesson and an intention.`,
+    overview: `From “${ta}” through “${tb}” to “${tc}”, these cards name the theme of the week, what you can take from it, and what to leave room for next.`,
+    actions: ['Write down one thing that went well this week and one you would change.', 'Choose a small intention for next week and put it where you will see it.'],
+    reflection: 'What changed this week that you want to carry into the next one?',
+    closing: 'The week is done. You only have to carry the useful part.',
+  };
 }
 
 /**
@@ -66,11 +144,66 @@ export function demoHint(card: DrawnCard, locale: Locale): string {
  * word: each section is built from the actual cards drawn, so two demo readings
  * never read the same.
  */
-export function demoReading(question: string, cards: DrawnCard[], locale: Locale): string {
+export function demoReading(question: string, cards: DrawnCard[], locale: Locale, spreadId: SpreadId = 'current'): string {
   const [first, second, third] = cards;
   const echo = questionEcho(question, locale);
   const names = cards.map((card) => label(card, locale));
   const meanings = cards.map((card) => keywords(card, locale));
+
+  if (spreadId !== 'current') {
+    const spread = spreadFor(spreadId, locale);
+    const titles = cards.map((card) => spread.slots[card.slot].title);
+    const echoLine = locale === 'zh' ? `回到「${echo}」，` : `For “${echo}”, `;
+    const frame = spreadFrame(spreadId, locale, spread.title, names, titles);
+    if (locale === 'zh') {
+      return [
+        '[CONCLUSION]',
+        frame.conclusion,
+        '[OVERVIEW]',
+        frame.overview,
+        '[CARD1]',
+        `${names[0]}落在「${titles[0]}」。${meanings[0]}。先把这张牌带出的事实和感受分开看，会比较容易找出事情的重心。`,
+        '[CARD2]',
+        `${names[1]}落在「${titles[1]}」。${meanings[1]}。它提供另一个角度，提醒你注意其中的拉力、学习或可行的小步骤。`,
+        '[CARD3]',
+        `${names[2]}落在「${titles[2]}」。${meanings[2]}。把这个方向当成一个值得尝试的意图，而不是必须服从的预言。`,
+        '[CONNECTIONS]',
+        `${names[0]}指出的${titles[0]}，和${names[1]}带出的${titles[1]}彼此补充；${names[2]}则把两者带向一个可以实践的方向。`,
+        '[RESPONSE]',
+        `${echoLine}先用牌面帮你整理问题，再回到你掌握的现实信息做判断。你可以挑出最有共鸣的一点，让它成为下一步的起点。`,
+        '[ACTIONS]',
+        `- ${frame.actions[0]}`,
+        `- ${frame.actions[1]}`,
+        '[REFLECTION]',
+        frame.reflection,
+        '[CLOSING]',
+        frame.closing,
+      ].join('\n');
+    }
+    return [
+      '[CONCLUSION]',
+      frame.conclusion,
+      '[OVERVIEW]',
+      frame.overview,
+      '[CARD1]',
+      `${names[0]} lands in “${titles[0]}”. ${meanings[0]}. Separate what this brings up as fact from what it brings up as feeling; that makes the centre of the matter easier to see.`,
+      '[CARD2]',
+      `${names[1]} lands in “${titles[1]}”. ${meanings[1]}. It adds another angle and asks you to notice the pull, lesson or small move available here.`,
+      '[CARD3]',
+      `${names[2]} lands in “${titles[2]}”. ${meanings[2]}. Treat this as an intention worth trying, not a prediction you have to obey.`,
+      '[CONNECTIONS]',
+      `${names[0]} describes ${titles[0]}, ${names[1]} adds what is present in ${titles[1]}, and ${names[2]} carries both toward a direction you can put into practice.`,
+      '[RESPONSE]',
+      `${echoLine}let the cards help organize your thoughts, then return to the evidence you have. Choose the part that resonates most and let it become a starting point.`,
+      '[ACTIONS]',
+      `- ${frame.actions[0]}`,
+      `- ${frame.actions[1]}`,
+      '[REFLECTION]',
+      frame.reflection,
+      '[CLOSING]',
+      frame.closing,
+    ].join('\n');
+  }
 
   if (locale === 'zh') {
     return [
@@ -79,7 +212,7 @@ export function demoReading(question: string, cards: DrawnCard[], locale: Locale
       '[OVERVIEW]',
       `三张牌是${names[0]}、${names[1]}、${names[2]}。它们连起来讲的是一个从停滞走向选择的过程：你所处的位置已经清楚，真正没被看清的是中间那一层，而出路指向具体的行动而不是继续等待。`,
       '[CARD1]',
-      `${names[0]}落在「${slotTitle(first.slot, locale)}」。${meanings[0]}。这说明你现在的处境并不是凭空而来，它是你过去一段时间里做过的选择累积出来的结果。你对「${echo}」的焦虑，多半来自于你其实已经感觉到了变化，只是还没有承认它。`,
+      `${names[0]}落在「${slotTitle(first.slot, locale)}」。${meanings[0]}。这说明你现在的处境并不是凭空而来，它是你过去一段时间里做过的选择累积出来的结果。你心里的那份不安，多半来自于你其实已经感觉到了变化，只是还没有承认它。`,
       '[CARD2]',
       `${names[1]}落在「${slotTitle(second.slot, locale)}」。${meanings[1]}。这一层是你看得最不清楚的地方——它可能是某个人的态度，也可能是你自己一直不愿意深究的动机。它一直在影响事情的走向，只是没有被放到台面上。`,
       '[CARD3]',
@@ -105,7 +238,7 @@ export function demoReading(question: string, cards: DrawnCard[], locale: Locale
     '[OVERVIEW]',
     `The three cards are ${names[0]}, ${names[1]} and ${names[2]}. Together they describe a passage out of stalling and into choosing: where you stand is already clear, the middle layer is what you have not seen, and the way through is an action rather than more waiting.`,
     '[CARD1]',
-    `${names[0]} lands in "${slotTitle(first.slot, locale)}". ${meanings[0]}. Your situation did not appear out of nowhere — it is the accumulation of choices you made over the last stretch. The unease you feel about “${echo}” most likely comes from having already sensed the shift without admitting it yet.`,
+    `${names[0]} lands in "${slotTitle(first.slot, locale)}". ${meanings[0]}. Your situation did not appear out of nowhere — it is the accumulation of choices you made over the last stretch. The unease you feel most likely comes from having already sensed the shift without admitting it yet.`,
     '[CARD2]',
     `${names[1]} lands in "${slotTitle(second.slot, locale)}". ${meanings[1]}. This is the layer you can see least clearly. It may be someone's real position, or a motive of your own you have avoided examining. It has been steering things the whole time without being named.`,
     '[CARD3]',
@@ -125,7 +258,7 @@ export function demoReading(question: string, cards: DrawnCard[], locale: Locale
   ].join('\n');
 }
 
-export function demoFollowUp(followUp: string, cards: DrawnCard[], locale: Locale): string {
+export function demoFollowUp(followUp: string, cards: DrawnCard[], locale: Locale, spreadId: SpreadId = 'current'): string {
   const names = cards.map((card) => label(card, locale));
   const asked = questionEcho(followUp, locale);
   // The demo reader flags a new round on the same signals a real one would: the
@@ -133,6 +266,13 @@ export function demoFollowUp(followUp: string, cards: DrawnCard[], locale: Local
   const newTopic = /^(那|另外|还有|再问|如果我|我还想问|what about|another|also,? what)/i.test(
     followUp.trim(),
   );
+  if (spreadId !== 'current') {
+    const titles = cards.map((card) => slotTitle(card.slot, locale, spreadId));
+    const body = locale === 'zh'
+      ? `关於「${asked}」，可以先回到${names[1]}所在的「${titles[1]}」：它提供了一个重新看待问题的角度。再把${names[0]}指出的现况，和${names[2]}带出的方向放在一起，挑出最能落实的一小步。`
+      : `About “${asked}”, return first to ${names[1]} in “${titles[1]}”: it offers another angle on the question. Then place the situation described by ${names[0]} beside the direction in ${names[2]} and choose one small step you can put into practice.`;
+    return newTopic ? `${body}\n\n[[${NEW_READING_MARKER}]]` : body;
+  }
   if (locale === 'zh') {
     const body = [
       `关于「${asked}」——留在这三张牌里看的话，${names[1]}是最值得停一停的那张。它落在「隐藏的影响」上，说明你问的这个点，答案多半不在你正盯着的地方。`,

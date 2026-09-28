@@ -39,6 +39,7 @@ const INTERPRETATION: Interpretation = {
 
 const reading = (overrides: Partial<ReadingRecord> = {}): ReadingRecord => ({
   id: 'r1',
+  spreadId: 'current',
   sessionId: 's1',
   question: '要不要换工作？',
   locale: 'zh',
