@@ -5,6 +5,8 @@ import type { Locale } from '../../shared/tarot/deck';
 export interface TarotHandoff {
   locale: Locale | null;
   bonusToken: string | null;
+  /** The test token, from `#tester=`. Only the fragment is read: it never reaches a server log. */
+  testerToken: string | null;
   fromStick: boolean;
   forceQuestion: boolean;
   hasBridgeFragment: boolean;
@@ -20,9 +22,10 @@ export function readTarotHandoff(href: string): TarotHandoff {
   return {
     locale: lang === 'zh' || lang === 'en' ? lang : null,
     bonusToken: fragment.get('bonus'),
+    testerToken: fragment.get('tester'),
     fromStick: source === 'fortune-stick',
     forceQuestion: url.searchParams.get('new') === '1',
-    hasBridgeFragment: fragment.has('lang') || fragment.has('bonus'),
+    hasBridgeFragment: fragment.has('lang') || fragment.has('bonus') || fragment.has('tester'),
     source,
   };
 }

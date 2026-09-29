@@ -1,6 +1,7 @@
 import type { ReadingRecord } from './flow';
 import { HttpError, type Env } from '../types';
 import { now } from '../db';
+import { isTester } from './tester';
 
 const REFERRAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const TOKEN_BYTES = 18;
@@ -27,6 +28,8 @@ export interface AccessView {
    * hold stays the one being watched. Null when nothing has been finished yet.
    */
   inviteReadingId: string | null;
+  /** This browser presented the test token: no daily limit applies to it. */
+  tester: boolean;
 }
 
 const toBase64Url = (bytes: Uint8Array): string => {
@@ -51,7 +54,11 @@ export const freeDay = (nowMs: number = Date.now()): string =>
 export async function consumeReadingAccess(
   env: Env,
   sessionId: string,
-): Promise<'free' | 'stick' | 'referral'> {
+): Promise<'free' | 'stick' | 'referral' | 'test'> {
+  // A test browser reads without spending anything; the hourly meters in
+  // ratelimit.ts have already run by the time this is asked.
+  if (await isTester(env, sessionId)) return 'test';
+
   const timestamp = now();
 
   const free = await env.DB.prepare(
@@ -111,7 +118,8 @@ export async function consumeReadingAccess(
 
 export async function accessFor(env: Env, sessionId: string): Promise<AccessView> {
   const day = freeDay();
-  const [spent, reward, extra, stick, source] = await Promise.all([
+  const [tester, spent, reward, extra, stick, source] = await Promise.all([
+    isTester(env, sessionId),
     env.DB.prepare(
       'SELECT 1 AS spent FROM tarot_daily_free WHERE session_id = ? AND day = ?',
     )
@@ -153,10 +161,11 @@ export async function accessFor(env: Env, sessionId: string): Promise<AccessView
   return {
     freeUsed,
     credits,
-    canRead: !freeUsed || (!dailyExtraUsed && (stickBonusAvailable || credits > 0)),
+    canRead: tester || !freeUsed || (!dailyExtraUsed && (stickBonusAvailable || credits > 0)),
     dailyExtraUsed,
     stickBonusAvailable,
     inviteReadingId: source?.id ?? null,
+    tester,
   };
 }
 
