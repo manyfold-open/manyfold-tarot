@@ -11,15 +11,18 @@ export interface SpreadDefinition {
    * The sections are the same for every spread; what each one is *for* is not —
    * a decision weighs, a next step narrows, a weekly review looks back.
    */
-  guidance: { response: string; actions: string; reflection: string };
+  guidance: { response: string; actions: string; reflection: string; followUp: string };
+  /** Three suggested follow-ups under the reading; absent means the site-wide ones. */
+  quickFollowUps?: [string, string, string];
   slots: Record<SlotId, { title: string; prompt: string }>;
 }
 
-type LocalizedSpread = Omit<SpreadDefinition, 'title' | 'description' | 'instruction' | 'guidance' | 'slots'> & {
+type LocalizedSpread = Omit<SpreadDefinition, 'title' | 'description' | 'instruction' | 'guidance' | 'quickFollowUps' | 'slots'> & {
   title: Record<Locale, string>;
   description: Record<Locale, string>;
   instruction: Record<Locale, string>;
-  guidance: Record<'response' | 'actions' | 'reflection', Record<Locale, string>>;
+  guidance: Record<'response' | 'actions' | 'reflection' | 'followUp', Record<Locale, string>>;
+  quickFollowUps?: Record<Locale, [string, string, string]>;
   slots: Record<SlotId, { title: Record<Locale, string>; prompt: Record<Locale, string> }>;
 };
 
@@ -33,6 +36,7 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
       response: { zh: '回到来访者的问题，给出综合回应，说明牌面对这个具体处境意味着什么。', en: 'Back to their question: what this spread means for this specific situation.' },
       actions: { zh: '两到三条现实中可以做的事，每条独占一行，以「- 」开头，具体、可执行、不空泛。', en: 'Two or three things they can actually do, each on its own line starting with "- ", concrete and doable.' },
       reflection: { zh: '一个留给对方自己想的问题，一句话。', en: 'One question for them to sit with, a single sentence.' },
+      followUp: { zh: '', en: '' },
     },
     slots: {
       situation: { title: { zh: '此刻的处境', en: 'Where you stand' }, prompt: { zh: '第一张，照见你此刻所处的位置。', en: 'The first card shows where you are standing now.' } },
@@ -49,6 +53,11 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
       response: { zh: '回到来访者的问题：把他要在哪些选项之间取舍说清楚——每个选项各自会得到什么、要放下什么。问题里没写明选项时，就从问题推出最可能的两边。不要替他选，也不要暗示哪一边“对”；只说明牌面让哪一边的分量显得更重，以及为什么。', en: 'Back to their question: lay out what they are choosing between — what each option would give them and what it would cost. If the question names no options, infer the two most likely sides. Do not choose for them or hint that one side is "right"; say only which side the cards make weigh more, and why.' },
       actions: { zh: '两到三条帮助他做决定的现实步骤，每条独占一行，以「- 」开头，例如：把某个选项最坏和最好的结果各写下来、向某个具体的人确认一个事实、给自己设一个做出决定的期限。要具体、可执行，而不是直接告诉他该选什么。', en: 'Two or three practical steps that help them decide, each on its own line starting with "- " — for example writing down the worst and best realistic outcome of an option, checking one fact with a specific person, or setting a date by which to decide. Concrete and doable; never a verdict on what to pick.' },
       reflection: { zh: '一个帮他分辨自己真正想要什么的问题，一句话，不带倾向。', en: 'One question that helps them tell what they actually want, a single sentence, leaning neither way.' },
+      followUp: { zh: '继续帮他权衡，而不是替他决定：如果追问在问“该选哪个”，就回到各个选项的取舍和可用来判断的原则，不给答案。', en: 'Keep helping them weigh, not deciding for them: if the follow-up asks "which one should I pick", return to the trade-offs and the principle to decide by, and do not give a verdict.' },
+    },
+    quickFollowUps: {
+      zh: ['这几张牌里，哪一张最提醒我该衡量什么？', '两边各自最坏的情况是什么？', '在做决定之前，我可以先确认哪一件事？'],
+      en: ['Which card most points at what I should weigh?', 'What is the worst case on each side?', 'What can I check before I decide?'],
     },
     slots: {
       situation: { title: { zh: '真正要决定的是什么', en: 'What is really being decided' }, prompt: { zh: '第一张，照出这个决定真正牵动的事。', en: 'The first card shows what this decision is really about.' } },
@@ -65,6 +74,11 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
       response: { zh: '回到来访者的问题，只谈眼前，不谈整个未来：指出现在最该优先的一件事、为什么是它，以及可以先放一放的部分。', en: 'Back to their question, about what is in front of them and not the whole future: name the one thing to put first, why it is that one, and what can wait.' },
       actions: { zh: '恰好两条，每条独占一行，以「- 」开头：第一条是一个小到今天或本周就能开始的行动，写清楚做什么、怎么做；第二条是一个要留意的信号，说明出现什么迹象代表方向对了，或需要调整。', en: 'Exactly two, each on its own line starting with "- ": first, one action small enough to begin today or this week, with what to do and how; second, one signal to watch for — what would show the direction is right, or needs adjusting.' },
       reflection: { zh: '一个帮他确认“这一步够不够小、自己愿不愿意走”的问题，一句话。', en: 'One question that checks whether this step is small enough and whether they are willing to take it, a single sentence.' },
+      followUp: { zh: '保持在“下一步”的尺度：把回答落到一个更小、更具体的行动或一个可观察的信号上，不要展开成长期规划。', en: 'Stay at the scale of the next step: land the answer on one smaller, more concrete move or one observable signal, and do not expand it into a long-term plan.' },
+    },
+    quickFollowUps: {
+      zh: ['这一步还能再小一点吗？', '我要留意的信号具体会是什么样子？', '如果今天只有十分钟，我该做什么？'],
+      en: ['Can this step be made even smaller?', 'What would the signal I am watching for look like?', 'If I only had ten minutes today, what should I do?'],
     },
     slots: {
       situation: { title: { zh: '现在最值得关注', en: 'What deserves attention now' }, prompt: { zh: '第一张，指出此刻最值得你留意的地方。', en: 'The first card points to what deserves your attention now.' } },
@@ -81,6 +95,11 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
       response: { zh: '回到来访者的问题，以“这一周”为范围：这周发生了什么、哪里消耗了他、哪里给了他力量，以及他带走的是什么。如果问题与这周无关，就把它当作这周背景的一部分，不要转去预测未来。', en: 'Back to their question, within the span of this one week: what happened, what drained them, what gave them strength, and what they are taking from it. If the question is not about this week, treat it as part of the week’s background rather than turning to predict the future.' },
       actions: { zh: '两到三条下周可以带着走的具体做法，每条独占一行，以「- 」开头：一件想继续做的事、一件想放下或调整的事，以及一个放进下周日程的小意图。不要写成宏大的目标。', en: 'Two or three concrete things to carry into next week, each on its own line starting with "- ": one thing to keep doing, one to let go of or adjust, and one small intention to put in next week’s calendar. No grand goals.' },
       reflection: { zh: '一个让他回看这一周的问题，一句话，指向已经发生的事，而不是预测。', en: 'One question that looks back over the week, a single sentence, pointing at what has already happened rather than predicting.' },
+      followUp: { zh: '保持在“这一周”的范围：帮他回看已经发生的事和留下的领悟，不预测未来，也不替下周做大计划。', en: 'Stay within this one week: help them look back at what has happened and what it left them with, without predicting or planning next week at length.' },
+    },
+    quickFollowUps: {
+      zh: ['这一周里，哪一件事最值得我记住？', '哪一张牌最像这一周的我？', '下周我可以放下什么？'],
+      en: ['Which moment of this week is worth remembering?', 'Which card is most like me this week?', 'What can I set down next week?'],
     },
     slots: {
       situation: { title: { zh: '这周的主题', en: 'The theme of the week' }, prompt: { zh: '第一张，回望这周最鲜明的主题。', en: 'The first card looks back at the week’s clearest theme.' } },
@@ -107,7 +126,9 @@ export function spreadFor(id: SpreadId | null | undefined, locale: Locale): Spre
       response: spread.guidance.response[locale],
       actions: spread.guidance.actions[locale],
       reflection: spread.guidance.reflection[locale],
+      followUp: spread.guidance.followUp[locale],
     },
+    quickFollowUps: spread.quickFollowUps?.[locale],
     slots: Object.fromEntries(
       Object.entries(spread.slots).map(([slot, copy]) => [slot, {
         title: copy.title[locale],

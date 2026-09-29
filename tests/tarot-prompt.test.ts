@@ -318,3 +318,31 @@ describe('the closing sections follow the spread', () => {
     expect(zh).toContain('一个留给对方自己想的问题，一句话。');
   });
 });
+
+describe('follow-ups follow the spread too', () => {
+  const cards = [
+    { slot: 'situation', cardId: 'wands-14', reversed: false },
+    { slot: 'hidden', cardId: 'major-06', reversed: false },
+    { slot: 'guidance', cardId: 'major-17', reversed: true },
+  ] as DrawnCard[];
+
+  for (const locale of ['zh', 'en'] as const) {
+    it(`tells the reader how to answer inside each spread (${locale})`, () => {
+      for (const id of SPREAD_IDS) {
+        const text = buildFollowUpPrompt({ question: 'q', locale, cards, conclusion: 'c', followUp: 'f', history: [], spreadId: id });
+        const { followUp } = spreadFor(id, locale).guidance;
+        if (followUp) expect(text).toContain(followUp);
+      }
+      const named = SPREAD_IDS.filter((id) => id !== 'current').map((id) => spreadFor(id, locale).guidance.followUp);
+      expect(new Set(named).size).toBe(named.length);
+      expect(named.every(Boolean)).toBe(true);
+    });
+
+    it(`suggests three follow-ups of its own for every spread but the default (${locale})`, () => {
+      expect(spreadFor('current', locale).quickFollowUps).toBeUndefined();
+      for (const id of SPREAD_IDS.filter((item) => item !== 'current')) {
+        expect(spreadFor(id, locale).quickFollowUps).toHaveLength(3);
+      }
+    });
+  }
+});

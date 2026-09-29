@@ -129,7 +129,7 @@ export default function Reading({ interpretation, cards, locale, spreadId = 'cur
 
       {onFollowUpPrompt && (
         <section className="taro-quick-followups" aria-label={copy.outro.continueTitle}>
-          {copy.result.quickFollowUps.map((prompt, index) => (
+          {(spread.quickFollowUps ?? copy.result.quickFollowUps).map((prompt, index) => (
             <button key={index} type="button" className="taro-quick-prompt" onClick={() => {
               track('follow_up_prompt_selected', { locale, prompt_index: index });
               onFollowUpPrompt(prompt);
