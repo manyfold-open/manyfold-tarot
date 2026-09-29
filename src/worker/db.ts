@@ -243,6 +243,20 @@ CREATE TABLE IF NOT EXISTS tarot_daily_extra (
   created_at TEXT NOT NULL,
   PRIMARY KEY (session_id, day)
 );
+
+-- What paid for each reading (src/worker/tarot/referrals.ts), so a greeting
+-- the reader never gave can hand the reading back and a retry pays for it
+-- again. refunded_at is set while nothing is paying for the reading. Readings
+-- older than this table have no row and keep what they were charged.
+CREATE TABLE IF NOT EXISTS tarot_reading_access (
+  reading_id  TEXT PRIMARY KEY,
+  session_id  TEXT NOT NULL,
+  source      TEXT NOT NULL,
+  source_id   TEXT,
+  day         TEXT NOT NULL,
+  refunded_at TEXT,
+  created_at  TEXT NOT NULL
+);
 `;
 
 /**

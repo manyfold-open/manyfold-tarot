@@ -10,9 +10,10 @@ import { READER_UNAVAILABLE, type DivinerEvent } from '../../shared/tarot/types'
 
 export const streamErrorText = (
   event: Extract<DivinerEvent, { type: 'error' }>,
-  errors: { generic: string; rateLimited: string },
+  errors: { generic: string; rateLimited: string; readingLimit: string },
 ): string => {
   if (event.code === READER_UNAVAILABLE) return errors.generic;
   if (event.code === 'rate_limited') return errors.rateLimited;
+  if (event.code === 'reading_limit') return errors.readingLimit;
   return event.message || errors.generic;
 };

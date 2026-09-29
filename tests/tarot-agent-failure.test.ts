@@ -109,7 +109,7 @@ describe('the reader fails on the greeting', () => {
     expect(warn).toHaveBeenCalledWith('tarot turn failed', expect.stringContaining('quota reached'));
   });
 
-  it('leaves the round retryable: same reading, no second reading spent', async () => {
+  it('hands the day back when the reader never spoke, and charges it again on a retry that works', async () => {
     reader = brokenReader;
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -121,19 +121,98 @@ describe('the reader fails on the greeting', () => {
     const path = `/api/tarot/readings/${reading.readingId}/greeting`;
 
     await call(path, { body: {}, cookie });
-    const spent = await call('/api/tarot/access', { cookie });
-    expect(spent.json<{ freeUsed: boolean; canRead: boolean }>()).toMatchObject({
-      freeUsed: true,
-      canRead: false,
-    });
+    // Someone who gives up here has not had a reading, so they have not spent one.
+    expect((await access(cookie)).freeUsed).toBe(false);
+    expect((await access(cookie)).canRead).toBe(true);
 
-    // The agent comes back. The retry is a turn on the same reading, not a new one.
+    // A second failure on the same round gives back nothing more than it took.
+    await call(path, { body: {}, cookie });
+    expect((await access(cookie)).freeUsed).toBe(false);
+
+    // The agent comes back. The retry is a turn on the same reading, not a new one,
+    // and now that the reader has spoken the day's reading is spent.
     reader = demoDiviner();
     const retried = await call(path, { body: {}, cookie });
     expect(retried.status).toBe(200);
     expect(retried.events().some((event) => event.type === 'greeting')).toBe(true);
+    expect(await access(cookie)).toMatchObject({ freeUsed: true, canRead: false });
 
     const resumed = await call(`/api/tarot/readings/${reading.readingId}`, { cookie });
     expect(resumed.json<{ reading: ReadingView }>().reading.greeting).toBeTruthy();
+
+    // Replaying a greeting that exists costs nothing and refunds nothing.
+    const replayed = await call(path, { body: {}, cookie });
+    expect(replayed.events().some((event) => event.type === 'greeting')).toBe(true);
+    expect((await access(cookie)).freeUsed).toBe(true);
+  });
+
+  it('does not let fail, refund, retry become a free reading once the day is spent elsewhere', async () => {
+    reader = brokenReader;
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const first = await call('/api/tarot/readings', {
+      body: { question: '这段关系接下来会怎样？', locale: 'zh', spreadId: 'current' },
+    });
+    const cookie = first.cookie;
+    const failed = first.json<{ reading: ReadingView }>().reading;
+    await call(`/api/tarot/readings/${failed.readingId}/greeting`, { body: {}, cookie });
+
+    // The refunded reading is spent on a new round instead.
+    reader = demoDiviner();
+    const second = await call('/api/tarot/readings', {
+      body: { question: '换个问题：下周的重点是什么？', locale: 'zh', spreadId: 'next' },
+      cookie,
+    });
+    expect(second.status).toBe(201);
+
+    // Going back to the first round now has nothing left to pay with, and the
+    // reader is not asked at all.
+    const speak = vi.fn(demoDiviner().speak);
+    reader = { ...demoDiviner(), speak };
+    const retried = await call(`/api/tarot/readings/${failed.readingId}/greeting`, { body: {}, cookie });
+    expect(retried.status).toBe(429);
+    expect(retried.json<{ error: { code: string } }>().error.code).toBe('reading_limit');
+    expect(speak).not.toHaveBeenCalled();
+    const resumed = await call(`/api/tarot/readings/${failed.readingId}`, { cookie });
+    expect(resumed.json<{ reading: ReadingView }>().reading.greeting).toBe('');
+  });
+
+  it('gives an invite reward back to the same browser when that is what paid', async () => {
+    reader = brokenReader;
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    // Today's free reading is already gone; one invite reward is waiting.
+    const cookie = (await call('/api/tarot/access')).cookie as string;
+    const sessionId = cookie.split('=')[1];
+    const day = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    const stamp = new Date().toISOString();
+    await d1.db
+      .prepare('INSERT INTO tarot_daily_free (session_id, day, created_at) VALUES (?, ?, ?)')
+      .bind(sessionId, day, stamp)
+      .run();
+    await d1.db
+      .prepare('INSERT INTO tarot_rewards (referral_token, session_id, redeemed_at, created_at) VALUES (?, ?, NULL, ?)')
+      .bind('invite-token-1', sessionId, stamp)
+      .run();
+
+    const started = await call('/api/tarot/readings', {
+      body: { question: '我要怎么准备面试？', locale: 'zh', spreadId: 'next' },
+      cookie,
+    });
+    expect(started.json<{ accessSource: string }>().accessSource).toBe('referral');
+    expect(await access(cookie)).toMatchObject({ credits: 0, dailyExtraUsed: true, canRead: false });
+
+    const { reading } = started.json<{ reading: ReadingView }>();
+    await call(`/api/tarot/readings/${reading.readingId}/greeting`, { body: {}, cookie });
+    expect(await access(cookie)).toMatchObject({ credits: 1, dailyExtraUsed: false, canRead: true });
   });
 });
+
+async function access(cookie: string | null) {
+  return (await call('/api/tarot/access', { cookie })).json<{
+    freeUsed: boolean;
+    canRead: boolean;
+    credits: number;
+    dailyExtraUsed: boolean;
+  }>();
+}

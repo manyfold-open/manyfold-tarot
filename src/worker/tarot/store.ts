@@ -511,6 +511,7 @@ export async function deleteReadingData(env: Env, readingId: string) {
     env.DB.prepare('DELETE FROM tarot_followups WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_journal WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_reading_spreads WHERE reading_id = ?').bind(readingId),
+    env.DB.prepare('DELETE FROM tarot_reading_access WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_readings WHERE id = ?').bind(readingId),
   ]);
 }
@@ -521,6 +522,7 @@ export async function clearJournalAndReadings(env: Env, sessionId: string) {
     env.DB.prepare('DELETE FROM tarot_followups WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_journal WHERE session_id = ?').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_reading_spreads WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
+    env.DB.prepare('DELETE FROM tarot_reading_access WHERE session_id = ?').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_readings WHERE session_id = ?').bind(sessionId),
   ]);
 }
