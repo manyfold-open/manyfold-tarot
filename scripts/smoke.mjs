@@ -2,11 +2,23 @@
 /**
  * Smoke test against a running deployment (or local dev server):
  *   npm run smoke -- https://your-app.workers.dev
+ *   npm run smoke -- https://your-app.workers.dev --reading
+ *
+ * Without --reading every check only reads. With it, one whole reading also
+ * runs, and against a live deployment that is a real reading: it spends the
+ * day's free reading for a fresh browser, bills agent turns, and leaves a
+ * reading and a share link behind.
  *
  * Retries for a while, because a fresh deploy can take a moment to propagate.
  */
 
-const base = (process.argv[2] ?? 'http://localhost:5173').replace(/\/+$/, '');
+const args = process.argv.slice(2);
+const withReading = args.includes('--reading');
+const base = (args.find((arg) => !arg.startsWith('--')) ?? 'http://localhost:5173').replace(/\/+$/, '');
+// An Origin header is scheme and host only. Under a mount (app.manyfold.ai/tarot)
+// the base carries a path, and sending that as the Origin is a cross-origin
+// request as far as the Worker is concerned.
+const origin = new URL(base).origin;
 const ATTEMPTS = 12;
 const DELAY_MS = 5_000;
 
@@ -97,6 +109,7 @@ const checks = [
   },
   {
     name: 'a whole reading runs: question → draw → three cards → interpretation → share',
+    optIn: true,
     run: async () => {
       // One browser: same cookie throughout, Origin on every mutation.
       let cookie = '';
@@ -104,7 +117,7 @@ const checks = [
         const response = await fetch(`${base}${path}`, {
           method: body === undefined ? 'GET' : 'POST',
           headers: {
-            origin: base,
+            origin,
             ...(body === undefined ? {} : { 'content-type': 'application/json' }),
             ...(cookie ? { cookie } : {}),
           },
@@ -186,6 +199,10 @@ if (!ready) {
 
 let failed = 0;
 for (const check of checks) {
+  if (check.optIn && !withReading) {
+    console.log(`- ${check.name}: skipped (add --reading to run it; it spends a real reading)`);
+    continue;
+  }
   try {
     await check.run();
     console.log(`✓ ${check.name}`);
