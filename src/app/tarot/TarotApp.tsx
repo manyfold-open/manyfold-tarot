@@ -401,6 +401,9 @@ export default function TarotApp() {
       } catch (caught) {
         if (caught instanceof ApiError && caught.code === 'rate_limited') {
           setError(copy.errors.rateLimited);
+        } else if (caught instanceof ApiError && caught.code === 'reading_limit') {
+          // A retried greeting pays for its reading again, and today may be spent.
+          setError(copy.errors.readingLimit);
         } else if (caught instanceof ApiError && caught.status === 404) {
           setError(copy.errors.lost);
         } else if (caught instanceof ApiError) {

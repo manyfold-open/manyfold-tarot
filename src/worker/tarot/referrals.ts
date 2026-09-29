@@ -50,14 +50,24 @@ export function newReferralToken(): string {
 export const freeDay = (nowMs: number = Date.now()): string =>
   new Date(nowMs + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+export type AccessSource = 'free' | 'stick' | 'referral' | 'test';
+
+/** What one reading was paid with: enough to hand exactly that back. */
+export interface AccessGrant {
+  source: AccessSource;
+  /** The Stick token id or referral token behind an extra reading. */
+  sourceId: string | null;
+  /** The freeDay the reading was spent on. */
+  day: string;
+}
+
 /** Uses today's free reading, or one daily extra reward (Stick first, then invite). */
-export async function consumeReadingAccess(
-  env: Env,
-  sessionId: string,
-): Promise<'free' | 'stick' | 'referral' | 'test'> {
+export async function consumeReadingAccess(env: Env, sessionId: string): Promise<AccessGrant> {
+  const day = freeDay();
+
   // A test browser reads without spending anything; the hourly meters in
   // ratelimit.ts have already run by the time this is asked.
-  if (await isTester(env, sessionId)) return 'test';
+  if (await isTester(env, sessionId)) return { source: 'test', sourceId: null, day };
 
   const timestamp = now();
 
@@ -66,11 +76,10 @@ export async function consumeReadingAccess(
      ON CONFLICT DO NOTHING
      RETURNING session_id`,
   )
-    .bind(sessionId, freeDay(), timestamp)
+    .bind(sessionId, day, timestamp)
     .first<{ session_id: string }>();
-  if (free) return 'free';
+  if (free) return { source: 'free', sourceId: null, day };
 
-  const day = freeDay();
   const batch = await env.DB.batch([
     env.DB.prepare(
       `INSERT OR IGNORE INTO tarot_daily_extra
@@ -107,13 +116,103 @@ export async function consumeReadingAccess(
   const slot = (batch[0]?.results?.[0] ?? null) as
     | { source: 'stick' | 'referral'; source_id: string }
     | null;
-  if (slot) return slot.source;
+  if (slot) return { source: slot.source, sourceId: slot.source_id, day };
 
   throw new HttpError(
     429,
     'reading_limit',
     'No reading is left for this browser today.',
   );
+}
+
+/** Undoes one consumeReadingAccess: the day's free reading or extra slot, and the reward behind it. */
+async function releaseGrant(env: Env, sessionId: string, grant: AccessGrant): Promise<void> {
+  if (grant.source === 'free') {
+    await env.DB.prepare('DELETE FROM tarot_daily_free WHERE session_id = ? AND day = ?')
+      .bind(sessionId, grant.day)
+      .run();
+    return;
+  }
+  if (grant.source === 'test' || !grant.sourceId) return;
+  const reward =
+    grant.source === 'stick'
+      ? 'UPDATE tarot_stick_rewards SET redeemed_at = NULL WHERE token_id = ? AND session_id = ?'
+      : 'UPDATE tarot_rewards SET redeemed_at = NULL WHERE referral_token = ? AND session_id = ?';
+  await env.DB.batch([
+    env.DB.prepare(
+      'DELETE FROM tarot_daily_extra WHERE session_id = ? AND day = ? AND source = ? AND source_id = ?',
+    ).bind(sessionId, grant.day, grant.source, grant.sourceId),
+    env.DB.prepare(reward).bind(grant.sourceId, sessionId),
+  ]);
+}
+
+/** Remembers what paid for a reading, so a greeting that never came can hand it back. */
+export async function recordReadingAccess(
+  env: Env,
+  readingId: string,
+  sessionId: string,
+  grant: AccessGrant,
+): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO tarot_reading_access (reading_id, session_id, source, source_id, day, refunded_at, created_at)
+     VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+  )
+    .bind(readingId, sessionId, grant.source, grant.sourceId, grant.day, now())
+    .run();
+}
+
+/**
+ * Hands a reading's access back after its greeting failed, so a visitor who
+ * gives up has not spent the day on a reader who never spoke. Once per charge
+ * (refunded_at is the claim), and never for a reading that has a greeting: a
+ * second tab may have got one while this one failed.
+ */
+export async function refundReadingAccess(env: Env, readingId: string): Promise<boolean> {
+  const claimed = await env.DB.prepare(
+    `UPDATE tarot_reading_access SET refunded_at = ?
+     WHERE reading_id = ? AND refunded_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM tarot_readings WHERE id = ? AND greeting <> '')
+     RETURNING session_id, source, source_id, day`,
+  )
+    .bind(now(), readingId, readingId)
+    .first<{ session_id: string; source: AccessSource; source_id: string | null; day: string }>();
+  if (!claimed) return false;
+  await releaseGrant(env, claimed.session_id, {
+    source: claimed.source,
+    sourceId: claimed.source_id,
+    day: claimed.day,
+  });
+  return true;
+}
+
+/**
+ * Makes sure a refunded reading is paid for again before its greeting is kept.
+ * Without it, fail → refund → retry that succeeds would be a free reading.
+ * Throws reading_limit when nothing is left today. A reading that was never
+ * refunded (or predates tarot_reading_access) passes untouched.
+ */
+export async function rechargeReadingAccess(
+  env: Env,
+  readingId: string,
+  sessionId: string,
+): Promise<void> {
+  const row = await env.DB.prepare(
+    'SELECT refunded_at FROM tarot_reading_access WHERE reading_id = ?',
+  )
+    .bind(readingId)
+    .first<{ refunded_at: string | null }>();
+  if (!row || row.refunded_at === null) return;
+
+  const grant = await consumeReadingAccess(env, sessionId);
+  const paid = await env.DB.prepare(
+    `UPDATE tarot_reading_access SET source = ?, source_id = ?, day = ?, refunded_at = NULL
+     WHERE reading_id = ? AND refunded_at IS NOT NULL
+     RETURNING reading_id`,
+  )
+    .bind(grant.source, grant.sourceId, grant.day, readingId)
+    .first<{ reading_id: string }>();
+  // Another retry of the same reading paid first: give this charge back.
+  if (!paid) await releaseGrant(env, sessionId, grant);
 }
 
 export async function accessFor(env: Env, sessionId: string): Promise<AccessView> {

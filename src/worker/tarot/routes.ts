@@ -91,6 +91,9 @@ import {
   consumeReadingAccess,
   createReferral,
   findReferral,
+  rechargeReadingAccess,
+  recordReadingAccess,
+  refundReadingAccess,
   validateReferral,
 } from './referrals';
 import {
@@ -316,7 +319,7 @@ tarot.post('/readings', async (c) => {
     rule: RULES.readings,
     ipRule: RULES.readingsPerIp,
   });
-  const accessSource = await consumeReadingAccess(c.env, sessionId);
+  const grant = await consumeReadingAccess(c.env, sessionId);
 
   // A new round is a new row and a new A2A context. The previous id is kept only
   // as a link between rounds — never as a way to mix two spreads.
@@ -328,8 +331,9 @@ tarot.post('/readings', async (c) => {
     previousReadingId: previous,
     spreadId: isSpreadId(body?.spreadId) ? body.spreadId : 'current',
   });
+  await recordReadingAccess(c.env, reading.id, sessionId, grant);
   if (referralToken) await bindReferralToReading(c.env, reading.id, referralToken);
-  return c.json({ reading: await readingViewFor(c.env, reading), accessSource }, 201);
+  return c.json({ reading: await readingViewFor(c.env, reading), accessSource: grant.source }, 201);
 });
 
 tarot.get('/readings/:id', async (c) => {
@@ -399,26 +403,43 @@ tarot.post('/readings/:id/greeting', async (c) => {
     rule: RULES.turns,
     ipRule: RULES.turnsPerIp,
   });
+  // A greeting that failed before handed the reading back (below); asking
+  // again pays for it again, before the reader is asked for anything.
+  await rechargeReadingAccess(c.env, reading.id, c.get('sessionId'));
   const diviner = await resolveDiviner(c.env);
 
   return streamTurn(defer(c), async (send) => {
-    const result = await diviner.speak(
-      { kind: 'greeting', locale: reading.locale, question: reading.question, spreadId: reading.spreadId },
-      {
-        idempotencyKey: `${reading.id}-greeting`,
-        contextId: reading.contextId,
-        taskId: reading.activeTaskId,
-        onDelta: throttledDelta(send),
-      },
-    );
-    await saveGreeting(c.env, reading.id, {
-      greeting: result.text,
-      contextId: result.contextId,
-      taskId: result.taskId,
-      demo: diviner.demo,
-      agentId: diviner.agentId,
-    });
-    await send({ type: 'greeting', text: result.text });
+    let text: string;
+    try {
+      const result = await diviner.speak(
+        { kind: 'greeting', locale: reading.locale, question: reading.question, spreadId: reading.spreadId },
+        {
+          idempotencyKey: `${reading.id}-greeting`,
+          contextId: reading.contextId,
+          taskId: reading.activeTaskId,
+          onDelta: throttledDelta(send),
+        },
+      );
+      // Another tab's failure may have refunded the reading while this one
+      // was speaking; the greeting is only kept for a reading that is paid for.
+      await rechargeReadingAccess(c.env, reading.id, c.get('sessionId'));
+      await saveGreeting(c.env, reading.id, {
+        greeting: result.text,
+        contextId: result.contextId,
+        taskId: result.taskId,
+        demo: diviner.demo,
+        agentId: diviner.agentId,
+      });
+      text = result.text;
+    } catch (error) {
+      // The reader never spoke, so the visitor has not had a reading: give
+      // back what it cost. The round stays theirs to retry.
+      await refundReadingAccess(c.env, reading.id).catch((refundError) =>
+        console.warn('tarot refund failed', safeErrorText(refundError instanceof Error ? refundError.message : refundError)),
+      );
+      throw error;
+    }
+    await send({ type: 'greeting', text });
   });
 });
 
