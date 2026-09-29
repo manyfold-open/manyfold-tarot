@@ -33,7 +33,7 @@
 
 **Interfaces:**
 - Produces: `export default function StickCard(props: { href: string; offer: boolean; locale: Locale; onOpen?: () => void }): JSX.Element`，根元素 class 為 `taro-stick-card`，連結 class 為 `taro-stick-go`。
-- Produces: i18n `bridge.stickGo`（zh：`去抽签`，en：`Draw a stick`）。
+- Produces: i18n `bridge.stickGo`（zh：`去抽签`，en：`Draw`）。
 
 - [ ] **Step 1: 寫失敗的測試** `tests/ui/stick-card.test.tsx`
 
@@ -70,7 +70,7 @@ describe('StickCard', () => {
     expect(link().getAttribute('href')).toBe('https://stick.test/?from=outro');
     expect(link().getAttribute('target')).toBe('_blank');
     expect(link().getAttribute('aria-label')).toBe('Draw a stick for today');
-    expect(link().textContent).toBe('Draw a stick');
+    expect(link().textContent).toBe('Draw');
     fireEvent.click(link());
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
@@ -100,7 +100,7 @@ Expected: FAIL，錯誤為找不到 `../../src/app/tarot/StickCard`。
 在 `en.bridge` 的 `stickCta: 'Draw a stick for today',` 下一行加入：
 
 ```ts
-    stickGo: 'Draw a stick',
+    stickGo: 'Draw',
 ```
 
 - [ ] **Step 4: 實作** `src/app/tarot/StickCard.tsx`

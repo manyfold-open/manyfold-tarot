@@ -148,6 +148,7 @@ export interface Copy {
 
   outro: {
     share: string;
+    shareShort: string;
     sharing: string;
     newReading: string;
     /** The same button when there is nothing left to ask with: it only goes
@@ -405,6 +406,7 @@ const zh: Copy = {
 
   outro: {
     share: '分享这次解读',
+    shareShort: '分享',
     sharing: '正在生成分享……',
     newReading: '再问一件事',
     backHome: '回到首页',
@@ -669,6 +671,7 @@ const en: Copy = {
 
   outro: {
     share: 'Share this reading',
+    shareShort: 'Share',
     sharing: 'Preparing the share…',
     newReading: 'Ask about something else',
     backHome: 'Back to the home page',
@@ -717,7 +720,7 @@ const en: Copy = {
 
   bridge: {
     stickCta: 'Draw a stick for today',
-    stickGo: 'Draw a stick',
+    stickGo: 'Draw',
     outroOffer: 'Draw a stick, then ask Tarot one more question today.',
     outroContinue: 'You can also draw a stick for a thought about today.',
     lockedOffer: 'Draw a stick and you can ask Tarot one more question today.',

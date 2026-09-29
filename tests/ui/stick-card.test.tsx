@@ -30,7 +30,7 @@ describe('StickCard', () => {
     expect(link().getAttribute('href')).toBe('https://stick.test/?from=outro');
     expect(link().getAttribute('target')).toBe('_blank');
     expect(link().getAttribute('aria-label')).toBe('Draw a stick for today');
-    expect(link().textContent).toBe('Draw a stick');
+    expect(link().textContent).toBe('Draw');
     fireEvent.click(link());
     expect(onOpen).toHaveBeenCalledTimes(1);
   });

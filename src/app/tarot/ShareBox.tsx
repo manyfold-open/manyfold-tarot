@@ -88,7 +88,7 @@ export default function ShareBox({
       ? copy.share.copied
       : url
         ? copy.share.copyLink
-        : copy.outro.share;
+        : copy.share.createLink;
 
   if (!open) return null;
 
