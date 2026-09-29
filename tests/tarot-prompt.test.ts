@@ -25,6 +25,7 @@ import {
   sanitizeFollowUp,
   sanitizeQuestion,
   shareConclusion,
+  stripModelResidue,
   stripProtocolMarkers,
   stripThinking,
 } from '../src/worker/tarot/prompt';
@@ -75,6 +76,31 @@ describe('hiding the machinery', () => {
     expect(stripThinking('思考：先看第一张\n真正的回答')).toBe('真正的回答');
     expect(stripThinking('Thinking: step one\nThe answer')).toBe('The answer');
     expect(cleanAgentText('  <think>x</think>  done  ')).toBe('done');
+  });
+});
+
+describe('a model’s leftover format', () => {
+  const answer = '先确认这份 offer 的真实工作边界。\n\n若对方无法清楚回答，就要留意这段关系是否对等。';
+
+  it('drops the stray line that followed a complete answer', () => {
+    const leaked = `${answer}\n\n一分彩assistantfinal  code\t\t\t\t\t\n (no need)`;
+    expect(cleanAgentText(leaked)).toBe(answer);
+  });
+
+  it('drops channel names and special tokens wherever the line starts', () => {
+    expect(stripModelResidue(`${answer}\nassistantanalysis: hmm`)).toBe(answer);
+    expect(stripModelResidue(`${answer}\n<|channel|>final<|message|>x`)).toBe(answer);
+    expect(stripModelResidue(`${answer}\nAssistant Commentary`)).toBe(answer);
+  });
+
+  it('keeps an answer that has none of it, byte for byte', () => {
+    expect(stripModelResidue(answer)).toBe(answer);
+    expect(cleanAgentText('她说：assistant 的角色不在这里。')).toBe('她说：assistant 的角色不在这里。');
+  });
+
+  it('leaves a tagged reading intact and still parseable', () => {
+    const tagged = '[CONCLUSION]\n先稳住。\n[OVERVIEW]\n三张牌指向同一处。';
+    expect(cleanAgentText(tagged)).toBe(tagged);
   });
 });
 
