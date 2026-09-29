@@ -147,7 +147,14 @@ export type DivinerEvent =
   | { type: 'hint'; index: number; text: string }
   | { type: 'interpretation'; interpretation: Interpretation }
   | { type: 'followup'; text: string; suggestsNewReading: boolean }
-  | { type: 'error'; message: string };
+  /** `code` is an HttpError's code, or READER_UNAVAILABLE when the reader itself
+   *  failed. The browser words the second one in the visitor's language; the
+   *  message is only a fallback for a client that does not know the code. */
+  | { type: 'error'; code?: string; message: string };
+
+/** The `error` event's code when the agent behind the reader could not answer. */
+export const READER_UNAVAILABLE = 'reader_unavailable';
+export const READER_UNAVAILABLE_MESSAGE = 'The reader could not answer just now.';
 
 /* ───────── request bodies ───────── */
 
