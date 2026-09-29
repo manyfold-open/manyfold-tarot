@@ -372,6 +372,18 @@ describe('the decision spread does not lean', () => {
     expect(spreadFor('decision', 'en').instruction).toContain('never say one side weighs more');
   });
 
+  it('does not ask, anywhere in the spread, for the side that weighs more', () => {
+    // The response guidance once said "say which side the cards make weigh
+    // more", which is exactly the lean the instruction above forbids.
+    const decision = spreadFor('decision', 'zh');
+    expect(decision.guidance.response).not.toMatch(/只说明牌面让哪一边的分量显得更重/);
+    expect(decision.guidance.response).toContain('更重');
+    expect(decision.guidance.response).toContain('不要说牌面让哪一边');
+    const english = spreadFor('decision', 'en').guidance.response;
+    expect(english).not.toContain('say only which side the cards make weigh more');
+    expect(english).toContain('never say the cards make either side');
+  });
+
   it('puts that instruction in the reading prompt', () => {
     const prompt = buildReadingPrompt({ question: '我该不该接受？', locale: 'zh', cards: CARDS, spreadId: 'decision' });
     expect(prompt).toContain('“分量较重”');
