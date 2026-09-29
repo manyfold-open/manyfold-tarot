@@ -175,6 +175,14 @@ CREATE TABLE IF NOT EXISTS tarot_daily_free (
   PRIMARY KEY (session_id, day)
 );
 
+-- Browsers that presented the test token (src/worker/tarot/tester.ts). Their
+-- readings are the ones whose session_id is here.
+CREATE TABLE IF NOT EXISTS tarot_testers (
+  session_id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
 -- An invite belongs to the finished reading that created it. A token can be
 -- completed once, so forwarding the same link cannot mint multiple rewards.
 CREATE TABLE IF NOT EXISTS tarot_referrals (

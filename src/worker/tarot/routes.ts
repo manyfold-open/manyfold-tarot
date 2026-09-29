@@ -64,6 +64,7 @@ import {
   sanitizeQuestion,
 } from './prompt';
 import { FOLLOW_UPS_PER_READING, RULES, enforce, shouldSweep, sweep } from './ratelimit';
+import { grantTester, verifyTesterToken } from './tester';
 import {
   addFollowUp,
   commitDraw,
@@ -265,6 +266,29 @@ tarot.post('/bridge/redeem', async (c) => {
     throw new HttpError(400, 'bad_request', 'A Stick reward token is required.');
   }
   return c.json(await redeemStickBonus(c.env, c.get('sessionId'), body.token));
+});
+
+/**
+ * Turns this browser into a test browser (src/worker/tarot/tester.ts). Answers
+ * the same way whether no token is configured or the one sent is wrong, so it
+ * says nothing about which it is.
+ */
+tarot.post('/tester', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { token?: unknown } | null;
+  if (!body || typeof body.token !== 'string' || body.token.length === 0 || body.token.length > 256) {
+    throw new HttpError(400, 'bad_request', 'A token is required.');
+  }
+  await enforce(c.env, {
+    sessionId: c.get('sessionId'),
+    ip: c.get('clientIp'),
+    scope: 'tester',
+    rule: RULES.tester,
+    ipRule: RULES.testerPerIp,
+  });
+  if (!(await verifyTesterToken(c.env, body.token))) {
+    throw new HttpError(403, 'tester_denied', 'That token does not open anything here.');
+  }
+  return c.json({ tester: true, expiresAt: await grantTester(c.env, c.get('sessionId')) });
 });
 
 /* ───────── state 1 → 2: the question ───────── */

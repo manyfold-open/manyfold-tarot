@@ -52,6 +52,7 @@ import {
   fetchReader,
   fetchReading,
   redeemStickBonus,
+  redeemTesterToken,
   startReading,
   stopShuffle,
   streamDiviner,
@@ -291,6 +292,25 @@ export default function TarotApp() {
     [handoff.bonusToken],
   );
 
+  /**
+   * The test token rides in the fragment, so it never reached a server; it is
+   * already off the address bar by the time this runs. Like the Stick claim it
+   * waits for the load requests, so the pass lands on the session the browser
+   * keeps. Silent on purpose: the visitor is the operator, and what it did is
+   * visible as a question box where there would have been a locked page.
+   */
+  const claimTester = useCallback(async (token: string): Promise<void> => {
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.allSettled(loadRequests.current);
+      claimSent.current = true;
+      await redeemTesterToken(token);
+      void fetchAccess().then(setAccess).catch(() => undefined);
+    } catch {
+      /* a wrong or expired token leaves the browser an ordinary visitor */
+    }
+  }, []);
+
   useEffect(() => {
     const requested = launchQuery.get('reading');
     const shouldStartAtQuestion = handoff.fromStick || handoff.forceQuestion || Boolean(handoff.bonusToken);
@@ -302,6 +322,7 @@ export default function TarotApp() {
     }
 
     if (handoff.fromStick && handoff.bonusToken) void claimStickBonus();
+    if (handoff.testerToken) void claimTester(handoff.testerToken);
 
     if (shouldStartAtQuestion) return;
 
@@ -471,7 +492,7 @@ export default function TarotApp() {
         source: handoff.source ?? acquisitionSource,
       });
       if (acquisitionSource === 'share') track('share_link_started', { locale, spread_id: selectedSpread });
-      if (accessSource !== 'free') {
+      if (accessSource !== 'free' && accessSource !== 'test') {
         track('tarot_extra_reading_started', { source: accessSource });
       }
       void runGreeting(created.readingId);

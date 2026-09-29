@@ -49,12 +49,17 @@ export const fetchAccess = (): Promise<{
   dailyExtraUsed: boolean;
   stickBonusAvailable: boolean;
   inviteReadingId: string | null;
+  tester?: boolean;
 }> => api(`${base}/access`);
 
 export const startReading = (
   body: CreateReadingBody,
-): Promise<{ reading: ReadingView; accessSource: 'free' | 'stick' | 'referral' }> =>
+): Promise<{ reading: ReadingView; accessSource: 'free' | 'stick' | 'referral' | 'test' }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });
+
+/** Turns this browser into a test browser; see src/worker/tarot/tester.ts. */
+export const redeemTesterToken = (token: string): Promise<{ tester: boolean; expiresAt: string }> =>
+  api(`${base}/tester`, { method: 'POST', body: JSON.stringify({ token }) });
 
 export const redeemStickBonus = (token: string): Promise<{ status: string }> =>
   api(`${base}/bridge/redeem`, { method: 'POST', body: JSON.stringify({ token }) });

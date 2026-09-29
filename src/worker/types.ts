@@ -34,6 +34,12 @@ export interface Env {
    * produces. Set it on a deployment that has several agents connected.
    */
   TAROT_AGENT_ID?: string;
+  /**
+   * Optional: SHA-256 (64 hex chars) of the token that turns a browser into a
+   * test browser with no daily reading limit. A hash, not a secret — see
+   * src/worker/tarot/tester.ts. Unset or empty, nobody can become a tester.
+   */
+  TAROT_TEST_TOKEN_SHA256?: string;
   /** Set to "1" to force the built-in demo reader even when an agent is connected. */
   TAROT_DEMO?: string;
   /**

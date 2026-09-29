@@ -33,6 +33,9 @@ export const RULES = {
   readings: { limit: 15, windowMs: HOUR } satisfies RateRule,
   turns: { limit: 120, windowMs: HOUR } satisfies RateRule,
   shares: { limit: 40, windowMs: HOUR } satisfies RateRule,
+  /** Guesses at the test token, per session and per IP. */
+  tester: { limit: 10, windowMs: HOUR } satisfies RateRule,
+  testerPerIp: { limit: 30, windowMs: HOUR } satisfies RateRule,
   /** Per-IP ceiling, applied on top of the per-session one. */
   readingsPerIp: { limit: 60, windowMs: HOUR } satisfies RateRule,
   turnsPerIp: { limit: 400, windowMs: HOUR } satisfies RateRule,
