@@ -109,7 +109,7 @@ export default function JournalPage() {
         <a className="taro-secondary taro-weekly-start" href={appUrl('/?spread=weekly-review&prompt=weekly')}>{copy.navigation.weeklyReview}</a>
 
         {error && <p className="taro-error" role="alert">{error}</p>}
-        {loading ? <p className="taro-instruction">…</p> : entries.length === 0 ? (
+        {loading ? <p className="taro-instruction" role="status">{copy.journal.loading}</p> : entries.length === 0 ? (
           <p className="taro-journal-empty">{copy.journal.empty}</p>
         ) : (
           <div className="taro-journal-list">

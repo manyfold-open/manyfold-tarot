@@ -299,7 +299,11 @@ export default function TarotApp() {
    * keeps. Silent on purpose: the visitor is the operator, and what it did is
    * visible as a question box where there would have been a locked page.
    */
+  const testerClaimed = useRef(false);
   const claimTester = useCallback(async (token: string): Promise<void> => {
+    // One claim per page load: StrictMode runs the mount effect twice.
+    if (testerClaimed.current) return;
+    testerClaimed.current = true;
     try {
       await new Promise((resolve) => setTimeout(resolve, 0));
       await Promise.allSettled(loadRequests.current);
