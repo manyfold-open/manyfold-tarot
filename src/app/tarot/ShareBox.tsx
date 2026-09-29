@@ -1,13 +1,10 @@
 /**
  * Sharing the round on screen.
  *
- * One press. It mints the link, puts it on the clipboard, and says so — there is
- * no panel to open first and no box to tick. The tick box asked a question
- * nobody was in a position to answer: the question is the whole reason a shared
- * reading makes sense to the person receiving it, and a share of three cards and
- * one sentence with no question attached is a card trick. So the question goes
- * in, and the wire still carries the flag because the server has always decided
- * this, not the button.
+ * One press, once it is open. At the end of a reading the panel is folded
+ * behind the share icon (TarotApp owns `open`); unfolded, the choices are all
+ * on the page and one press mints the link, puts it on the clipboard, and says
+ * so. The question stays out unless the box is ticked.
  *
  * Two things this file is still careful about:
  *
@@ -28,7 +25,16 @@ import { spreadFor } from '../../shared/tarot/spreads';
 import { track } from './analytics';
 import { createShare, errorText } from './api';
 
-export default function ShareBox({ reading, locale }: { reading: ReadingView; locale: Locale }) {
+export default function ShareBox({
+  reading,
+  locale,
+  open = true,
+}: {
+  reading: ReadingView;
+  locale: Locale;
+  /** Folded behind the share icon at the end of a reading. State survives folding. */
+  open?: boolean;
+}) {
   const copy = copyFor(locale);
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
@@ -83,6 +89,8 @@ export default function ShareBox({ reading, locale }: { reading: ReadingView; lo
       : url
         ? copy.share.copyLink
         : copy.outro.share;
+
+  if (!open) return null;
 
   return (
     <div className="taro-share">

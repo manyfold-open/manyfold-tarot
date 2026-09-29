@@ -158,3 +158,20 @@ describe('the share button', () => {
     expect(button().textContent).toBe('分享这次解读');
   });
 });
+
+describe('the share panel at the end of a reading', () => {
+  it('renders nothing while folded, and keeps its link across fold and unfold', async () => {
+    const { rerender } = render(<ShareBox reading={reading} locale="zh" open={false} />);
+    expect(document.querySelector('.taro-share')).toBeNull();
+
+    rerender(<ShareBox reading={reading} locale="zh" open />);
+    fireEvent.click(button());
+    await waitFor(() => expect(urlField()?.value).toBe('https://example.test/s/tok1'));
+
+    rerender(<ShareBox reading={reading} locale="zh" open={false} />);
+    expect(document.querySelector('.taro-share')).toBeNull();
+    rerender(<ShareBox reading={reading} locale="zh" open />);
+    expect(urlField()?.value).toBe('https://example.test/s/tok1');
+    expect(createShare).toHaveBeenCalledTimes(1);
+  });
+});
