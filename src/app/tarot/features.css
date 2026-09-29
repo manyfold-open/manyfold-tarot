@@ -1,0 +1,106 @@
+/* ── journal, daily reading and selectable spreads ── */
+.taro-product-nav { display:flex; align-items:center; gap:18px; margin-right:6px; font-size:12px; }
+.taro-product-nav a,.taro-journal-entry-actions a { color:var(--ink-2); text-decoration:none; }
+.taro-product-nav a:hover,.taro-journal-entry-actions a:hover { color:var(--star); }
+/* Sits under the fixed header, and tucks up into the stage's own gap so that two
+   reminders together do not push the question off the first screen. */
+.taro-return-reminder { width:min(var(--column),100%); box-sizing:border-box; margin:0 auto -20px; padding:9px 14px; border:1px solid var(--line); border-radius:8px; background:rgb(255 255 255 / 3%); color:var(--ink-2); font-size:12px; line-height:1.6; text-align:center; }
+.taro-return-reminder a { color:inherit; text-decoration:none; }
+.taro-spread-picker { width:min(var(--column),100%); margin:0 auto 4px; padding:0; border:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; text-align:left; }
+.taro-spread-picker legend,.taro-share-options legend { padding:0 0 10px; font-family:var(--sans); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-2); }
+.taro-spread-picker label { min-height:74px; box-sizing:border-box; padding:13px 14px; display:flex; align-items:flex-start; gap:10px; border:1px solid var(--line); border-radius:8px; background:rgb(255 255 255 / 2%); cursor:pointer; transition:border-color 160ms ease,background 160ms ease; }
+.taro-spread-picker label.is-selected { border-color:rgb(220 205 164 / 55%); background:rgb(220 205 164 / 7%); }
+.taro-spread-picker span { display:flex; flex-direction:column; gap:5px; }
+.taro-spread-picker strong { color:var(--ink); font-size:13px; font-weight:500; }
+.taro-spread-picker small { color:var(--ink-2); font-size:11px; line-height:1.55; }
+.taro-reading-details { width:min(var(--column),100%); margin:26px auto; border-top:1px solid var(--line); }
+.taro-detail { margin:0!important; padding:15px 0!important; border-bottom:1px solid var(--line); }
+.taro-detail>summary { list-style:none; display:flex; align-items:baseline; justify-content:space-between; gap:16px; color:var(--ink-2); font-family:var(--sans); font-size:13px; cursor:pointer; }
+.taro-detail>summary::-webkit-details-marker { display:none; }
+.taro-detail>summary::after { content:'+'; color:var(--ink-2); }
+.taro-detail[open]>summary::after { content:'−'; }
+.taro-detail>:not(summary) { margin-top:16px; }
+.taro-quick-followups { width:min(var(--column),100%); margin:24px auto 0; display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.taro-quick-prompt { border:1px solid var(--line); border-radius:999px; padding:9px 13px; background:transparent; color:var(--ink-2); font:inherit; font-size:12px; cursor:pointer; }
+.taro-quick-prompt:hover { border-color:var(--line-strong); color:var(--ink); }
+.taro-share-options { width:100%; box-sizing:border-box; margin:0; padding:14px; display:flex; flex-direction:column; align-items:flex-start; gap:10px; border:1px solid var(--line); border-radius:8px; text-align:left; }
+.taro-share-options label,.taro-reminder-settings label { display:flex; align-items:center; gap:9px; color:var(--ink-2); font-size:12px; cursor:pointer; }
+.taro-share-question { margin-top:6px; }
+.taro-journal-panel,.taro-reminder-settings { width:min(var(--column),100%); box-sizing:border-box; margin:20px auto 0; padding:18px; border:1px solid var(--line); border-radius:8px; display:flex; flex-direction:column; align-items:stretch; gap:12px; text-align:left; }
+.taro-journal-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.taro-journal-panel .taro-secondary,.taro-journal-panel-head .taro-secondary { width:auto; margin:0; }
+.taro-journal-saved { margin:0; color:var(--star); font-size:12px; }
+.taro-journal-label,.taro-journal-review label { color:var(--ink-2); font-size:12px; }
+.taro-journal-page,.taro-daily-page { text-align:left; padding-top:56px; gap:18px; }
+.taro-journal-page>.taro-ask-title,.taro-daily-page>.taro-ask-title,.taro-journal-page>.taro-instruction,.taro-daily-page>.taro-instruction { text-align:center; }
+.taro-reminder-settings { margin:18px auto; padding:14px 16px; }
+.taro-reminder-settings p { margin:0; color:var(--ink-2); font-size:11px; line-height:1.55; }
+.taro-weekly-start { display:block; width:fit-content; margin:18px auto 30px; }
+.taro-journal-empty { padding:34px 0; text-align:center; color:var(--ink-2); }
+.taro-journal-list { display:grid; gap:14px; width:min(var(--column),100%); margin-inline:auto; }
+.taro-journal-entry { padding:18px; border:1px solid var(--line); border-radius:8px; background:rgb(255 255 255 / 2%); }
+.taro-journal-entry-head,.taro-journal-entry-actions { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.taro-journal-entry-head h2 { margin:0 0 5px; color:var(--ink); font-size:16px; font-weight:500; }
+.taro-journal-entry-head p { margin:0; color:var(--ink-2); font-size:11px; }
+.taro-review-due { color:var(--star); font-size:11px; }
+.taro-journal-cards { margin:16px 0; padding-left:20px; color:var(--ink-2); font-size:12px; line-height:1.8; }
+.taro-journal-note-display { margin:12px 0; color:var(--ink-2); font-size:12px; }
+.taro-journal-note-display p { margin:5px 0 0; color:var(--ink-2); white-space:pre-wrap; }
+.taro-journal-review { margin:14px 0; display:flex; flex-direction:column; align-items:flex-start; gap:9px; }
+.taro-note-input { display:block; width:100%; min-height:96px; box-sizing:border-box; resize:none; padding:10px 12px; border:1px solid var(--line-strong); border-radius:6px; background:rgb(255 255 255 / 3%); color:var(--ink); font:400 15px/1.7 var(--serif); text-align:left; }
+.taro-note-input::placeholder { color:var(--ink-3); }
+.taro-note-input:focus { outline:none; border-color:rgb(154 180 237 / 55%); }
+.taro-journal-entry-actions { justify-content:space-between; padding-top:4px; border-top:1px solid var(--line); }
+.taro-journal-entry-actions .taro-link { padding:8px 0; }
+.taro-journal-entry-actions button.taro-link { color:#d89393; }
+.taro-danger-link { display:block; margin:24px auto 0; padding:8px 10px; border:0; background:none; color:#d89393; font-family:var(--sans); font-size:12px; letter-spacing:.08em; cursor:pointer; }
+.taro-danger-link:disabled { opacity:.35; cursor:default; }
+.taro-daily-page { text-align:center; }
+.taro-daily-date { margin:6px 0 0; color:var(--ink-2); font-size:12px; }
+.taro-daily-card { width:min(260px,72vw); margin:0 auto; }
+.taro-daily-card .taro-cards { justify-content:center; }
+.taro-daily-keywords { margin:18px auto; color:var(--ink-2); font-size:15px; }
+.taro-daily-reflection { max-width:500px; margin:28px auto; padding:20px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.taro-daily-reflection h2 { margin:0 0 10px; color:var(--ink-2); font-size:11px; font-weight:400; letter-spacing:.18em; }
+.taro-daily-reflection p { margin:0; color:var(--ink); }
+.taro-daily-page>.taro-primary { display:block; width:fit-content; margin:0 auto; }
+@media (max-width:560px) {
+  .taro-product-nav { gap:12px; font-size:11px; }
+  .taro-spread-picker { grid-template-columns:1fr; }
+  /* Four full cards stacked would push the question itself below the fold: on a
+     phone only the chosen spread spells out what it is for. */
+  .taro-spread-picker { gap:6px; }
+  .taro-spread-picker label { min-height:0; padding:11px 14px; align-items:center; }
+  .taro-spread-picker label:not(.is-selected) small { display:none; }
+  .taro-spread-picker label.is-selected { align-items:flex-start; }
+  .taro-journal-entry-head { align-items:flex-start; }
+    }
+/* A long call to action that has to wrap should wrap evenly, not strand one word. */
+.taro-primary,.taro-secondary { text-wrap:balance; }
+
+.taro { padding-bottom:var(--consent-space,0px); box-sizing:border-box; }
+
+/* ── controls: nothing on this site is drawn by the operating system ──
+   Radios and checkboxes are redrawn in the site's own ink; the card picker and
+   the review interval are chips rather than a <select> and a date input, whose
+   pop-ups are the system's and cannot be styled. */
+.taro { color-scheme:dark; }
+.taro input[type=radio],.taro input[type=checkbox] { -webkit-appearance:none; appearance:none; flex:none; display:inline-grid; place-content:center; width:16px; height:16px; margin:0; border:1px solid var(--ink-3); background:transparent; cursor:pointer; transition:border-color 160ms ease,background 160ms ease; }
+.taro input[type=radio] { border-radius:50%; }
+.taro input[type=checkbox] { border-radius:4px; }
+.taro input[type=radio]::before,.taro input[type=checkbox]::before { content:''; background:var(--star); transform:scale(0); transition:transform 140ms ease; }
+.taro input[type=radio]::before { width:8px; height:8px; border-radius:50%; }
+.taro input[type=checkbox]::before { width:10px; height:10px; clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0,43% 62%); }
+.taro input[type=radio]:checked,.taro input[type=checkbox]:checked { border-color:var(--star); }
+.taro input[type=radio]:checked::before,.taro input[type=checkbox]:checked::before { transform:scale(1); }
+.taro input[type=radio]:hover,.taro input[type=checkbox]:hover { border-color:var(--ink-2); }
+.taro input[type=radio]:focus-visible,.taro input[type=checkbox]:focus-visible { outline:1px solid var(--star); outline-offset:3px; }
+.taro-spread-picker input { margin-top:2px; }
+.taro-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.taro-chip { padding:8px 13px; border:1px solid var(--line-strong); border-radius:999px; background:transparent; color:var(--ink-2); font-family:var(--sans); font-size:12px; line-height:1.4; cursor:pointer; text-align:left; transition:border-color 160ms ease,color 160ms ease,background 160ms ease; }
+.taro-chip:hover { color:var(--ink); border-color:var(--ink-3); }
+.taro-chip.is-on { color:var(--ink); border-color:rgb(154 180 237 / 55%); background:rgb(154 180 237 / 10%); }
+.taro-chip:focus-visible { outline:1px solid var(--star); outline-offset:2px; }
+.taro-share-select,.taro-journal-review-date { display:flex; flex-direction:column; align-items:flex-start; gap:8px; width:100%; }
+
+.taro-instruction { text-wrap:balance; }

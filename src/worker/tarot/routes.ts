@@ -29,11 +29,14 @@
 
 import { Hono } from 'hono';
 import { normalizeLocale } from '../../shared/tarot/i18n';
+import { DECK, DECK_SIZE, cardKeywords } from '../../shared/tarot/deck';
 import {
   QUESTION_MAX_CHARS,
   type DivinerEvent,
   type DrawnCardView,
+  type ShareMode,
 } from '../../shared/tarot/types';
+import { isSpreadId } from '../../shared/tarot/spreads';
 import { A2AError, safeErrorText } from '../a2a';
 import { consentRequiredFor, measurementIdFor } from '../analytics';
 import { mountOf, publicUrl } from '../mount';
@@ -65,6 +68,10 @@ import {
   countUserFollowUps,
   createReading,
   createShare,
+  clearJournalAndReadings,
+  deleteReadingData,
+  journalFor,
+  listJournal,
   listFollowUps,
   loadShare,
   readingViewFor,
@@ -72,6 +79,7 @@ import {
   requireOwnedReading,
   saveGreeting,
   saveInterpretation,
+  saveJournal,
 } from './store';
 import {
   accessFor,
@@ -217,6 +225,33 @@ tarot.get('/reader', async (c) => {
 
 tarot.get('/access', async (c) => c.json(await accessFor(c.env, c.get('sessionId'))));
 
+tarot.get('/daily', (c) => {
+  const requested = c.req.query('date');
+  const date = requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)
+    ? new Date(`${requested}T00:00:00.000Z`)
+    : new Date();
+  const day = Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+  const dayNumber = Math.floor(Date.parse(`${day}T00:00:00.000Z`) / 86_400_000);
+  const index = ((dayNumber % DECK_SIZE) + DECK_SIZE) % DECK_SIZE;
+  const card = DECK[index];
+  return c.json({
+    date: day,
+    cardId: card.id,
+    reversed: dayNumber % 2 === 1,
+    reflection: normalizeLocale(c.req.query('locale')) === 'zh'
+      ? '今天，哪一件小事值得你多留意一点？'
+      : 'What small thing deserves a little more of your attention today?',
+    keywords: cardKeywords(card, dayNumber % 2 === 1, normalizeLocale(c.req.query('locale'))),
+  });
+});
+
+tarot.get('/journal', async (c) => c.json({ entries: await listJournal(c.env, c.get('sessionId')) }));
+
+tarot.delete('/journal', async (c) => {
+  await clearJournalAndReadings(c.env, c.get('sessionId'));
+  return c.json({ ok: true });
+});
+
 tarot.post('/bridge/redeem', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { token?: unknown } | null;
   if (!body || typeof body.token !== 'string' || body.token.length === 0 || body.token.length > 2048) {
@@ -260,6 +295,7 @@ tarot.post('/readings', async (c) => {
     question,
     locale: normalizeLocale(body?.locale),
     previousReadingId: previous,
+    spreadId: isSpreadId(body?.spreadId) ? body.spreadId : 'current',
   });
   if (referralToken) await bindReferralToReading(c.env, reading.id, referralToken);
   return c.json({ reading: await readingViewFor(c.env, reading), accessSource }, 201);
@@ -268,6 +304,49 @@ tarot.post('/readings', async (c) => {
 tarot.get('/readings/:id', async (c) => {
   const reading = await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
   return c.json({ reading: await readingViewFor(c.env, reading) });
+});
+
+tarot.post('/readings/:id/journal', async (c) => {
+  const reading = await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
+  assertShareable(reading);
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+  const note = typeof body?.note === 'string' ? body.note.trim().slice(0, 4000) : '';
+  const reviewNote = typeof body?.reviewNote === 'string' ? body.reviewNote.trim().slice(0, 4000) : '';
+  let reviewDueAt: string | null = null;
+  if (typeof body?.reviewDueAt === 'string' && body.reviewDueAt) {
+    const parsed = new Date(body.reviewDueAt);
+    if (Number.isNaN(parsed.getTime())) throw new HttpError(400, 'bad_review_date', 'Choose a valid review date.');
+    reviewDueAt = parsed.toISOString();
+  }
+  const existing = await journalFor(c.env, reading.id, c.get('sessionId'));
+  const saved = await saveJournal(c.env, reading.id, c.get('sessionId'), {
+    note,
+    reviewDueAt: reviewDueAt ?? existing?.reviewDueAt ?? new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    reviewNote: reviewNote || existing?.reviewNote,
+    reviewedAt: reviewNote ? new Date().toISOString() : existing?.reviewedAt,
+  });
+  return c.json({ entry: saved });
+});
+
+tarot.delete('/readings/:id/journal', async (c) => {
+  const reading = await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
+  await deleteReadingData(c.env, reading.id);
+  return c.json({ ok: true });
+});
+
+tarot.post('/readings/:id/journal/review', async (c) => {
+  const reading = await requireOwnedReading(c.env, c.req.param('id'), c.get('sessionId'));
+  const existing = await journalFor(c.env, reading.id, c.get('sessionId'));
+  if (!existing) throw new HttpError(404, 'journal_not_found', 'Save this reading before adding a review.');
+  const body = (await c.req.json().catch(() => null)) as { note?: unknown } | null;
+  const note = typeof body?.note === 'string' ? body.note.trim().slice(0, 4000) : '';
+  const entry = await saveJournal(c.env, reading.id, c.get('sessionId'), {
+    note: existing.note,
+    reviewDueAt: existing.reviewDueAt,
+    reviewNote: note,
+    reviewedAt: new Date().toISOString(),
+  });
+  return c.json({ entry });
 });
 
 /* ───────── state 2: the reader catches it ───────── */
@@ -293,7 +372,7 @@ tarot.post('/readings/:id/greeting', async (c) => {
 
   return streamTurn(defer(c), async (send) => {
     const result = await diviner.speak(
-      { kind: 'greeting', locale: reading.locale, question: reading.question },
+      { kind: 'greeting', locale: reading.locale, question: reading.question, spreadId: reading.spreadId },
       {
         idempotencyKey: `${reading.id}-greeting`,
         contextId: reading.contextId,
@@ -365,7 +444,7 @@ tarot.post('/readings/:id/reveal', async (c) => {
     let hint: string;
     try {
       const result = await diviner.speak(
-        { kind: 'hint', locale: reading.locale, question: reading.question, card, index },
+      { kind: 'hint', locale: reading.locale, question: reading.question, card, index, spreadId: reading.spreadId },
         {
           idempotencyKey: `${reading.id}-hint-${index}`,
           contextId: reading.contextId,
@@ -379,7 +458,7 @@ tarot.post('/readings/:id/reveal', async (c) => {
       // than failing: it is one beat in the flip, and the full interpretation
       // still comes from the reader. The fallback is the deck's own line.
       console.warn('tarot hint fell back', safeErrorText(error instanceof Error ? error.message : error));
-      hint = demoHint(card, reading.locale);
+      hint = demoHint(card, reading.locale, reading.spreadId);
     }
     await recordReveal(c.env, reading.id, index, hint, reading.hints);
     await send({ type: 'hint', index, text: hint });
@@ -415,6 +494,7 @@ tarot.post('/readings/:id/interpretation', async (c) => {
         locale: reading.locale,
         question: reading.question,
         cards: reading.cards!,
+        spreadId: reading.spreadId,
       },
       {
         idempotencyKey: `${reading.id}-reading`,
@@ -511,6 +591,7 @@ tarot.post('/readings/:id/follow-ups', async (c) => {
         conclusion: reading.interpretation?.conclusion ?? '',
         followUp: message,
         history: history.map((entry) => ({ role: entry.role, content: entry.content })),
+        spreadId: reading.spreadId,
       },
       {
         idempotencyKey: `${reading.id}-follow-${userMessageId}`,
@@ -533,7 +614,7 @@ tarot.post('/readings/:id/follow-ups', async (c) => {
 /* ───────── state 6b: share ───────── */
 
 tarot.post('/readings/:id/share', async (c) => {
-  const body = (await c.req.json().catch(() => null)) as { includeQuestion?: unknown } | null;
+  const body = (await c.req.json().catch(() => null)) as { includeQuestion?: unknown; mode?: unknown; cardIndex?: unknown } | null;
   const reading: ReadingRecord = await requireOwnedReading(
     c.env,
     c.req.param('id'),
@@ -548,7 +629,13 @@ tarot.post('/readings/:id/share', async (c) => {
     rule: RULES.shares,
   });
 
-  const snapshot = await createShare(c.env, reading, body?.includeQuestion === true);
+  const mode: ShareMode = body?.mode === 'card' || body?.mode === 'full' ? body.mode : 'summary';
+  const cardIndex = Number.isInteger(body?.cardIndex) ? Number(body?.cardIndex) : 0;
+  const snapshot = await createShare(c.env, reading, {
+    includeQuestion: body?.includeQuestion === true,
+    mode,
+    cardIndex,
+  });
   return c.json({ share: snapshot, url: publicUrl(c, `/s/${snapshot.token}`) }, 201);
 });
 

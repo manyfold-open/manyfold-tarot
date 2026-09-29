@@ -43,7 +43,7 @@
     // are not in this list and never wake the Worker — except under BASE_PATH,
     // where everything does, because the prefix has to come off before the
     // assets runtime can find anything (src/worker/mount.ts).
-    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/tarot", "/tarot/*"]
+    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/journal", "/daily", "/tarot", "/tarot/*"]
   },
   // Tarot asks the Fortune Stick Worker whether a reward code is real before it
   // grants the extra reading (src/worker/tarot/bridge.ts). A service binding:

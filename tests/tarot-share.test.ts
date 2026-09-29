@@ -44,6 +44,7 @@ const INTERPRETATION: Interpretation = {
 
 const finished = (overrides: Partial<ReadingRecord> = {}): ReadingRecord => ({
   id: 'r1',
+  spreadId: 'current',
   sessionId: 's1',
   question: '我要不要换工作？',
   locale: 'zh',
@@ -211,6 +212,22 @@ describe('buildShareSnapshot', () => {
     expect(bare.conclusion).toBe('可以试。');
   });
 
+  it('keeps the question out of the reader\'s prose unless it was ticked', () => {
+    const asked = finished({
+      question: '我要不要换工作？',
+      interpretation: {
+        ...INTERPRETATION,
+        overview: '你问「我要不要换工作？」，牌面这样回答。',
+        perCard: [{ slot: 'situation', text: '关于我要不要换工作？这个问题，你已经感觉到了。' }],
+      },
+    });
+    const hidden = buildShareSnapshot(asked, { token: 't', includeQuestion: false, mode: 'full', createdAt: 'x' });
+    expect(JSON.stringify(hidden)).not.toContain('我要不要换工作');
+    const shown = buildShareSnapshot(asked, { token: 't', includeQuestion: true, mode: 'full', createdAt: 'x' });
+    expect(shown.question).toBe('我要不要换工作？');
+    expect(JSON.stringify(shown.perCard)).toContain('我要不要换工作');
+  });
+
   it('refuses to freeze a reading that is not finished', () => {
     expect(() =>
       buildShareSnapshot(finished({ interpretation: null }), {
@@ -233,7 +250,7 @@ describe('a share link is frozen', () => {
   it('does not change when the reading it came from changes', async () => {
     const env = fakeEnv();
     const reading = finished();
-    const snapshot = await createShare(env, reading, true);
+    const snapshot = await createShare(env, reading, { includeQuestion: true, mode: 'full' });
 
     // The round moves on: re-read, re-worded, re-drawn.
     reading.interpretation = { ...INTERPRETATION, conclusion: '不要去。' };
@@ -254,9 +271,9 @@ describe('a share link is frozen', () => {
   it('gives every share its own record, so a new one never overwrites an old one', async () => {
     const env = fakeEnv();
     const reading = finished();
-    const first = await createShare(env, reading, false);
+    const first = await createShare(env, reading, { includeQuestion: false, mode: 'full' });
     reading.interpretation = { ...INTERPRETATION, conclusion: '第二次的结论。' };
-    const second = await createShare(env, reading, false);
+    const second = await createShare(env, reading, { includeQuestion: false, mode: 'full' });
 
     expect(second.token).not.toBe(first.token);
     expect((await loadShare(env, first.token))?.conclusion).toBe('可以试。');

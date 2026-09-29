@@ -15,20 +15,23 @@
  */
 
 import { copyFor, normalizeLocale } from '../../shared/tarot/i18n';
-import type { Locale } from '../../shared/tarot/deck';
+import { cardKeywords, cardById, type Locale } from '../../shared/tarot/deck';
 import {
   CARDS_PER_READING,
   type FollowUpMessage,
   type Interpretation,
   type ReadingStatus,
   type ReadingView,
+  type ShareMode,
   type ShareSnapshot,
+  type SpreadId,
 } from '../../shared/tarot/types';
 import { HttpError, type Env } from '../types';
 import { now } from '../db';
 import { parseDraw, serializeDraw, type DrawnCard } from './draw';
 import { statusAfterReveal, type ReadingRecord } from './flow';
 import { shareConclusion } from './prompt';
+import { isSpreadId } from '../../shared/tarot/spreads';
 
 interface ReadingRow {
   id: string;
@@ -47,6 +50,7 @@ interface ReadingRow {
   demo: number;
   created_at: string;
   updated_at: string;
+  spread_id: string | null;
 }
 
 const READING_COLUMNS = `id, session_id, question, locale, status, greeting, cards, revealed, hints,
@@ -69,6 +73,7 @@ function toRecord(row: ReadingRow): ReadingRecord {
   const revealed = Math.max(0, Math.min(Number(row.revealed) || 0, cards ? cards.length : 0));
   return {
     id: row.id,
+    spreadId: isSpreadId(row.spread_id) ? row.spread_id : 'current',
     sessionId: row.session_id,
     question: row.question,
     locale: normalizeLocale(row.locale),
@@ -96,17 +101,18 @@ export async function createReading(
     question: string;
     locale: Locale;
     previousReadingId: string | null;
+    spreadId: SpreadId;
   },
 ): Promise<ReadingRecord> {
   const id = crypto.randomUUID();
   const timestamp = now();
-  await env.DB.prepare(
+  await env.DB.batch([
+    env.DB.prepare(
     `INSERT INTO tarot_readings
      (id, session_id, question, locale, status, greeting, cards, revealed, hints,
       interpretation, context_id, active_task_id, agent_id, demo, previous_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, 'greeting', '', NULL, 0, '[]', NULL, NULL, NULL, NULL, 0, ?, ?, ?)`,
-  )
-    .bind(
+    ).bind(
       id,
       input.sessionId,
       input.question,
@@ -114,15 +120,21 @@ export async function createReading(
       input.previousReadingId,
       timestamp,
       timestamp,
-    )
-    .run();
+    ),
+    env.DB.prepare('INSERT INTO tarot_reading_spreads (reading_id, spread_id) VALUES (?, ?)')
+      .bind(id, input.spreadId),
+  ]);
   const created = await loadReading(env, id);
   if (!created) throw new HttpError(500, 'reading_not_created', 'Could not start the reading.');
   return created;
 }
 
 export async function loadReading(env: Env, readingId: string): Promise<ReadingRecord | null> {
-  const row = await env.DB.prepare(`SELECT ${READING_COLUMNS} FROM tarot_readings WHERE id = ?`)
+  const row = await env.DB.prepare(
+    `SELECT ${READING_COLUMNS},
+      (SELECT spread_id FROM tarot_reading_spreads WHERE reading_id = tarot_readings.id) AS spread_id
+     FROM tarot_readings WHERE id = ?`,
+  )
     .bind(readingId)
     .first<ReadingRow>();
   return row ? toRecord(row) : null;
@@ -308,6 +320,7 @@ export function toReadingView(reading: ReadingRecord, followUps: FollowUpMessage
   }));
   return {
     readingId: reading.id,
+    spreadId: reading.spreadId ?? 'current',
     status: reading.status,
     locale: reading.locale,
     question: reading.question,
@@ -349,7 +362,7 @@ export function newShareToken(): string {
  */
 export function buildShareSnapshot(
   reading: ReadingRecord,
-  options: { token: string; includeQuestion: boolean; createdAt: string },
+  options: { token: string; includeQuestion: boolean; mode?: ShareMode; cardIndex?: number; createdAt: string },
 ): ShareSnapshot {
   const interpretation = reading.interpretation;
   if (!interpretation || !reading.cards) {
@@ -360,38 +373,57 @@ export function buildShareSnapshot(
      undefined key is dropped by JSON.stringify, so a thin reading is stored thin
      and renders as if the field had never existed — which is exactly how the
      snapshots written before this all render. */
-  const said = (text: string): string | undefined => text.trim() || undefined;
+  /* The question stays private unless the box was ticked, and that has to hold
+     for the reader's own prose too: a diviner that quotes the question back in a
+     card paragraph would otherwise publish it through the side door. */
+  const question = reading.question.trim();
+  const scrub = (text: string): string =>
+    options.includeQuestion || question.length < 4 ? text : text.split(question).join('…');
+  const said = (text: string): string | undefined => scrub(text).trim() || undefined;
   const perCard = interpretation.perCard
     .filter((entry) => entry.text.trim())
-    .map((entry) => ({ slot: entry.slot, text: entry.text.trim() }));
+    .map((entry) => ({ slot: entry.slot, text: scrub(entry.text).trim() }));
 
+  const mode = options.mode ?? 'full';
+  const selectedIndex = Number.isInteger(options.cardIndex) ? Number(options.cardIndex) : 0;
+  if (mode === 'card' && (selectedIndex < 0 || selectedIndex >= reading.cards.length)) {
+    throw new HttpError(400, 'bad_share_card', 'Choose a card from this reading.');
+  }
+  const selectedCard = reading.cards[mode === 'card' ? selectedIndex : 0];
+  const selectedFace = cardById(selectedCard.cardId);
+  const selectedText = selectedFace ? cardKeywords(selectedFace, selectedCard.reversed, reading.locale) : '';
   return {
     token: options.token,
     readingId: reading.id,
+    spreadId: reading.spreadId ?? 'current',
     locale: reading.locale,
     question: options.includeQuestion ? reading.question : null,
-    cards: reading.cards.map((card) => ({
+    cards: (mode === 'card' ? [selectedCard] : reading.cards).map((card) => ({
       slot: card.slot,
       cardId: card.cardId,
       reversed: card.reversed,
     })),
-    conclusion: shareConclusion(interpretation),
-    overview: said(interpretation.overview),
-    perCard: perCard.length ? perCard : undefined,
-    connections: said(interpretation.connections),
+    conclusion: mode === 'card' ? said(selectedText ?? '') ?? scrub(shareConclusion(interpretation)) : scrub(shareConclusion(interpretation)),
+    overview: mode === 'card' ? undefined : said(interpretation.overview),
+    perCard: mode === 'full' && perCard.length ? perCard : undefined,
+    connections: mode === 'full' ? said(interpretation.connections) : undefined,
     signature: copyFor(reading.locale).signature,
     createdAt: options.createdAt,
+    mode,
   };
 }
 
 export async function createShare(
   env: Env,
   reading: ReadingRecord,
-  includeQuestion: boolean,
+  options: boolean | { includeQuestion: boolean; mode: ShareMode; cardIndex?: number },
 ): Promise<ShareSnapshot> {
+  const shareOptions = typeof options === 'boolean'
+    ? { includeQuestion: options, mode: 'full' as const }
+    : options;
   const snapshot = buildShareSnapshot(reading, {
     token: newShareToken(),
-    includeQuestion,
+    ...shareOptions,
     createdAt: now(),
   });
   await env.DB.prepare(
@@ -400,6 +432,97 @@ export async function createShare(
     .bind(snapshot.token, reading.id, JSON.stringify(snapshot), snapshot.createdAt)
     .run();
   return snapshot;
+}
+
+export interface JournalEntry {
+  readingId: string;
+  spreadId: SpreadId;
+  createdAt: string;
+  savedAt: string;
+  cards: { slot: string; cardId: string; reversed: boolean }[];
+  note: string;
+  reviewDueAt: string | null;
+  reviewNote: string;
+  reviewedAt: string | null;
+}
+
+export async function listJournal(env: Env, sessionId: string): Promise<JournalEntry[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT j.reading_id AS readingId, COALESCE(s.spread_id, 'current') AS spreadId,
+       r.created_at AS createdAt, j.saved_at AS savedAt, r.cards,
+       j.note, j.review_due_at AS reviewDueAt, j.review_note AS reviewNote,
+       j.reviewed_at AS reviewedAt
+     FROM tarot_journal j
+     JOIN tarot_readings r ON r.id = j.reading_id
+     LEFT JOIN tarot_reading_spreads s ON s.reading_id = r.id
+     WHERE j.session_id = ? AND r.status = 'interpreted'
+     ORDER BY j.saved_at DESC`,
+  ).bind(sessionId).all<{
+    readingId: string; spreadId: string; createdAt: string; savedAt: string; cards: string | null;
+    note: string; reviewDueAt: string | null; reviewNote: string; reviewedAt: string | null;
+  }>();
+  return (results ?? []).map((row) => ({
+    readingId: row.readingId,
+    spreadId: isSpreadId(row.spreadId) ? row.spreadId : 'current',
+    createdAt: row.createdAt,
+    savedAt: row.savedAt,
+    cards: parseDraw(row.cards)?.map(({ slot, cardId, reversed }) => ({ slot, cardId, reversed })) ?? [],
+    note: row.note,
+    reviewDueAt: row.reviewDueAt,
+    reviewNote: row.reviewNote,
+    reviewedAt: row.reviewedAt,
+  }));
+}
+
+export async function journalFor(env: Env, readingId: string, sessionId: string) {
+  return env.DB.prepare(
+    `SELECT reading_id AS readingId, note, review_due_at AS reviewDueAt,
+       review_note AS reviewNote, reviewed_at AS reviewedAt, saved_at AS savedAt
+     FROM tarot_journal WHERE reading_id = ? AND session_id = ?`,
+  ).bind(readingId, sessionId).first<{
+    readingId: string; note: string; reviewDueAt: string | null; reviewNote: string;
+    reviewedAt: string | null; savedAt: string;
+  }>();
+}
+
+export async function saveJournal(
+  env: Env,
+  readingId: string,
+  sessionId: string,
+  fields: { note: string; reviewDueAt: string | null; reviewNote?: string; reviewedAt?: string | null },
+) {
+  const timestamp = now();
+  await env.DB.prepare(
+    `INSERT INTO tarot_journal (reading_id, session_id, note, review_due_at, review_note, reviewed_at, saved_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(reading_id) DO UPDATE SET note = excluded.note, review_due_at = excluded.review_due_at,
+       review_note = excluded.review_note, reviewed_at = excluded.reviewed_at, updated_at = excluded.updated_at
+     WHERE tarot_journal.session_id = excluded.session_id`,
+  ).bind(
+    readingId, sessionId, fields.note, fields.reviewDueAt, fields.reviewNote ?? '',
+    fields.reviewedAt ?? null, timestamp, timestamp,
+  ).run();
+  return journalFor(env, readingId, sessionId);
+}
+
+export async function deleteReadingData(env: Env, readingId: string) {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM tarot_shares WHERE reading_id = ?').bind(readingId),
+    env.DB.prepare('DELETE FROM tarot_followups WHERE reading_id = ?').bind(readingId),
+    env.DB.prepare('DELETE FROM tarot_journal WHERE reading_id = ?').bind(readingId),
+    env.DB.prepare('DELETE FROM tarot_reading_spreads WHERE reading_id = ?').bind(readingId),
+    env.DB.prepare('DELETE FROM tarot_readings WHERE id = ?').bind(readingId),
+  ]);
+}
+
+export async function clearJournalAndReadings(env: Env, sessionId: string) {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM tarot_shares WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
+    env.DB.prepare('DELETE FROM tarot_followups WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
+    env.DB.prepare('DELETE FROM tarot_journal WHERE session_id = ?').bind(sessionId),
+    env.DB.prepare('DELETE FROM tarot_reading_spreads WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
+    env.DB.prepare('DELETE FROM tarot_readings WHERE session_id = ?').bind(sessionId),
+  ]);
 }
 
 export async function loadShare(env: Env, token: string): Promise<ShareSnapshot | null> {

@@ -63,6 +63,8 @@ const fetchReferral = vi.fn<(id: string) => Promise<Referral>>();
 const createReferral = vi.fn(async (_id: string) => pending);
 
 vi.mock('../../src/app/tarot/api', () => ({
+  fetchJournal: vi.fn(async () => ({ entries: [] })),
+  saveJournal: vi.fn(),
   ApiError: class ApiError extends Error {},
   errorText: (error: unknown, fallback: string) =>
     error instanceof Error && error.message ? error.message : fallback,

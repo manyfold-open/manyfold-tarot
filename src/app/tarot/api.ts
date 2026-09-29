@@ -15,8 +15,10 @@ import type {
   CreateReadingBody,
   DivinerEvent,
   ReadingView,
+  ShareMode,
   ShareSnapshot,
 } from '../../shared/tarot/types';
+import type { Locale } from '../../shared/tarot/deck';
 import type { ApiErrorBody } from '../../shared/types';
 import { ApiError, api } from '../api';
 import { appUrl } from '../base';
@@ -80,12 +82,42 @@ export const stopShuffle = (id: string): Promise<{ reading: ReadingView }> =>
 
 export const createShare = (
   id: string,
-  includeQuestion: boolean,
+  options: { includeQuestion: boolean; mode: ShareMode; cardIndex?: number },
 ): Promise<{ share: ShareSnapshot; url: string }> =>
   api(readingPath(id, '/share'), {
     method: 'POST',
-    body: JSON.stringify({ includeQuestion }),
+    body: JSON.stringify(options),
   });
+
+export interface JournalEntry {
+  readingId: string;
+  spreadId: ReadingView['spreadId'];
+  createdAt: string;
+  savedAt: string;
+  cards: { slot: ReadingView['cards'][number]['slot']; cardId: string; reversed: boolean }[];
+  note: string;
+  reviewDueAt: string | null;
+  reviewNote: string;
+  reviewedAt: string | null;
+}
+
+export const fetchJournal = (): Promise<{ entries: JournalEntry[] }> => api(`${base}/journal`);
+export const saveJournal = (
+  id: string,
+  payload: { note: string; reviewDueAt?: string | null },
+): Promise<{ entry: unknown }> => api(readingPath(id, '/journal'), { method: 'POST', body: JSON.stringify(payload) });
+export const saveJournalReview = (
+  id: string,
+  note: string,
+): Promise<{ entry: unknown }> => api(readingPath(id, '/journal/review'), { method: 'POST', body: JSON.stringify({ note }) });
+export const deleteJournalEntry = (id: string): Promise<{ ok: boolean }> =>
+  api(readingPath(id, '/journal'), { method: 'DELETE' });
+export const clearJournal = (): Promise<{ ok: boolean }> => api(`${base}/journal`, { method: 'DELETE' });
+
+export const fetchDailyCard = (
+  locale: Locale,
+): Promise<{ date: string; cardId: string; reversed: boolean; reflection: string; keywords: string }> =>
+  api(`${base}/daily?locale=${encodeURIComponent(locale)}&date=${new Date().toISOString().slice(0, 10)}`);
 
 export const fetchShare = (token: string): Promise<{ share: ShareSnapshot }> =>
   api(`${base}/share/${encodeURIComponent(token)}`);

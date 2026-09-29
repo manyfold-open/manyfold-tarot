@@ -13,6 +13,7 @@ import {
   SLOT_ORDER,
   type Interpretation,
   type ReadingStatus,
+  type SpreadId,
 } from '../../shared/tarot/types';
 import { HttpError } from '../types';
 import type { DrawnCard } from './draw';
@@ -20,6 +21,7 @@ import type { DrawnCard } from './draw';
 /** A reading as it lives in the Worker: the row, decoded. */
 export interface ReadingRecord {
   id: string;
+  spreadId: SpreadId;
   sessionId: string;
   question: string;
   locale: Locale;

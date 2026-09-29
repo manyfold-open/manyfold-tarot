@@ -83,6 +83,58 @@ export interface Copy {
     response: string;
     actions: string;
     reflection: string;
+    moreDetails: string;
+    quickFollowUps: string[];
+  };
+
+  navigation: { daily: string; journal: string; weeklyReview: string; back: string };
+
+  daily: {
+    title: string;
+    intro: string;
+    prompt: string;
+    openReading: string;
+    reminderTitle: string;
+    reminderOn: string;
+    reminderOff: string;
+    reminderHint: string;
+  };
+
+  spreadPicker: {
+    title: string;
+    selected: string;
+    dailyQuestion: string;
+    weeklyQuestion: string;
+  };
+
+  journal: {
+    title: string;
+    intro: string;
+    empty: string;
+    save: string;
+    saved: string;
+    note: string;
+    notePlaceholder: string;
+    saveNote: string;
+    reviewDue: string;
+    reviewWhen: string;
+    reviewOptions: [string, string, string];
+    reviewIsDue: string;
+    reviewNow: string;
+    reviewPrompt: string;
+    reviewPlaceholder: string;
+    saveReview: string;
+    reviewed: string;
+    delete: string;
+    openReading: string;
+    deleteConfirm: string;
+    clear: string;
+    clearConfirm: string;
+    savedOn: string;
+    reminderTitle: string;
+    reminderOn: string;
+    reminderOff: string;
+    reminderHint: string;
   };
 
   outro: {
@@ -114,6 +166,14 @@ export interface Copy {
     startYours: string;
     goToStick: string;
     notFound: string;
+    modeTitle: string;
+    modeCard: string;
+    modeSummary: string;
+    modeFull: string;
+    selectedCard: string;
+    includeQuestion: string;
+    createLink: string;
+    singleCardTitle: string;
   };
 
   referral: {
@@ -270,6 +330,58 @@ const zh: Copy = {
     response: '回到你的问题',
     actions: '你可以做的事',
     reflection: '留给你的问题',
+    moreDetails: '展开牌位细节',
+    quickFollowUps: ['多说一点这张牌在这个牌位的意思', '三张牌之间最重要的联系是什么？', '我现在可以先做哪一件小事？'],
+  },
+
+  navigation: { daily: '今日一牌', journal: '阅读日志', weeklyReview: '每周回顾', back: '回到阅读' },
+
+  daily: {
+    title: '今日一牌',
+    intro: '每天一张牌，附上一个可以带着走的反思。',
+    prompt: '今天，哪一件小事值得你多留意一点？',
+    openReading: '用这个提示开始阅读',
+    reminderTitle: '每日提醒',
+    reminderOn: '开启：回到网站时显示今日一牌',
+    reminderOff: '关闭每日提醒',
+    reminderHint: '这是在网站内显示的自愿提醒，不会发送推送通知。',
+  },
+
+  spreadPicker: {
+    title: '选择牌阵',
+    selected: '已选择',
+    dailyQuestion: '今天有什么值得我留意？',
+    weeklyQuestion: '回顾这一周：我经历了什么、学到了什么，又想带着什么走进下周？',
+  },
+
+  journal: {
+    title: '阅读日志',
+    intro: '收藏的阅读只在这个浏览器的私人日志中显示。问题不会出现在列表。',
+    empty: '还没有收藏的阅读。完成解读后，可以把它存进日志。',
+    save: '存入日志',
+    saved: '已存入日志',
+    note: '私人笔记',
+    notePlaceholder: '记下此刻的想法；这段笔记不会被分享。',
+    saveNote: '保存笔记',
+    reviewDue: '一周后回顾',
+    reviewWhen: '多久之后回顾',
+    reviewOptions: ['1 周', '2 周', '1 个月'],
+    reviewIsDue: '该回顾了',
+    reviewNow: '写下回顾',
+    reviewPrompt: '从那次阅读之后，有什么改变？',
+    reviewPlaceholder: '记下后续发展或新的理解。',
+    saveReview: '保存回顾',
+    reviewed: '已完成回顾',
+    delete: '删除这笔阅读',
+    openReading: '重新打开这次解读',
+    deleteConfirm: '删除后，阅读、笔记和它的分享链接都会移除。确定删除？',
+    clear: '清除全部记录',
+    clearConfirm: '这会删除这个浏览器的所有阅读、笔记和分享链接，无法恢复。确定清除？',
+    savedOn: '收藏日期',
+    reminderTitle: '每周回顾提醒',
+    reminderOn: '开启：回到网站时显示每周回顾',
+    reminderOff: '关闭每周提醒',
+    reminderHint: '这是在网站内显示的自愿提醒，不会发送推送通知。',
   },
 
   outro: {
@@ -295,6 +407,14 @@ const zh: Copy = {
     startYours: '也去问一次',
     goToStick: '也去抽一支签',
     notFound: '这份分享不存在，或已被撤下。',
+    modeTitle: '选择分享内容',
+    modeCard: '单张牌',
+    modeSummary: '阅读摘要',
+    modeFull: '完整牌面解读',
+    selectedCard: '选择牌',
+    includeQuestion: '在分享中显示原本的问题',
+    createLink: '生成分享链接',
+    singleCardTitle: '这张牌',
   },
 
   referral: {
@@ -350,17 +470,18 @@ const zh: Copy = {
         body: [
           '一个只有编号的会话 cookie（taro_sid），用来在你刷新页面之后仍然认得出这一轮占卜是你的。它不带姓名，也不跨站点。',
           '你写下的问题、抽到的三张牌，以及占卜师给出的解读，保存在运营者的 Cloudflare 数据库里。',
-          '如果你按下分享，这一次的解读会被冻结成一份快照——拿到链接的人都能看到它。',
+          '存进阅读日志后，你写的私人笔记和回顾也保存在数据库里，并只对当前浏览器会话开放；你可以在日志里删除单笔记录，或清除全部阅读历史。',
+          '如果你按下分享，你可以选择分享单张牌、摘要或完整牌面解读；原本的问题默认隐藏，只有你主动勾选才会放进快照。',
           '如果你邀请朋友，站点会保留一枚只用一次的邀请编号和完成状态，用来给你解锁下一次占卜；它不带姓名。',
           '如果你从求签回来领取额外解读，站点会把这一天的奖励编号和使用状态记在匿名会话下；它不包含求签的问题或解读。',
-          '浏览器本地还会记住三样东西：你选的语言、当前这一轮占卜的编号，以及你对下面这个问题的回答。',
+          '浏览器本地还会记住四样东西：你选的语言、当前这一轮占卜的编号、你对下面这个问题的回答，以及你主动开启的每日／每周站内提醒偏好。',
         ],
       },
       {
         title: '谁还会看到',
         body: [
           '你的问题和三张牌会交给写这段解读的 Manyfold 智能体——没有它就没有解读。',
-          '在你同意之后（或者你所在的地区不需要事先征询时），页面浏览、占卜过程中的关键节点、塔罗与求签的入口点击，以及额外解读的领取和使用会记录到 Google Analytics。你写的问题、抽到的牌、解读正文和奖励凭证都不会送去。',
+          '在你同意之后（或者你所在的地区不需要事先征询时），页面浏览、占卜过程中的关键节点（牌阵、展开细节、追问、保存、回顾、分享链接打开）、提醒偏好、塔罗与求签的入口点击，以及额外解读的领取和使用会记录到 Google Analytics。你写的问题、抽到的牌、笔记、解读正文和奖励凭证都不会送去。',
         ],
       },
       {
@@ -464,6 +585,58 @@ const en: Copy = {
     response: 'Back to your question',
     actions: 'What you can do',
     reflection: 'A question to sit with',
+    moreDetails: 'Open the card positions',
+    quickFollowUps: ['Tell me more about this card in its position', 'What is the strongest connection between these cards?', 'What is one small thing I can do now?'],
+  },
+
+  navigation: { daily: 'Daily card', journal: 'Reading journal', weeklyReview: 'Weekly review', back: 'Back to the reading' },
+
+  daily: {
+    title: 'Your card for today',
+    intro: 'One card and a short reflection to carry into the day.',
+    prompt: 'What small thing deserves a little more of your attention today?',
+    openReading: 'Start a reading from today’s card',
+    reminderTitle: 'Daily reminder',
+    reminderOn: 'Turn on: show the daily card when I return',
+    reminderOff: 'Turn off the daily reminder',
+    reminderHint: 'This is an optional reminder inside the site. It does not send push notifications.',
+  },
+
+  spreadPicker: {
+    title: 'Choose a spread',
+    selected: 'Selected',
+    dailyQuestion: 'What deserves my attention today?',
+    weeklyQuestion: 'Looking back on this week: what happened, what did I learn, and what do I want to carry into next week?',
+  },
+
+  journal: {
+    title: 'Reading journal',
+    intro: 'Saved readings appear only in this browser’s private journal. Questions stay out of the list.',
+    empty: 'No saved readings yet. Save one after you finish a reading.',
+    save: 'Save to journal',
+    saved: 'Saved to journal',
+    note: 'Private note',
+    notePlaceholder: 'Write down what is on your mind. This note is never shared.',
+    saveNote: 'Save note',
+    reviewDue: 'Review in a week',
+    reviewWhen: 'Review after',
+    reviewOptions: ['1 week', '2 weeks', '1 month'],
+    reviewIsDue: 'Review due',
+    reviewNow: 'Write a review',
+    reviewPrompt: 'What has changed since that reading?',
+    reviewPlaceholder: 'Note what happened next or what you understand differently now.',
+    saveReview: 'Save review',
+    reviewed: 'Review saved',
+    delete: 'Delete this reading',
+    openReading: 'Open this reading',
+    deleteConfirm: 'This removes the reading, note, and any share links for it. Delete it?',
+    clear: 'Clear all history',
+    clearConfirm: 'This deletes all readings, notes, and share links for this browser. This cannot be undone. Clear all?',
+    savedOn: 'Saved',
+    reminderTitle: 'Weekly review reminder',
+    reminderOn: 'Turn on: show the weekly review when I return',
+    reminderOff: 'Turn off the weekly reminder',
+    reminderHint: 'This is an optional reminder inside the site. It does not send push notifications.',
   },
 
   outro: {
@@ -489,6 +662,14 @@ const en: Copy = {
     startYours: 'Ask your own',
     goToStick: 'Draw a fortune stick too',
     notFound: 'This share does not exist, or it was taken down.',
+    modeTitle: 'Choose what to share',
+    modeCard: 'One card',
+    modeSummary: 'Reading summary',
+    modeFull: 'Full card reading',
+    selectedCard: 'Choose a card',
+    includeQuestion: 'Show the original question in the share',
+    createLink: 'Create share link',
+    singleCardTitle: 'This card',
   },
 
   referral: {
@@ -545,17 +726,18 @@ const en: Copy = {
         body: [
           'A session cookie holding nothing but an id (taro_sid), so that a reload still recognises which round is yours. It carries no name and does not follow you anywhere else.',
           'The question you write, the three cards you draw and the reading you are given, stored in the operator’s Cloudflare database.',
-          'If you press share, that reading is frozen into a snapshot anyone with the link can read.',
+          'If you save a reading, your private note and review are stored in the database and available only through this browser session; you can delete one entry or clear all reading history from the journal.',
+          'If you share, you can choose one card, a summary or the full card reading. The original question is hidden unless you opt in.',
           'If you invite a friend, the site keeps a one-use invitation id and its completion state so it can unlock another reading for you; it carries no name.',
           'If you return from Fortune Stick for an extra reading, the day, reward id and use state are stored against your anonymous session; the Stick question and reading are not included.',
-          'Three things in your own browser: the language you chose, the id of the round you are in, and your answer to the question below.',
+          'Four things in your own browser: the language you chose, the id of the round you are in, your answer to the question below, and any daily or weekly in-site reminder preferences you turned on.',
         ],
       },
       {
         title: 'Who else sees it',
         body: [
           'Your question and the three cards go to the Manyfold agent that writes the reading — without that there is no reading.',
-          'Once you accept (or, where you are, if consent is not required first), page views, reading milestones, Tarot and Fortune Stick link clicks, and extra-reading claims and use are recorded in Google Analytics. Your question, your cards, the reading text and reward codes are never sent there.',
+          'Once you accept (or, where you are, if consent is not required first), page views, reading milestones (spread choice, opened details, follow-up questions, saves, reviews, share-link opens), reminder preferences, Tarot and Fortune Stick link clicks, and extra-reading claims and use are recorded in Google Analytics. Your question, your cards, notes, the reading text and reward codes are never sent there.',
         ],
       },
       {

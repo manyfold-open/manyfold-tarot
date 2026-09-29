@@ -12,7 +12,9 @@
 
 import { cardById, type Locale } from '../../shared/tarot/deck';
 import { copyFor } from '../../shared/tarot/i18n';
-import type { DrawnCardView, Interpretation, SlotId } from '../../shared/tarot/types';
+import type { DrawnCardView, Interpretation, SlotId, SpreadId } from '../../shared/tarot/types';
+import { spreadFor } from '../../shared/tarot/spreads';
+import { track } from './analytics';
 
 /** Renders reader prose: blank lines become paragraphs, nothing else is parsed. */
 export function Prose({ text, className }: { text: string; className?: string }) {
@@ -22,7 +24,7 @@ export function Prose({ text, className }: { text: string; className?: string })
     .filter(Boolean);
   if (paragraphs.length === 0) return null;
   return (
-    <div className={className ? `taro-prose ${className}` : 'taro-prose'}>
+    <div className={className ? `taro-text ${className}` : 'taro-text'}>
       {paragraphs.map((block, index) => (
         <p key={index}>
           {block.split('\n').map((line, lineIndex, lines) => (
@@ -41,10 +43,13 @@ export interface ReadingProps {
   interpretation: Interpretation;
   cards: DrawnCardView[];
   locale: Locale;
+  spreadId?: SpreadId;
+  onFollowUpPrompt?: (prompt: string) => void;
 }
 
-export default function Reading({ interpretation, cards, locale }: ReadingProps) {
+export default function Reading({ interpretation, cards, locale, spreadId = 'current', onFollowUpPrompt }: ReadingProps) {
   const copy = copyFor(locale);
+  const spread = spreadFor(spreadId, locale);
   const bySlot = new Map<SlotId, DrawnCardView>(cards.map((card) => [card.slot, card]));
 
   const cardLine = (slot: SlotId): string => {
@@ -69,27 +74,33 @@ export default function Reading({ interpretation, cards, locale }: ReadingProps)
       </section>
 
       {/* 3 — one per card, in reveal order */}
-      {interpretation.perCard.map((entry) => (
-        <section className="taro-section" key={entry.slot}>
-          <h3>
-            {copy.slots[entry.slot].title}
-            <span className="taro-section-card">{cardLine(entry.slot)}</span>
-          </h3>
-          <Prose text={entry.text} />
-        </section>
-      ))}
+      <div className="taro-reading-details">
+        {interpretation.perCard.map((entry) => (
+          <details className="taro-section taro-detail" key={entry.slot} onToggle={(event) => {
+            if (event.currentTarget.open) track('result_detail_opened', { locale, section: `card_${entry.slot}` });
+          }}>
+            <summary>
+              <span>{spread.slots[entry.slot].title}</span>
+              <span className="taro-section-card">{cardLine(entry.slot)}</span>
+            </summary>
+            <Prose text={entry.text} />
+          </details>
+        ))}
 
-      {/* 4 */}
-      <section className="taro-section">
-        <h3>{copy.result.connections}</h3>
-        <Prose text={interpretation.connections} />
-      </section>
+        <details className="taro-section taro-detail" onToggle={(event) => {
+          if (event.currentTarget.open) track('result_detail_opened', { locale, section: 'connections' });
+        }}>
+          <summary>{copy.result.connections}</summary>
+          <Prose text={interpretation.connections} />
+        </details>
 
-      {/* 5 */}
-      <section className="taro-section">
-        <h3>{copy.result.response}</h3>
-        <Prose text={interpretation.response} />
-      </section>
+        <details className="taro-section taro-detail" onToggle={(event) => {
+          if (event.currentTarget.open) track('result_detail_opened', { locale, section: 'response' });
+        }}>
+          <summary>{copy.result.response}</summary>
+          <Prose text={interpretation.response} />
+        </details>
+      </div>
 
       {/* 6 */}
       {interpretation.actions.length > 0 && (
@@ -114,6 +125,17 @@ export default function Reading({ interpretation, cards, locale }: ReadingProps)
       {/* 8 */}
       {interpretation.closing.trim() && (
         <Prose text={interpretation.closing} className="taro-closing" />
+      )}
+
+      {onFollowUpPrompt && (
+        <section className="taro-quick-followups" aria-label={copy.outro.continueTitle}>
+          {(spread.quickFollowUps ?? copy.result.quickFollowUps).map((prompt, index) => (
+            <button key={index} type="button" className="taro-quick-prompt" onClick={() => {
+              track('follow_up_prompt_selected', { locale, prompt_index: index });
+              onFollowUpPrompt(prompt);
+            }}>{prompt}</button>
+          ))}
+        </section>
       )}
     </article>
   );

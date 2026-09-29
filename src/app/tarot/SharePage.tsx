@@ -25,7 +25,7 @@
  * always rendered, with the rule and everything under it simply absent.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cardArt, cardById, cardKeywords, type Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import type { ShareSnapshot, SlotId } from '../../shared/tarot/types';
@@ -36,10 +36,11 @@ import { Prose } from './Reading';
 import Signature from './Signature';
 import Sky from './Sky';
 import StickIcon from './StickIcon';
+import { spreadFor } from '../../shared/tarot/spreads';
 import { track } from './analytics';
 import { fetchReader, fetchShare } from './api';
 
-const SHARE_TAROT_URL = appUrl('/?utm_source=tarot-share&utm_medium=share&new=1');
+const SHARE_TAROT_URL = appUrl('/?utm_source=tarot-share&utm_medium=share&new=1&source=share');
 const DEFAULT_STICK_URL = 'https://app.manyfold.ai/fortune-stick/';
 
 const tokenFromPath = (): string => decodeURIComponent(appPath().replace(/^\/s\//, ''));
@@ -54,13 +55,20 @@ const shareStickUrl = (base: string): string => {
 export default function SharePage() {
   const [snapshot, setSnapshot] = useState<ShareSnapshot | null>(null);
   const [missing, setMissing] = useState(false);
+  const openedTracked = useRef(false);
   const [fortuneStickUrl, setFortuneStickUrl] = useState(DEFAULT_STICK_URL);
   const locale = snapshot ? snapshot.locale : normalizeLocale(navigator.language);
   const copy = copyFor(locale);
 
   useEffect(() => {
     void fetchShare(tokenFromPath())
-      .then(({ share }) => setSnapshot(share))
+      .then(({ share }) => {
+        setSnapshot(share);
+        if (!openedTracked.current) {
+          openedTracked.current = true;
+          track('share_link_opened', { locale: share.locale, mode: share.mode ?? 'full' });
+        }
+      })
       .catch(() => setMissing(true));
     void fetchReader()
       .then(({ fortuneStickUrl: url }) => setFortuneStickUrl(url))
@@ -100,6 +108,7 @@ export default function SharePage() {
   }
 
   const drawn = new Map(snapshot.cards.map((card) => [card.slot, card]));
+  const spread = spreadFor(snapshot.spreadId ?? 'current', locale);
   const perCard = snapshot.perCard ?? [];
   const hasReading = Boolean(snapshot.overview || perCard.length || snapshot.connections);
 
@@ -122,6 +131,7 @@ export default function SharePage() {
               key={card.slot}
               slot={card.slot}
               locale={locale}
+              positionTitle={spread.slots[card.slot].title}
               card={{
                 slot: card.slot,
                 index,
@@ -137,7 +147,7 @@ export default function SharePage() {
 
         {hasReading && (
           <div className="taro-reading taro-shared-reading">
-            <p className="taro-reading-title">{copy.share.readingTitle}</p>
+            <p className="taro-reading-title">{snapshot.mode === 'card' ? copy.share.singleCardTitle : copy.share.readingTitle}</p>
 
             {snapshot.overview && (
               <section className="taro-section">
@@ -160,6 +170,7 @@ export default function SharePage() {
                 card={drawn.get(entry.slot) ?? null}
                 text={entry.text}
                 locale={locale}
+                spread={spread}
               />
             ))}
 
@@ -241,11 +252,13 @@ function ReadCard({
   card,
   text,
   locale,
+  spread,
 }: {
   slot: SlotId;
   card: { cardId: string; reversed: boolean } | null;
   text: string;
   locale: Locale;
+  spread: ReturnType<typeof spreadFor>;
 }) {
   const copy = copyFor(locale);
   const entry = card ? cardById(card.cardId) : null;
@@ -264,7 +277,7 @@ function ReadCard({
           />
         )}
         <div className="taro-read-name">
-          <h2>{copy.slots[slot].title}</h2>
+          <h2>{spread.slots[slot].title}</h2>
           {entry && card && (
             <p className="taro-read-card-line">
               <strong>{entry.name[locale]}</strong>
