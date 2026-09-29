@@ -117,6 +117,12 @@ export interface Copy {
     note: string;
     notePlaceholder: string;
     saveNote: string;
+    /** The journal card at the end of a reading. */
+    cardTitle: string;
+    cardPrompt: string;
+    saveNow: string;
+    saving: string;
+    addNote: string;
     reviewDue: string;
     reviewWhen: string;
     reviewOptions: [string, string, string];
@@ -369,6 +375,11 @@ const zh: Copy = {
     note: '私人笔记',
     notePlaceholder: '记下此刻的想法；这段笔记不会被分享。',
     saveNote: '保存笔记',
+    cardTitle: '存进日志，之后回来看',
+    cardPrompt: '什么时候回来回顾？',
+    saveNow: '存下',
+    saving: '正在保存…',
+    addNote: '加一句笔记（选填）',
     reviewDue: '一周后回顾',
     reviewWhen: '多久之后回顾',
     reviewOptions: ['1 周', '2 周', '1 个月'],
@@ -628,6 +639,11 @@ const en: Copy = {
     note: 'Private note',
     notePlaceholder: 'Write down what is on your mind. This note is never shared.',
     saveNote: 'Save note',
+    cardTitle: 'Keep it, and come back to it',
+    cardPrompt: 'When do you want to look back?',
+    saveNow: 'Save',
+    saving: 'Saving…',
+    addNote: 'Add a note (optional)',
     reviewDue: 'Review in a week',
     reviewWhen: 'Review after',
     reviewOptions: ['1 week', '2 weeks', '1 month'],
