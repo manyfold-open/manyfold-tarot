@@ -154,3 +154,33 @@ describe('what the pass does not open', () => {
     expect(revoked.tester).toBe(false);
   });
 });
+
+/* Not about the pass: this file already drives POST /readings for an ordinary browser. */
+describe('the spread a reading asks for', () => {
+  const start = (cookie: string, spreadId?: unknown) =>
+    call('/api/tarot/readings', {
+      body: { question: '测试', locale: 'zh', ...(spreadId === undefined ? {} : { spreadId }) },
+      cookie,
+    });
+
+  it('refuses a spread that does not exist, before the day is spent', async () => {
+    const cookie = await newBrowser();
+    for (const spreadId of ['next', 'weekly', '', 42]) {
+      const refused = await start(cookie, spreadId);
+      expect(refused.status).toBe(400);
+      expect(refused.json<{ error: { code: string } }>().error.code).toBe('bad_spread');
+    }
+    expect((await access(cookie)).canRead).toBe(true);
+  });
+
+  it('keeps each real spread, and the default one when none is named', async () => {
+    for (const spreadId of ['current', 'decision', 'next-step', 'weekly-review']) {
+      const started = await start(await newBrowser(), spreadId);
+      expect(started.status).toBe(201);
+      expect(started.json<{ reading: { spreadId: string } }>().reading.spreadId).toBe(spreadId);
+    }
+    const unnamed = await start(await newBrowser());
+    expect(unnamed.status).toBe(201);
+    expect(unnamed.json<{ reading: { spreadId: string } }>().reading.spreadId).toBe('current');
+  });
+});

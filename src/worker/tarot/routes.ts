@@ -305,6 +305,14 @@ tarot.post('/readings', async (c) => {
   if (String(body?.question ?? '').length > QUESTION_MAX_CHARS * 2) {
     throw new HttpError(400, 'question_too_long', `Questions are limited to ${QUESTION_MAX_CHARS} characters.`);
   }
+  // No spread at all is the default one; a spread we do not have is a mistake
+  // to say out loud, before anything is spent, rather than a reading of a
+  // different spread than the one asked for.
+  const requestedSpread = body?.spreadId ?? null;
+  if (requestedSpread !== null && !isSpreadId(requestedSpread)) {
+    throw new HttpError(400, 'bad_spread', 'That spread does not exist.');
+  }
+  const spreadId = requestedSpread ?? 'current';
 
   const sessionId = c.get('sessionId');
   const referralToken =
@@ -329,7 +337,7 @@ tarot.post('/readings', async (c) => {
     question,
     locale: normalizeLocale(body?.locale),
     previousReadingId: previous,
-    spreadId: isSpreadId(body?.spreadId) ? body.spreadId : 'current',
+    spreadId,
   });
   await recordReadingAccess(c.env, reading.id, sessionId, grant);
   if (referralToken) await bindReferralToReading(c.env, reading.id, referralToken);
