@@ -199,6 +199,8 @@ export interface Copy {
 
   bridge: {
     stickCta: string;
+    /** The button on the Stick card; the card's title already says what it is. */
+    stickGo: string;
     outroOffer: string;
     outroContinue: string;
     lockedOffer: string;
@@ -440,6 +442,7 @@ const zh: Copy = {
 
   bridge: {
     stickCta: '抽一支今天的签',
+    stickGo: '去抽签',
     outroOffer: '抽完一支签，今天还可以再问一次塔罗。',
     outroContinue: '也可以来求一支签，看看今天的提示。',
     lockedOffer: '去抽一支签，今天就能再问一次塔罗。',
@@ -698,6 +701,7 @@ const en: Copy = {
 
   bridge: {
     stickCta: 'Draw a stick for today',
+    stickGo: 'Draw a stick',
     outroOffer: 'Draw a stick, then ask Tarot one more question today.',
     outroContinue: 'You can also draw a stick for a thought about today.',
     lockedOffer: 'Draw a stick and you can ask Tarot one more question today.',
