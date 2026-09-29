@@ -2615,3 +2615,23 @@ html[data-app='taro'] body {
       rotate(calc(var(--taro-side, 1) * (3deg + 6deg * var(--taro-d, 0))));
   }
 }
+
+/* The journal's yes/no, asked on the page. */
+.taro-journal-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 20px;
+  margin: 18px auto 0;
+  max-width: 34rem;
+  text-align: center;
+}
+
+.taro-journal-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.7;
+}

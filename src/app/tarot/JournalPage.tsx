@@ -21,6 +21,9 @@ export default function JournalPage() {
   const [weeklyReminder, setWeeklyReminder] = useState(() => localStorage.getItem(WEEKLY_REMINDER_KEY) === 'on');
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [reviewOpen, setReviewOpen] = useState<Record<string, boolean>>({});
+  /** What is waiting for a yes: a reading id, or 'all'. Asked on the page rather
+   *  than with window.confirm, which an in-app browser may never show. */
+  const [confirming, setConfirming] = useState<string | null>(null);
   const copy = copyFor(locale);
 
   const refresh = async () => {
@@ -45,7 +48,7 @@ export default function JournalPage() {
   useEffect(() => { void refresh(); }, []);
 
   const remove = async (entry: JournalEntry) => {
-    if (!window.confirm(copy.journal.deleteConfirm)) return;
+    setConfirming(null);
     try {
       await deleteJournalEntry(entry.readingId);
       setEntries((current) => current.filter((item) => item.readingId !== entry.readingId));
@@ -56,7 +59,8 @@ export default function JournalPage() {
   };
 
   const clearAll = async () => {
-    if (!entries.length || !window.confirm(copy.journal.clearConfirm)) return;
+    setConfirming(null);
+    if (!entries.length) return;
     try {
       await clearJournal();
       setEntries([]);
@@ -156,14 +160,29 @@ export default function JournalPage() {
                   )}
                   <footer className="taro-journal-entry-actions">
                     <a className="taro-link" href={appUrl(`/?reading=${encodeURIComponent(entry.readingId)}`)}>{copy.journal.openReading}</a>
-                    <button type="button" className="taro-link" onClick={() => void remove(entry)}>{copy.journal.delete}</button>
+                    <button type="button" className="taro-link" onClick={() => setConfirming(entry.readingId)}>{copy.journal.delete}</button>
                   </footer>
+                  {confirming === entry.readingId && (
+                    <div className="taro-journal-confirm" role="alert">
+                      <p>{copy.journal.deleteConfirm}</p>
+                      <button type="button" className="taro-danger-link" onClick={() => void remove(entry)}>{copy.journal.confirmYes}</button>
+                      <button type="button" className="taro-link" onClick={() => setConfirming(null)}>{copy.journal.confirmNo}</button>
+                    </div>
+                  )}
                 </article>
               );
             })}
           </div>
         )}
-        <button type="button" className="taro-danger-link" disabled={!entries.length} onClick={() => void clearAll()}>{copy.journal.clear}</button>
+        {confirming === 'all' ? (
+          <div className="taro-journal-confirm" role="alert">
+            <p>{copy.journal.clearConfirm}</p>
+            <button type="button" className="taro-danger-link" onClick={() => void clearAll()}>{copy.journal.confirmYes}</button>
+            <button type="button" className="taro-link" onClick={() => setConfirming(null)}>{copy.journal.confirmNo}</button>
+          </div>
+        ) : (
+          <button type="button" className="taro-danger-link" disabled={!entries.length} onClick={() => setConfirming('all')}>{copy.journal.clear}</button>
+        )}
       </main>
       <footer className="taro-foot"><Signature locale={locale} /><a className="taro-foot-link" href={appUrl('/privacy')}>{copy.consent.more}</a></footer>
     </div>

@@ -129,6 +129,8 @@ export interface Copy {
     delete: string;
     openReading: string;
     deleteConfirm: string;
+    confirmYes: string;
+    confirmNo: string;
     clear: string;
     clearConfirm: string;
     savedOn: string;
@@ -377,6 +379,8 @@ const zh: Copy = {
     delete: '删除这笔阅读',
     openReading: '重新打开这次解读',
     deleteConfirm: '删除后，阅读、笔记和它的分享链接都会移除。确定删除？',
+    confirmYes: '确认删除',
+    confirmNo: '取消',
     clear: '清除全部记录',
     clearConfirm: '这会删除这个浏览器的所有阅读、笔记和分享链接，无法恢复。确定清除？',
     savedOn: '收藏日期',
@@ -633,6 +637,8 @@ const en: Copy = {
     delete: 'Delete this reading',
     openReading: 'Open this reading',
     deleteConfirm: 'This removes the reading, note, and any share links for it. Delete it?',
+    confirmYes: 'Yes, delete',
+    confirmNo: 'Cancel',
     clear: 'Clear all history',
     clearConfirm: 'This deletes all readings, notes, and share links for this browser. This cannot be undone. Clear all?',
     savedOn: 'Saved',
