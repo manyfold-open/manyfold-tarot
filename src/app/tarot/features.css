@@ -112,7 +112,7 @@
 .taro-stick-card-text { flex:1; min-width:0; }
 .taro-stick-card-title { margin:0 0 2px; display:flex; align-items:center; gap:8px; color:var(--ink); font-size:15px; font-weight:600; }
 .taro-stick-card-title .taro-app-icon { width:18px; height:18px; }
-.taro-stick-card-line { margin:0; color:var(--ink-2); font-size:12.5px; line-height:1.6; }
+.taro-stick-card-line { margin:0; color:var(--ink-2); font-size:12.5px; line-height:1.6; text-wrap:balance; }
 .taro-stick-go { flex:none; padding:10px 16px; border-radius:999px; background:#d9573f; color:#fff; font-family:var(--sans); font-size:13px; font-weight:600; letter-spacing:.12em; text-decoration:none; white-space:nowrap; transition:background 160ms ease; }
 .taro-stick-go:hover,.taro-stick-go:focus-visible { background:#e5654c; }
 
@@ -120,11 +120,12 @@
 .taro-journal-card-head { display:flex; align-items:center; gap:12px; }
 .taro-journal-card-mark { flex:none; width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:rgb(154 180 237 / 18%); color:#dce6ff; font-size:16px; }
 .taro-journal-card-title { margin:0; color:var(--ink); font-size:14.5px; font-weight:600; }
-.taro-journal-card-prompt { margin:0; color:var(--ink-2); font-size:12px; }
+.taro-journal-card-prompt { margin:0; color:var(--ink-2); font-size:12px; text-wrap:balance; }
 .taro-journal-card-row { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
 .taro-journal-save { flex:none; padding:8px 16px; border:1px solid rgb(154 180 237 / 60%); border-radius:999px; background:transparent; color:#dce6ff; font-family:var(--sans); font-size:12.5px; letter-spacing:.08em; cursor:pointer; align-self:flex-end; }
 .taro-journal-save:hover,.taro-journal-save:focus-visible { background:rgb(154 180 237 / 12%); }
 .taro-journal-save:disabled { opacity:.6; cursor:default; }
+.taro-journal-card-row .taro-journal-save { margin-left:auto; }
 .taro-journal-add-note { align-self:flex-start; }
 
 .taro-outro-tools { display:flex; justify-content:center; gap:28px; }
@@ -132,4 +133,5 @@
 .taro-tool span { color:var(--ink); font-size:15px; }
 .taro-tool:hover,.taro-tool:focus-visible,.taro-tool[aria-expanded="true"] { color:var(--ink); }
 .taro-outro > .taro-share { width:100%; }
+.taro-outro > .taro-share .taro-share-options { border-radius:16px; }
 .taro-outro > .taro-new-reading { color:var(--ink-3); }
