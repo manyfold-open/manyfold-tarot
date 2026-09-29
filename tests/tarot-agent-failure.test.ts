@@ -160,7 +160,7 @@ describe('the reader fails on the greeting', () => {
     // The refunded reading is spent on a new round instead.
     reader = demoDiviner();
     const second = await call('/api/tarot/readings', {
-      body: { question: '换个问题：下周的重点是什么？', locale: 'zh', spreadId: 'next' },
+      body: { question: '换个问题：下周的重点是什么？', locale: 'zh', spreadId: 'next-step' },
       cookie,
     });
     expect(second.status).toBe(201);
@@ -196,7 +196,7 @@ describe('the reader fails on the greeting', () => {
       .run();
 
     const started = await call('/api/tarot/readings', {
-      body: { question: '我要怎么准备面试？', locale: 'zh', spreadId: 'next' },
+      body: { question: '我要怎么准备面试？', locale: 'zh', spreadId: 'next-step' },
       cookie,
     });
     expect(started.json<{ accessSource: string }>().accessSource).toBe('referral');
