@@ -73,6 +73,10 @@ After a deploy:
 npm run smoke -- https://your-app.workers.dev
 ```
 
+That run only reads. Add `--reading` to also run one whole reading end to end. Against a
+live deployment that reading is real: it spends a free reading and agent turns, and leaves a
+reading and a share link behind.
+
 ## What is safe to change
 
 Everything else. The chat UI, the styles, the page structure, extra tables, extra routes,
