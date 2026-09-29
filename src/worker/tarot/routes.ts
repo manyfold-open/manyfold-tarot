@@ -32,6 +32,8 @@ import { normalizeLocale } from '../../shared/tarot/i18n';
 import { DECK, DECK_SIZE, cardKeywords } from '../../shared/tarot/deck';
 import {
   QUESTION_MAX_CHARS,
+  READER_UNAVAILABLE,
+  READER_UNAVAILABLE_MESSAGE,
   type DivinerEvent,
   type DrawnCardView,
   type ShareMode,
@@ -169,11 +171,16 @@ function streamTurn(
     try {
       await pump(send);
     } catch (error) {
-      const message =
-        error instanceof HttpError
-          ? error.message
-          : safeErrorText(error instanceof Error ? error.message : error);
-      await send({ type: 'error', message });
+      if (error instanceof HttpError) {
+        await send({ type: 'error', code: error.code, message: error.message });
+      } else {
+        // What the agent platform said (an exhausted quota, a plan name, a
+        // timeout) is for whoever runs the site, not for someone at a table
+        // with a reader: it goes to the logs, and the browser gets a code it
+        // can put in its own words, in the visitor's own language.
+        console.warn('tarot turn failed', safeErrorText(error instanceof Error ? error.message : error));
+        await send({ type: 'error', code: READER_UNAVAILABLE, message: READER_UNAVAILABLE_MESSAGE });
+      }
     } finally {
       try {
         await writer.close();

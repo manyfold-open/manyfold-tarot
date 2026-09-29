@@ -187,8 +187,9 @@ export async function streamDiviner(
 
 /** Turns any thrown value into a line the visitor can read. */
 export const errorText = (error: unknown, fallback: string): string => {
-  if (error instanceof ApiError) return error.message;
-  return error instanceof Error && error.message ? error.message : fallback;
+  // A thrown Error that is not the Worker's ("Failed to fetch", a JSON parse
+  // error) is the browser talking, not something to read aloud.
+  return error instanceof ApiError && error.message ? error.message : fallback;
 };
 
 export { ApiError };

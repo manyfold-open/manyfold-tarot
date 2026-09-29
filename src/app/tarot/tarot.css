@@ -437,10 +437,23 @@ html[data-app='taro'] body {
   gap: 22px;
   padding: 18px 22px;
   /* Fixed chrome over scrolling prose: without a ground, the words run under
-     the links. */
-  background: linear-gradient(to bottom, rgb(0 0 0 / 94%) 60%, transparent);
+     the links. The ground is solid behind the links themselves and only fades
+     below them; fading behind them let a line of prose show through the row
+     on a phone. */
+  background: rgb(0 0 0 / 98%);
   justify-content: flex-end;
   left: 0;
+  pointer-events: none;
+}
+
+.taro-top::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 98%), transparent);
   pointer-events: none;
 }
 

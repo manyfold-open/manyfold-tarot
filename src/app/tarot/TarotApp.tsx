@@ -42,6 +42,7 @@ import StickIcon from './StickIcon';
 import ShareBox from './ShareBox';
 import Signature from './Signature';
 import Sky from './Sky';
+import { streamErrorText } from './streamError';
 import Speaking from './Speaking';
 import JournalPanel from './JournalPanel';
 import {
@@ -368,14 +369,20 @@ export default function TarotApp() {
     ): Promise<void> => {
       setError('');
       try {
-        await streamDiviner(path, body, onEvent);
+        await streamDiviner(path, body, (event) => {
+          if (event.type === 'error') setError(streamErrorText(event, copy.errors));
+          else onEvent(event);
+        });
       } catch (caught) {
         if (caught instanceof ApiError && caught.code === 'rate_limited') {
           setError(copy.errors.rateLimited);
         } else if (caught instanceof ApiError && caught.status === 404) {
           setError(copy.errors.lost);
+        } else if (caught instanceof ApiError) {
+          setError(caught.message);
         } else {
-          setError(errorText(caught, copy.errors.generic));
+          // A dropped connection says "Failed to fetch"; that is not for the visitor.
+          setError(copy.errors.generic);
         }
       }
     },
@@ -396,7 +403,7 @@ export default function TarotApp() {
           setReading((current) =>
             current && current.readingId === id ? { ...current, greeting: event.text } : current,
           );
-        } else if (event.type === 'error') setError(event.message);
+        }
       });
       setSpoken(null);
     },
@@ -409,6 +416,13 @@ export default function TarotApp() {
       void runGreeting(reading.readingId);
     }
   }, [phase, reading, busy, runGreeting]);
+
+  /** The reader did not answer: the round is still the visitor's, so ask again. */
+  const retryGreeting = useCallback(() => {
+    if (!reading) return;
+    greetedFor.current = null;
+    void runGreeting(reading.readingId);
+  }, [reading, runGreeting]);
 
   /* ───────── state 1: the question ───────── */
 
@@ -601,7 +615,7 @@ export default function TarotApp() {
                 }
               : current,
           );
-        } else if (event.type === 'error') setError(event.message);
+        }
       });
       // A turn that never produced a card has to be askable again.
       if (!landed) turning.current = null;
@@ -658,7 +672,7 @@ export default function TarotApp() {
           shareAttributionFor.current = null;
           localStorage.removeItem('taro.shareReadingId');
         }
-      } else if (event.type === 'error') setError(event.message);
+      }
     });
     setBusy(false);
   }, [reading, busy, runTurn, acquisitionSource]);
@@ -728,7 +742,7 @@ export default function TarotApp() {
           { id: Date.now(), role: 'diviner', content: event.text, createdAt: new Date().toISOString() },
         ]);
         setSuggestsNew(event.suggestsNewReading);
-      } else if (event.type === 'error') setError(event.message);
+      }
     });
     setFollowLive(null);
     setBusy(false);
@@ -951,22 +965,32 @@ export default function TarotApp() {
             {/* Keyed on which of the two it is, so that the first real word
                 does not overwrite the waiting line letter by letter: the line
                 leaves, and the reader's own words surface in its place. */}
-            {spoken !== null || !reading.greeting ? (
-              <Speaking
-                key={spoken ? 'said' : 'thinking'}
-                text={spoken || copy.greeting.thinking}
-              />
-            ) : (
+            {reading.greeting && spoken === null ? (
               <Prose text={reading.greeting} className="taro-voice" />
+            ) : (
+              // Once it has failed there is nothing left to wait for, so the
+              // waiting line goes and the way forward is the retry below.
+              !error && (
+                <Speaking
+                  key={spoken ? 'said' : 'thinking'}
+                  text={spoken || copy.greeting.thinking}
+                />
+              )
             )}
-            <button
-              type="button"
-              className="taro-primary"
-              disabled={!reading.greeting}
-              onClick={() => setPhase('shuffle')}
-            >
-              {copy.greeting.start}
-            </button>
+            {error && !reading.greeting ? (
+              <button type="button" className="taro-primary" onClick={retryGreeting}>
+                {copy.errors.retry}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="taro-primary"
+                disabled={!reading.greeting}
+                onClick={() => setPhase('shuffle')}
+              >
+                {copy.greeting.start}
+              </button>
+            )}
           </section>
         )}
 
