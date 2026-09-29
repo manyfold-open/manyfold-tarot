@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { SPREAD_IDS, spreadFor } from '../src/shared/tarot/spreads';
 import { QUESTION_MAX_CHARS, SLOT_ORDER } from '../src/shared/tarot/types';
 import type { DrawnCard } from '../src/worker/tarot/draw';
 import { demoFollowUp, demoReading } from '../src/worker/tarot/demo';
@@ -281,5 +282,39 @@ describe('shareConclusion', () => {
         closing: '',
       }).length,
     ).toBeLessThanOrEqual(220);
+  });
+});
+
+describe('the closing sections follow the spread', () => {
+  const cards = [
+    { slot: 'situation', cardId: 'wands-14', reversed: false },
+    { slot: 'hidden', cardId: 'major-06', reversed: false },
+    { slot: 'guidance', cardId: 'major-17', reversed: true },
+  ] as DrawnCard[];
+
+  for (const locale of ['zh', 'en'] as const) {
+    it(`asks each spread for its own response, actions and reflection (${locale})`, () => {
+      const prompts = SPREAD_IDS.map((id) => ({
+        id,
+        text: buildReadingPrompt({ question: 'q', locale, cards, spreadId: id }),
+        guidance: spreadFor(id, locale).guidance,
+      }));
+      for (const { text, guidance } of prompts) {
+        expect(text).toContain(guidance.response);
+        expect(text).toContain(guidance.actions);
+        expect(text).toContain(guidance.reflection);
+      }
+      // No two spreads share a closing section: each is written for its own purpose.
+      for (const key of ['response', 'actions', 'reflection'] as const) {
+        expect(new Set(prompts.map((p) => p.guidance[key])).size).toBe(SPREAD_IDS.length);
+      }
+    });
+  }
+
+  it('leaves the default spread asking exactly what it always asked', () => {
+    const zh = buildReadingPrompt({ question: 'q', locale: 'zh', cards, spreadId: 'current' });
+    expect(zh).toContain('回到来访者的问题，给出综合回应，说明牌面对这个具体处境意味着什么。');
+    expect(zh).toContain('两到三条现实中可以做的事，每条独占一行，以「- 」开头，具体、可执行、不空泛。');
+    expect(zh).toContain('一个留给对方自己想的问题，一句话。');
   });
 });
