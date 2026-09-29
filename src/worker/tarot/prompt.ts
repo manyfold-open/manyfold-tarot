@@ -103,9 +103,28 @@ export function stripThinking(text: string): string {
     .trim();
 }
 
+/**
+ * Cuts what a model's own output format leaves behind.
+ *
+ * A reply once ended with a stray line — "一分彩assistantfinal  code (no need)"
+ * — after a complete answer: the channel markers of the model's format, with
+ * junk around them, that a visitor would then read. Special tokens (`<|…|>`) and
+ * the bare channel names (`assistantfinal`, `assistantanalysis`,
+ * `assistantcommentary`) are never part of a reading, so the reply ends at the
+ * start of the line the first one appears on. What came before is kept.
+ */
+const MODEL_RESIDUE = /<\|[^|>\n]{1,40}\|>|assistant\s*(?:final|analysis|commentary)/i;
+
+export function stripModelResidue(text: string): string {
+  const hit = MODEL_RESIDUE.exec(text);
+  if (!hit) return text;
+  const lineStart = text.lastIndexOf('\n', hit.index) + 1;
+  return text.slice(0, lineStart).trimEnd();
+}
+
 /** Everything an agent reply passes through before it is shown or parsed. */
 export function cleanAgentText(text: string): string {
-  return stripThinking(String(text ?? '')).trim();
+  return stripModelResidue(stripThinking(String(text ?? ''))).trim();
 }
 
 /* ───────── prompt building ───────── */
