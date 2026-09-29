@@ -346,3 +346,34 @@ describe('follow-ups follow the spread too', () => {
     });
   }
 });
+
+describe('the reader writes one script', () => {
+  const question = '我該不該接受新公司的 offer？';
+  const drawn = { question, locale: 'zh' as const, cards: CARDS, conclusion: '', followUp: '再多說一點', history: [] };
+
+  it('asks for Simplified Chinese in every kind of zh turn, whatever script the question is in', () => {
+    const prompts = [
+      buildGreetingPrompt({ question, locale: 'zh' }),
+      buildHintPrompt({ question, locale: 'zh', card: CARDS[0], index: 0 }),
+      buildReadingPrompt({ question, locale: 'zh', cards: CARDS }),
+      buildFollowUpPrompt(drawn),
+    ];
+    for (const prompt of prompts) expect(prompt).toContain('简体中文');
+  });
+
+  it('does not tell the English reader to write Chinese', () => {
+    expect(buildReadingPrompt({ question: 'Should I go?', locale: 'en', cards: CARDS })).not.toContain('简体中文');
+  });
+});
+
+describe('the decision spread does not lean', () => {
+  it('tells the reader to set both sides next to each other, in both languages', () => {
+    expect(spreadFor('decision', 'zh').instruction).toContain('不要说哪一边');
+    expect(spreadFor('decision', 'en').instruction).toContain('never say one side weighs more');
+  });
+
+  it('puts that instruction in the reading prompt', () => {
+    const prompt = buildReadingPrompt({ question: '我该不该接受？', locale: 'zh', cards: CARDS, spreadId: 'decision' });
+    expect(prompt).toContain('“分量较重”');
+  });
+});

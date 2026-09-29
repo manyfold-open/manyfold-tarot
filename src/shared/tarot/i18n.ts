@@ -110,6 +110,7 @@ export interface Copy {
   journal: {
     title: string;
     intro: string;
+    loading: string;
     empty: string;
     save: string;
     saved: string;
@@ -357,6 +358,7 @@ const zh: Copy = {
   journal: {
     title: '阅读日志',
     intro: '收藏的阅读只在这个浏览器的私人日志中显示。问题不会出现在列表。',
+    loading: '正在翻开日志……',
     empty: '还没有收藏的阅读。完成解读后，可以把它存进日志。',
     save: '存入日志',
     saved: '已存入日志',
@@ -612,6 +614,7 @@ const en: Copy = {
   journal: {
     title: 'Reading journal',
     intro: 'Saved readings appear only in this browser’s private journal. Questions stay out of the list.',
+    loading: 'Opening your journal…',
     empty: 'No saved readings yet. Save one after you finish a reading.',
     save: 'Save to journal',
     saved: 'Saved to journal',

@@ -17,4 +17,12 @@ describe('the tester fragment', () => {
   it('never reads the token from the query string, which servers log', () => {
     expect(readTarotHandoff('https://app.manyfold.ai/tarot/?tester=abc').testerToken).toBeNull();
   });
+
+  it('keeps every character of a base64 token: "+", "/" and a trailing "="', () => {
+    expect(readTarotHandoff('https://app.manyfold.ai/tarot/#tester=Vp1V+Ga/Uj1x=').testerToken).toBe('Vp1V+Ga/Uj1x=');
+  });
+
+  it('still decodes a percent-encoded token, and reads it beside other fragment keys', () => {
+    expect(readTarotHandoff('https://app.manyfold.ai/tarot/#lang=zh&tester=a%2Bb%2Fc%3D').testerToken).toBe('a+b/c=');
+  });
 });
