@@ -28,7 +28,7 @@
  * src/worker/mount.ts.
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import type { AppState } from '../shared/types';
 import { HttpError, type Env } from './types';
 import { adminConfigured, adminPasswordOk, adminRequired } from './admin';
@@ -46,8 +46,10 @@ import {
   verifyAgent,
 } from './connect';
 import { getConversation, handleChatTurn, resetConversation } from './chat';
-import { withMount } from './mount';
+import { publicUrl, withMount } from './mount';
 import { tarot } from './tarot/routes';
+import { sharePreview, withSharePreview } from './tarot/sharemeta';
+import { loadShare } from './tarot/store';
 
 const SERVICE = 'manyfold-tarot';
 
@@ -229,14 +231,26 @@ app.all('/api/*', () => {
  * past is the Google tag, and a card image has no head to put it in. Everything
  * else is served by the assets runtime without waking this up.
  */
-app.all('*', async (c) => {
-  const response = await c.env.ASSETS.fetch(c.req.raw);
-  return withAnalytics(response, {
+const servePage = async (c: Context<{ Bindings: Env }>, response: Response) =>
+  withAnalytics(response, {
     measurementId: measurementIdFor(c.env),
     pathname: new URL(c.req.url).pathname,
     method: c.req.method,
   });
+
+/**
+ * A shared reading gets its link preview and its noindex written in here
+ * (src/worker/tarot/sharemeta.ts): the crawler that unfurls a link never runs
+ * the page. A token that does not exist still says noindex.
+ */
+app.get('/s/:token', async (c) => {
+  const url = new URL(c.req.url);
+  const snapshot = await loadShare(c.env, c.req.param('token')).catch(() => null);
+  const preview = sharePreview(snapshot, publicUrl(c, url.pathname), (path) => publicUrl(c, path));
+  return servePage(c, withSharePreview(await c.env.ASSETS.fetch(c.req.raw), preview));
 });
+
+app.all('*', async (c) => servePage(c, await c.env.ASSETS.fetch(c.req.raw)));
 
 // Served at the root and, when BASE_PATH is set, under it too.
 export default { fetch: withMount<Env>(app.fetch) } satisfies ExportedHandler<Env>;
