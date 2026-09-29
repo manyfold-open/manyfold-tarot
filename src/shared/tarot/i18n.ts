@@ -117,6 +117,12 @@ export interface Copy {
     note: string;
     notePlaceholder: string;
     saveNote: string;
+    /** The journal card at the end of a reading. */
+    cardTitle: string;
+    cardPrompt: string;
+    saveNow: string;
+    saving: string;
+    addNote: string;
     reviewDue: string;
     reviewWhen: string;
     reviewOptions: [string, string, string];
@@ -142,6 +148,7 @@ export interface Copy {
 
   outro: {
     share: string;
+    shareShort: string;
     sharing: string;
     newReading: string;
     /** The same button when there is nothing left to ask with: it only goes
@@ -199,6 +206,8 @@ export interface Copy {
 
   bridge: {
     stickCta: string;
+    /** The button on the Stick card; the card's title already says what it is. */
+    stickGo: string;
     outroOffer: string;
     outroContinue: string;
     lockedOffer: string;
@@ -367,6 +376,11 @@ const zh: Copy = {
     note: '私人笔记',
     notePlaceholder: '记下此刻的想法；这段笔记不会被分享。',
     saveNote: '保存笔记',
+    cardTitle: '存进日志，之后回来看',
+    cardPrompt: '什么时候回来回顾？',
+    saveNow: '存下',
+    saving: '正在保存…',
+    addNote: '加一句笔记（选填）',
     reviewDue: '一周后回顾',
     reviewWhen: '多久之后回顾',
     reviewOptions: ['1 周', '2 周', '1 个月'],
@@ -392,6 +406,7 @@ const zh: Copy = {
 
   outro: {
     share: '分享这次解读',
+    shareShort: '分享',
     sharing: '正在生成分享……',
     newReading: '再问一件事',
     backHome: '回到首页',
@@ -440,6 +455,7 @@ const zh: Copy = {
 
   bridge: {
     stickCta: '抽一支今天的签',
+    stickGo: '去抽签',
     outroOffer: '抽完一支签，今天还可以再问一次塔罗。',
     outroContinue: '也可以来求一支签，看看今天的提示。',
     lockedOffer: '去抽一支签，今天就能再问一次塔罗。',
@@ -625,6 +641,11 @@ const en: Copy = {
     note: 'Private note',
     notePlaceholder: 'Write down what is on your mind. This note is never shared.',
     saveNote: 'Save note',
+    cardTitle: 'Keep it, and come back to it',
+    cardPrompt: 'When do you want to look back?',
+    saveNow: 'Save',
+    saving: 'Saving…',
+    addNote: 'Add a note (optional)',
     reviewDue: 'Review in a week',
     reviewWhen: 'Review after',
     reviewOptions: ['1 week', '2 weeks', '1 month'],
@@ -650,6 +671,7 @@ const en: Copy = {
 
   outro: {
     share: 'Share this reading',
+    shareShort: 'Share',
     sharing: 'Preparing the share…',
     newReading: 'Ask about something else',
     backHome: 'Back to the home page',
@@ -698,6 +720,7 @@ const en: Copy = {
 
   bridge: {
     stickCta: 'Draw a stick for today',
+    stickGo: 'Draw',
     outroOffer: 'Draw a stick, then ask Tarot one more question today.',
     outroContinue: 'You can also draw a stick for a thought about today.',
     lockedOffer: 'Draw a stick and you can ask Tarot one more question today.',

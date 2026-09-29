@@ -40,6 +40,7 @@ import Fan from './Fan';
 import Reading, { Prose } from './Reading';
 import StickIcon from './StickIcon';
 import ShareBox from './ShareBox';
+import StickCard from './StickCard';
 import Signature from './Signature';
 import Sky from './Sky';
 import { streamErrorText } from './streamError';
@@ -190,6 +191,9 @@ export default function TarotApp() {
   const [followUps, setFollowUps] = useState<FollowUpMessage[]>([]);
   const [followDraft, setFollowDraft] = useState('');
   const [followOpen, setFollowOpen] = useState(false);
+  /** The share panel at the end of a reading, folded behind its icon. */
+  const [shareOpen, setShareOpen] = useState(false);
+  useEffect(() => setShareOpen(false), [reading?.readingId]);
   const [followLive, setFollowLive] = useState<string | null>(null);
   const [suggestsNew, setSuggestsNew] = useState(false);
   const [demoReader, setDemoReader] = useState(false);
@@ -1191,35 +1195,39 @@ export default function TarotApp() {
             ) : null}
 
             <section className="taro-outro">
-              {/* The Stick takes the invite's place beside Share: it is the
-                  one next step we most want taken. Invites still live on the
-                  home page once nothing is left to spend. It opens in a new
-                  tab so this reading stays where it is. */}
-              <div className="taro-outro-actions">
-                <ShareBox reading={reading} locale={locale} />
-                <div className="taro-stick-action">
-                  <a
-                    className="taro-primary taro-to-stick"
-                    href={stickLink(fortuneStickUrl, 'outro')}
-                    target="_blank"
-                    rel="noopener"
-                    onClick={() => track('stick_opened', { from: 'outro' })}
-                  >
-                    {copy.bridge.stickCta}
-                    <StickIcon />
-                  </a>
-                  <p>
-                    {/* Only offer to unlock what is still locked: a visitor with a
-                        reward or invite already waiting is not sent for another. */}
-                    {access?.freeUsed &&
+              {/* One lead, in order of what we most want taken: the Stick (the
+                  only filled button), then the journal, then the quiet tools.
+                  Asking something else is the way out, and looks like one. */}
+              <StickCard
+                href={stickLink(fortuneStickUrl, 'outro')}
+                locale={locale}
+                offer={Boolean(
+                  access?.freeUsed &&
                     !access.dailyExtraUsed &&
                     !access.stickBonusAvailable &&
-                    access.credits === 0
-                      ? copy.bridge.outroOffer
-                      : copy.bridge.outroContinue}
-                  </p>
-                </div>
+                    access.credits === 0,
+                )}
+                onOpen={() => track('stick_opened', { from: 'outro' })}
+              />
+
+              <JournalPanel reading={reading} locale={locale} />
+
+              <div className="taro-outro-tools">
+                <button
+                  type="button"
+                  className="taro-tool"
+                  aria-expanded={shareOpen}
+                  onClick={() => setShareOpen((open) => !open)}
+                >
+                  <span aria-hidden>↗</span>
+                  {copy.outro.shareShort}
+                </button>
+                <a className="taro-tool" href={appUrl('/journal')}>
+                  <span aria-hidden>☰</span>
+                  {copy.navigation.journal}
+                </a>
               </div>
+              <ShareBox reading={reading} locale={locale} open={shareOpen} />
 
               <button type="button" className="taro-secondary taro-new-reading" onClick={newRound}>
                 {/* Always the way home. It only promises another question when
@@ -1262,7 +1270,6 @@ export default function TarotApp() {
                   </button>
                 </form>
               ) : null}
-              <JournalPanel reading={reading} locale={locale} />
             </section>
           </>
         )}
