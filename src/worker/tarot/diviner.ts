@@ -71,13 +71,26 @@ export interface Diviner {
   speak(request: DivinerRequest, options: TurnOptions): Promise<TurnResult>;
 }
 
-/** Per-kind budgets: a hint blocking the card flip for three minutes is worse than no hint. */
-const TIMEOUT_MS: Record<DivinerRequest['kind'], number> = {
-  greeting: 45_000,
-  hint: 30_000,
-  interpretation: 180_000,
-  followup: 120_000,
+/**
+ * Per-kind time limits, in three parts, because "slow" comes in two shapes that
+ * call for different answers. A reader that has not said a word by `start` is
+ * asleep, queued or stuck, and waiting longer rarely helps. A reader that is
+ * talking should be let finish, and only given up on if it goes quiet for
+ * `idle` or runs past `total`.
+ *
+ * Only the hint is split out: it used to be cut off at 30 seconds flat, even
+ * mid-sentence, which threw away words the visitor was already reading. A hint
+ * blocking the card flip for minutes is still worse than no hint, hence the
+ * ceiling. The other turns keep one budget, which is what they always had.
+ */
+const LIMITS: Record<DivinerRequest['kind'], { start: number; idle: number; total: number }> = {
+  greeting: { start: 45_000, idle: 45_000, total: 45_000 },
+  hint: { start: 30_000, idle: 15_000, total: 60_000 },
+  interpretation: { start: 180_000, idle: 180_000, total: 180_000 },
+  followup: { start: 120_000, idle: 120_000, total: 120_000 },
 };
+
+const seconds = (ms: number) => `${Math.round(ms / 1000)}s`;
 
 function buildPrompt(request: DivinerRequest): string {
   switch (request.kind) {
@@ -142,8 +155,18 @@ class AgentDiviner implements Diviner {
     // Resolved per turn rather than cached: an expired or rotated authorization
     // must fail here, with a real message, instead of being used stale.
     const cred = await credentialFor(this.env, this.agentId);
+    const limits = LIMITS[request.kind];
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS[request.kind]);
+    const startedAt = Date.now();
+    let spoken = '';
+    let lastState = '';
+    let expired = false;
+    const expire = () => {
+      expired = true;
+      controller.abort();
+    };
+    const ceiling = setTimeout(expire, limits.total);
+    let watchdog = setTimeout(expire, limits.start);
     try {
       const snapshot = await consumeA2AStream({
         cred,
@@ -160,11 +183,41 @@ class AgentDiviner implements Diviner {
         },
         signal: controller.signal,
         onSnapshot: async (snap) => {
+          lastState = snap.state || lastState;
+          // New words, not new events: a stream of bare "working" statuses is
+          // still a reader that has not started.
+          if (snap.text !== spoken) {
+            spoken = snap.text;
+            clearTimeout(watchdog);
+            watchdog = setTimeout(expire, limits.idle);
+          }
           // Only the reply text reaches the browser. Task states and progress
           // lines are machinery, and the user is supposed to be at a table with
           // a reader, not watching a job run.
           if (snap.text) await options.onDelta?.(cleanAgentText(snap.text));
         },
+      }).catch((error: unknown) => {
+        if (!expired) throw error;
+        // Say which kind of slow it was: this is the line the operator's alert
+        // carries, and "timed out" alone does not say what to look at.
+        const elapsed = Date.now() - startedAt;
+        const chars = spoken.length;
+        if (chars === 0) {
+          throw new A2AError(
+            `${cred.label} did not start answering within ${seconds(elapsed)} (last state: ${lastState || 'no events'}).`,
+            true,
+          );
+        }
+        if (elapsed >= limits.total) {
+          throw new A2AError(
+            `${cred.label} was still answering at the ${seconds(limits.total)} limit (${chars} chars so far).`,
+            true,
+          );
+        }
+        throw new A2AError(
+          `${cred.label} stopped mid-answer: no new text for ${seconds(limits.idle)} after ${chars} chars (${seconds(elapsed)} in).`,
+          true,
+        );
       });
 
       const text = cleanAgentText(snapshot.text);
@@ -177,7 +230,8 @@ class AgentDiviner implements Diviner {
         taskId: snapshot.state === 'input-required' ? snapshot.taskId : null,
       };
     } finally {
-      clearTimeout(timer);
+      clearTimeout(ceiling);
+      clearTimeout(watchdog);
     }
   }
 }
