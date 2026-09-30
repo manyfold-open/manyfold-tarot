@@ -18,6 +18,7 @@
 import type { Locale } from '../../shared/tarot/deck';
 import type { SpreadId } from '../../shared/tarot/types';
 import { A2AError, consumeA2AStream } from '../a2a';
+import { reportAgentFailure, reportAgentSuccess } from '../alerts';
 import { credentialFor } from '../connect';
 import type { Env } from '../types';
 import { demoFollowUp, demoGreeting, demoHint, demoReading } from './demo';
@@ -123,6 +124,21 @@ class AgentDiviner implements Diviner {
   }
 
   async speak(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
+    // Every live turn is reported, including hints that fall back upstream: a
+    // visitor who sees the deck's line instead of the reader's is still a
+    // visitor the agent failed (src/worker/alerts.ts).
+    let result: TurnResult;
+    try {
+      result = await this.turn(request, options);
+    } catch (error) {
+      await reportAgentFailure(this.env, request.kind, error);
+      throw error;
+    }
+    await reportAgentSuccess(this.env);
+    return result;
+  }
+
+  private async turn(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
     // Resolved per turn rather than cached: an expired or rotated authorization
     // must fail here, with a real message, instead of being used stale.
     const cred = await credentialFor(this.env, this.agentId);

@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import type { ConnectedAgent, ConnectSession } from '../../shared/types';
 import { api } from '../api';
+import AlertsPanel from './AlertsPanel';
 import ConnectPanel from './ConnectPanel';
 
 export default function SettingsView(props: {
@@ -112,6 +113,8 @@ export default function SettingsView(props: {
         authorization expired.
       </p>
       <ConnectPanel initialSession={props.initialSession} onConnected={props.refreshState} />
+
+      <AlertsPanel />
 
       <h3>About this deployment</h3>
       <p className="muted">

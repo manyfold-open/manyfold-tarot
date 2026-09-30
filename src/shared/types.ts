@@ -80,3 +80,11 @@ export type ChatEvent =
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }
+
+/** GET /api/alerts: where agent failures go, and the recent ones. Never the webhook URL. */
+export interface AlertsView {
+  discord: { configured: boolean; savedAt: string | null };
+  failing: boolean;
+  failingSince: string | null;
+  failures: { at: string; kind: string; reason: string }[];
+}

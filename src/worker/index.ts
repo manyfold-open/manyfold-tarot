@@ -13,6 +13,9 @@
  *   GET    /api/agents/:agentId/messages    admin  chat history
  *   DELETE /api/agents/:agentId/messages    admin  reset the conversation
  *   POST   /api/agents/:agentId/chat        admin  one chat turn (text/event-stream)
+ *   GET    /api/alerts                      admin  failure alerts: webhook status + recent failures
+ *   PUT    /api/alerts/discord              admin  store the Discord webhook (sealed) and ping it
+ *   DELETE /api/alerts/discord              admin  forget it
  *   *      /api/tarot/*                     open   the tarot site (src/worker/tarot/routes.ts)
  *
  * "admin" routes require the x-admin-password header. This deployment is always
@@ -46,6 +49,7 @@ import {
   verifyAgent,
 } from './connect';
 import { getConversation, handleChatTurn, resetConversation } from './chat';
+import { alertsView, clearDiscordWebhook, saveDiscordWebhook } from './alerts';
 import { publicUrl, withMount } from './mount';
 import { tarot } from './tarot/routes';
 import { sharePreview, withSharePreview } from './tarot/sharemeta';
@@ -214,6 +218,22 @@ app.post('/api/agents/:agentId/chat', async (c) => {
     message: body.message,
     waitUntil: (promise) => c.executionCtx.waitUntil(promise),
   });
+});
+
+app.get('/api/alerts', async (c) => c.json(await alertsView(c.env)));
+
+app.put('/api/alerts/discord', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as { url?: unknown } | null;
+  if (!body || typeof body.url !== 'string') {
+    throw new HttpError(400, 'bad_request', 'Body must be JSON with a string "url".');
+  }
+  const delivered = await saveDiscordWebhook(c.env, body.url);
+  return c.json({ delivered, alerts: await alertsView(c.env) });
+});
+
+app.delete('/api/alerts/discord', async (c) => {
+  await clearDiscordWebhook(c.env);
+  return c.json({ alerts: await alertsView(c.env) });
 });
 
 // The tarot site. Public by design — see isPublicPath above.
