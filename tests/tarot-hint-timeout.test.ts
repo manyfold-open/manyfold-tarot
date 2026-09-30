@@ -87,7 +87,7 @@ async function speakHint() {
   const diviner = await resolveDiviner(env);
   const deltas: string[] = [];
   const outcome = diviner
-    .speak(HINT, { idempotencyKey: 'r1-hint-0', contextId: null, taskId: null, onDelta: (text) => void deltas.push(text) })
+    .speak(HINT, { idempotencyKey: 'r1-hint-0', contextId: null, taskId: null, threadAgentId: null, onDelta: (text) => void deltas.push(text) })
     .then(
       (result) => ({ ok: true as const, text: result.text }),
       (error: Error) => ({ ok: false as const, message: error.message }),

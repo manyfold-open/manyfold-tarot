@@ -177,7 +177,7 @@ describe('the live reader reports its own turns', () => {
     await expect(
       diviner.speak(
         { kind: 'greeting', locale: 'en', question: 'Will it rain?' },
-        { idempotencyKey: 'r1-greeting', contextId: null, taskId: null },
+        { idempotencyKey: 'r1-greeting', contextId: null, taskId: null, threadAgentId: null },
       ),
     ).rejects.toThrow();
 

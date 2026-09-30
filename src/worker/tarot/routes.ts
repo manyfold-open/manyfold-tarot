@@ -425,6 +425,7 @@ tarot.post('/readings/:id/greeting', async (c) => {
           idempotencyKey: `${reading.id}-greeting`,
           contextId: reading.contextId,
           taskId: reading.activeTaskId,
+          threadAgentId: reading.agentId,
           onDelta: throttledDelta(send),
         },
       );
@@ -509,6 +510,7 @@ tarot.post('/readings/:id/reveal', async (c) => {
           idempotencyKey: `${reading.id}-hint-${index}`,
           contextId: reading.contextId,
           taskId: reading.activeTaskId,
+          threadAgentId: reading.agentId,
           onDelta: throttledDelta(send),
         },
       );
@@ -560,6 +562,7 @@ tarot.post('/readings/:id/interpretation', async (c) => {
         idempotencyKey: `${reading.id}-reading`,
         contextId: reading.contextId,
         taskId: reading.activeTaskId,
+        threadAgentId: reading.agentId,
         onDelta: throttledDelta(send),
       },
     );
@@ -657,6 +660,7 @@ tarot.post('/readings/:id/follow-ups', async (c) => {
         idempotencyKey: `${reading.id}-follow-${userMessageId}`,
         contextId: reading.contextId,
         taskId: reading.activeTaskId,
+        threadAgentId: reading.agentId,
         onDelta: throttledDelta(send),
       },
     );

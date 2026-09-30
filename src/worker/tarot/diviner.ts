@@ -17,7 +17,7 @@
 
 import type { Locale } from '../../shared/tarot/deck';
 import type { SpreadId } from '../../shared/tarot/types';
-import { A2AError, consumeA2AStream } from '../a2a';
+import { A2AError, consumeA2AStream, TASK_NOT_FOUND } from '../a2a';
 import { reportAgentFailure, reportAgentSuccess } from '../alerts';
 import { credentialFor } from '../connect';
 import type { Env } from '../types';
@@ -54,6 +54,12 @@ export interface TurnOptions {
   idempotencyKey: string;
   contextId: string | null;
   taskId: string | null;
+  /**
+   * The agent contextId and taskId came from (the reading's stored agentId).
+   * A conversation belongs to the agent that started it; any other reader is
+   * started on a fresh one.
+   */
+  threadAgentId: string | null;
   onDelta?: (fullText: string) => void | Promise<void>;
 }
 
@@ -186,13 +192,37 @@ class AgentDiviner implements Diviner {
     // visitor the agent failed (src/worker/alerts.ts).
     let result: TurnResult;
     try {
-      result = await this.turn(request, options);
+      result = await this.continueOrStartOver(request, options);
     } catch (error) {
       await reportAgentFailure(this.env, request.kind, error);
       throw error;
     }
     await reportAgentSuccess(this.env);
     return result;
+  }
+
+  /**
+   * Continues the reading's conversation when there is one to continue, and
+   * starts a fresh one otherwise. Every prompt carries the question, the cards
+   * and the history, so a fresh conversation loses nothing the reader needs;
+   * a conversation the reader does not have is what fails a reading for good.
+   *
+   * Two ways the stored ids stop being valid: the reader was swapped for
+   * another agent (caught up front, by agent id), or the same agent lost its
+   * conversations (the agent says so with -32001, and is asked once afresh —
+   * same messageId, so still one turn to the agent).
+   */
+  private async continueOrStartOver(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
+    const fresh = { ...options, contextId: null, taskId: null };
+    if (options.threadAgentId !== this.agentId) return this.turn(request, fresh);
+    if (!options.contextId && !options.taskId) return this.turn(request, options);
+    try {
+      return await this.turn(request, options);
+    } catch (error) {
+      if (!(error instanceof A2AError) || error.rpcCode !== TASK_NOT_FOUND) throw error;
+      console.warn('tarot reader lost the conversation; starting a fresh one', request.kind);
+      return this.turn(request, fresh);
+    }
   }
 
   private async turn(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
@@ -245,7 +275,7 @@ class AgentDiviner implements Diviner {
       }).catch((error: unknown) => {
         if (!expired) {
           if (!(error instanceof A2AError)) throw error;
-          throw new A2AError(`${error.message} ${trace}`, error.retryable, error.refreshCredential);
+          throw new A2AError(`${error.message} ${trace}`, error.retryable, error.refreshCredential, error.rpcCode);
         }
         // Say which kind of slow it was: this is the line the operator's alert
         // carries, and "timed out" alone does not say what to look at.
