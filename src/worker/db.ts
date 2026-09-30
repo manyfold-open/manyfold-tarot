@@ -257,6 +257,16 @@ CREATE TABLE IF NOT EXISTS tarot_reading_access (
   refunded_at TEXT,
   created_at  TEXT NOT NULL
 );
+
+-- Recent failed agent turns, for the operator console. Only where and why:
+-- never the question, the cards or the reading. Trimmed to the newest rows
+-- on every insert (src/worker/alerts.ts).
+CREATE TABLE IF NOT EXISTS agent_failures (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  at     TEXT NOT NULL,
+  kind   TEXT NOT NULL,
+  reason TEXT NOT NULL
+);
 `;
 
 /**

@@ -13,7 +13,7 @@
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AppState } from '../../src/shared/types';
+import type { AlertsView, AppState } from '../../src/shared/types';
 import App from '../../src/app/App';
 
 /** An unlocked deployment, which is what the tab assertions are about. */
@@ -34,6 +34,14 @@ const unconfigured: AppState = { ...locked, adminConfigured: false };
 
 let state: AppState = open;
 
+/** Settings also asks where failure alerts go; nothing configured, nothing failing. */
+const alerts: AlertsView = {
+  discord: { configured: false, savedAt: null },
+  failing: false,
+  failingSince: null,
+  failures: [],
+};
+
 const at = async (url: string) => {
   history.replaceState(null, '', url);
   render(<App />);
@@ -46,9 +54,11 @@ const activeTab = (): string | null =>
 
 beforeEach(() => {
   state = open;
-  vi.stubGlobal('fetch', async () => new Response(JSON.stringify(state), {
-    headers: { 'content-type': 'application/json' },
-  }));
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) =>
+    new Response(JSON.stringify(String(input).includes('/api/alerts') ? alerts : state), {
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
 });
 
 afterEach(() => {
