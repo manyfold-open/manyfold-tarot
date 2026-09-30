@@ -92,6 +92,50 @@ const LIMITS: Record<DivinerRequest['kind'], { start: number; idle: number; tota
 
 const seconds = (ms: number) => `${Math.round(ms / 1000)}s`;
 
+/** Enough for any sane turn; a reader flapping between states is cut short with "…". */
+const TRACE_STEPS = 8;
+
+/**
+ * What the stream did and when, for the failure line: the task id, so the agent's
+ * owner can find this exact turn on their side, and each state change plus the
+ * first words, so "slow" can be told apart — no events at all (asleep), working
+ * but silent (thinking or running tools), or talking and then stopping.
+ */
+class TurnTrace {
+  private readonly startedAt = Date.now();
+  private readonly steps: string[] = [];
+  private truncated = false;
+  private state = '';
+  private spoke = false;
+  taskId: string | null = null;
+
+  observe(snap: { taskId: string | null; state: string; text: string }): void {
+    this.taskId = snap.taskId ?? this.taskId;
+    if (snap.state && snap.state !== this.state) {
+      this.state = snap.state;
+      this.push(snap.state);
+    }
+    if (snap.text && !this.spoke) {
+      this.spoke = true;
+      this.push('text');
+    }
+  }
+
+  private push(label: string): void {
+    if (this.steps.length >= TRACE_STEPS) {
+      this.truncated = true;
+      return;
+    }
+    this.steps.push(`${label}@${((Date.now() - this.startedAt) / 1000).toFixed(1)}s`);
+  }
+
+  toString(): string {
+    const task = this.taskId ? `task ${this.taskId}` : 'no task id';
+    const timeline = this.steps.length ? this.steps.join(' → ') + (this.truncated ? ' → …' : '') : 'no events';
+    return `${task} · ${timeline}`;
+  }
+}
+
 function buildPrompt(request: DivinerRequest): string {
   switch (request.kind) {
     case 'greeting':
@@ -158,6 +202,7 @@ class AgentDiviner implements Diviner {
     const limits = LIMITS[request.kind];
     const controller = new AbortController();
     const startedAt = Date.now();
+    const trace = new TurnTrace();
     let spoken = '';
     let lastState = '';
     let expired = false;
@@ -184,6 +229,7 @@ class AgentDiviner implements Diviner {
         signal: controller.signal,
         onSnapshot: async (snap) => {
           lastState = snap.state || lastState;
+          trace.observe(snap);
           // New words, not new events: a stream of bare "working" statuses is
           // still a reader that has not started.
           if (snap.text !== spoken) {
@@ -197,32 +243,35 @@ class AgentDiviner implements Diviner {
           if (snap.text) await options.onDelta?.(cleanAgentText(snap.text));
         },
       }).catch((error: unknown) => {
-        if (!expired) throw error;
+        if (!expired) {
+          if (!(error instanceof A2AError)) throw error;
+          throw new A2AError(`${error.message} ${trace}`, error.retryable, error.refreshCredential);
+        }
         // Say which kind of slow it was: this is the line the operator's alert
         // carries, and "timed out" alone does not say what to look at.
         const elapsed = Date.now() - startedAt;
         const chars = spoken.length;
         if (chars === 0) {
           throw new A2AError(
-            `${cred.label} did not start answering within ${seconds(elapsed)} (last state: ${lastState || 'no events'}).`,
+            `${cred.label} did not start answering within ${seconds(elapsed)} (last state: ${lastState || 'no events'}). ${trace}`,
             true,
           );
         }
         if (elapsed >= limits.total) {
           throw new A2AError(
-            `${cred.label} was still answering at the ${seconds(limits.total)} limit (${chars} chars so far).`,
+            `${cred.label} was still answering at the ${seconds(limits.total)} limit (${chars} chars so far). ${trace}`,
             true,
           );
         }
         throw new A2AError(
-          `${cred.label} stopped mid-answer: no new text for ${seconds(limits.idle)} after ${chars} chars (${seconds(elapsed)} in).`,
+          `${cred.label} stopped mid-answer: no new text for ${seconds(limits.idle)} after ${chars} chars (${seconds(elapsed)} in). ${trace}`,
           true,
         );
       });
 
       const text = cleanAgentText(snapshot.text);
       if (!text) {
-        throw new A2AError(`${cred.label} answered with nothing.`, true);
+        throw new A2AError(`${cred.label} answered with nothing. ${trace}`, true);
       }
       return {
         text,

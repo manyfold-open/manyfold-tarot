@@ -141,6 +141,37 @@ describe('a hint from the live reader', () => {
     expect((result as { message: string }).message).toMatch(/stopped mid-answer/);
   });
 
+  it('names the task and when each state arrived, so the agent owner can look it up', async () => {
+    scriptedAgent([
+      { after: 400, state: 'submitted' },
+      { after: 800, state: 'working' },
+    ]);
+    const result = await speakHint();
+    expect(result.ok).toBe(false);
+    const message = (result as { message: string }).message;
+    expect(message).toMatch(/task t1/);
+    expect(message).toMatch(/submitted@0\.4s → working@1\.2s/);
+  });
+
+  it('marks when the first words arrived in a mid-answer timeout', async () => {
+    scriptedAgent([
+      { after: 1_000, state: 'working' },
+      { after: 4_000, text: 'The Fool steps' },
+    ]);
+    const result = await speakHint();
+    const message = (result as { message: string }).message;
+    expect(message).toMatch(/stopped mid-answer/);
+    expect(message).toMatch(/working@1\.0s → text@5\.0s/);
+  });
+
+  it('says there were no events when the agent never sent one', async () => {
+    scriptedAgent([]);
+    const result = await speakHint();
+    const message = (result as { message: string }).message;
+    expect(message).toMatch(/did not start answering/);
+    expect(message).toMatch(/no task id · no events/);
+  });
+
   it('still has a ceiling, and says the reader was mid-answer when it hit', async () => {
     const steps: Step[] = [];
     for (let at = 0; at < 90_000; at += 5_000) steps.push({ after: 5_000, text: `word ${at}` });
