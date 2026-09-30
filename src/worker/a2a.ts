@@ -24,12 +24,15 @@ export class A2AError extends Error {
   // friendly to any TS toolchain that only strips types.
   readonly retryable: boolean;
   readonly refreshCredential: boolean;
+  /** The JSON-RPC error code, when the agent answered with one. */
+  readonly rpcCode: number | null;
 
-  constructor(message: string, retryable: boolean, refreshCredential = false) {
+  constructor(message: string, retryable: boolean, refreshCredential = false, rpcCode: number | null = null) {
     super(safeErrorText(message));
     this.name = 'A2AError';
     this.retryable = retryable;
     this.refreshCredential = refreshCredential;
+    this.rpcCode = rpcCode;
   }
 }
 
@@ -106,6 +109,9 @@ export function validateA2AUrl(raw: string, production: boolean, label: string):
 
 /* ───────── JSON-RPC ───────── */
 
+/** A2A's TaskNotFoundError: the task or context this message continues does not exist. */
+export const TASK_NOT_FOUND = -32001;
+
 function rpcBody(method: string, params: unknown): string {
   return JSON.stringify({ jsonrpc: '2.0', method, id: crypto.randomUUID(), params });
 }
@@ -119,6 +125,8 @@ function jsonRpcError(value: unknown, label: string): A2AError {
   return new A2AError(
     `${label} RPC error${code === undefined ? '' : ` ${code}`}: ${message}`,
     !permanent && looksTransient(message),
+    false,
+    code ?? null,
   );
 }
 
