@@ -320,6 +320,44 @@ export function snapshotFrom(accumulator: StreamAccumulator): StreamSnapshot {
   };
 }
 
+/**
+ * Reads a finished task back with `tasks/get`, for a stream that ended without
+ * the reply in it. A retried turn reuses its messageId, so the agent answers it
+ * with the task it already finished — a bare "completed" with no words — and
+ * the words are only on the task itself. Reading a task runs no turn.
+ *
+ * The reply is looked for in the task's artifacts and status message first,
+ * then in the last agent message of its history.
+ */
+export async function fetchA2ATask(cred: AgentCredential, taskId: string): Promise<StreamSnapshot> {
+  const response = await fetchTimeout(
+    cred.rpcUrl,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json', authorization: `Bearer ${cred.token}` },
+      body: rpcBody('tasks/get', { id: taskId }),
+      redirect: 'manual',
+    },
+    PROBE_TIMEOUT_MS,
+  );
+  if (!response.ok) throw await httpFailure(response, cred.label);
+  let envelope: Record<string, unknown>;
+  try {
+    envelope = (await response.json()) as Record<string, unknown>;
+  } catch {
+    throw new A2AError(`${cred.label} tasks/get answered with invalid JSON.`, true);
+  }
+  if (envelope.error) throw jsonRpcError(envelope.error, cred.label);
+  const accumulator = createAccumulator();
+  applyA2AResult(accumulator, envelope.result);
+  const history = ((envelope.result ?? {}) as Record<string, unknown>).history;
+  if (Array.isArray(history)) {
+    const reply = [...history].reverse().find((message) => (message as Record<string, unknown>)?.role === 'agent');
+    if (reply) accumulator.directText = partsText((reply as Record<string, unknown>).parts) || accumulator.directText;
+  }
+  return snapshotFrom(accumulator);
+}
+
 /** Test/dev helper: fold a sequence of JSON-RPC results into one snapshot. */
 export function foldA2AResults(results: unknown[]): StreamSnapshot {
   const accumulator = createAccumulator();
