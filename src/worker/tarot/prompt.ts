@@ -127,6 +127,24 @@ export function cleanAgentText(text: string): string {
   return stripModelResidue(stripThinking(String(text ?? ''))).trim();
 }
 
+/**
+ * The fallback when cleanAgentText leaves nothing of a reply that had words.
+ *
+ * The line rules are guesses: a greeting that happens to open with "思考：" or
+ * carry a channel marker on its only line is dropped whole, and a reader who
+ * spoke is reported as one who said nothing. This keeps the line and removes
+ * only the marker itself. Reasoning blocks still go — a <think> block is never
+ * shown, even when it is all there is.
+ */
+export function cleanAgentTextGently(text: string): string {
+  return String(text ?? '')
+    .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '')
+    .replace(/<\/?(?:think|thinking|scratchpad|reasoning)>/gi, '')
+    .replace(new RegExp(MODEL_RESIDUE.source, 'gi'), '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /* ───────── prompt building ───────── */
 
 const fence = (locale: Locale, label: string, body: string): string =>

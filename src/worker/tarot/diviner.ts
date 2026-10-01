@@ -17,10 +17,10 @@
 
 import type { Locale } from '../../shared/tarot/deck';
 import type { SpreadId } from '../../shared/tarot/types';
-import { A2AError, consumeA2AStream, TASK_NOT_FOUND } from '../a2a';
+import { A2AError, consumeA2AStream, fetchA2ATask, safeErrorText, TASK_NOT_FOUND, type StreamSnapshot } from '../a2a';
 import { reportAgentFailure, reportAgentSuccess } from '../alerts';
 import { credentialFor } from '../connect';
-import type { Env } from '../types';
+import type { AgentCredential, Env } from '../types';
 import { demoFollowUp, demoGreeting, demoHint, demoReading } from './demo';
 import type { DrawnCard } from './draw';
 import {
@@ -29,6 +29,7 @@ import {
   buildHintPrompt,
   buildReadingPrompt,
   cleanAgentText,
+  cleanAgentTextGently,
 } from './prompt';
 
 export type DivinerRequest =
@@ -125,6 +126,11 @@ class TurnTrace {
       this.spoke = true;
       this.push('text');
     }
+  }
+
+  /** A step of our own, after the stream: what was done to find the reply. */
+  note(label: string): void {
+    this.push(label);
   }
 
   private push(label: string): void {
@@ -299,19 +305,52 @@ class AgentDiviner implements Diviner {
         );
       });
 
-      const text = cleanAgentText(snapshot.text);
+      const final = await recoverReply(cred, snapshot, trace);
+      const raw = final.text;
+      const text = cleanAgentText(raw) || cleanAgentTextGently(raw);
       if (!text) {
-        throw new A2AError(`${cred.label} answered with nothing. ${trace}`, true);
+        // Say whether there were words to lose: "nothing at all" is the agent's
+        // to look at, "words that cleaning removed" is ours.
+        const detail = raw.trim()
+          ? `raw ${raw.length} chars → 0 after cleaning: "${safeErrorText(raw).slice(0, RAW_PREVIEW_CHARS)}"`
+          : 'raw 0 chars';
+        throw new A2AError(`${cred.label} answered with nothing (${detail}). ${trace}`, true);
       }
       return {
         text,
-        contextId: snapshot.contextId,
-        taskId: snapshot.state === 'input-required' ? snapshot.taskId : null,
+        contextId: final.contextId,
+        taskId: final.state === 'input-required' ? final.taskId : null,
       };
     } finally {
       clearTimeout(ceiling);
       clearTimeout(watchdog);
     }
+  }
+}
+
+/** How much of a reply that cleaned away to nothing the failure line quotes. */
+const RAW_PREVIEW_CHARS = 80;
+
+/**
+ * A stream that finished without words may still have them on the task: a
+ * retried turn reuses its messageId, and the agent answers it with the task it
+ * already finished, bare. Without this a reading whose first greeting failed
+ * could never get one — every retry came back "completed" and empty in 0.1s.
+ */
+async function recoverReply(
+  cred: AgentCredential,
+  snapshot: StreamSnapshot,
+  trace: TurnTrace,
+): Promise<StreamSnapshot> {
+  if (snapshot.text.trim() || snapshot.state !== 'completed' || !snapshot.taskId) return snapshot;
+  try {
+    const task = await fetchA2ATask(cred, snapshot.taskId);
+    trace.note(task.text.trim() ? 'tasks/get:text' : 'tasks/get:empty');
+    return task.text.trim() ? { ...snapshot, text: task.text } : snapshot;
+  } catch (error) {
+    trace.note('tasks/get:failed');
+    console.warn('tarot reader task read-back failed', safeErrorText(error instanceof Error ? error.message : error));
+    return snapshot;
   }
 }
 
