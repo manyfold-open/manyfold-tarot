@@ -39,6 +39,16 @@ The template is designed to be extended and reshaped; these are the load-bearing
    - error strings pass through `safeErrorText` before leaving the worker;
    - A2A `messageId`s are derived from stored rows, not random, so retries cannot
      double-bill (`src/worker/chat.ts`).
+   - connect more than one agent (ideally one that runs somewhere else) and a turn that fails
+     moves on to the next (`src/worker/tarot/failover.ts`, `src/worker/agent-health.ts`); turns are
+     shared out across the agents by their idempotency key, and a failed agent waits at the back
+     of the line for `AGENT_COOLDOWN_MS`. Keep these true: failover only chooses who speaks (the
+     cards are already drawn, and nothing a reader says may change them); a turn is only handed on
+     while nothing has reached the visitor; a reading's own agent goes first while it is healthy,
+     and an agent's `contextId` / `taskId` go back only to the agent that issued them
+     (`threadAgentId`), a different agent gets a fresh conversation with the same grounded prompt;
+     `TAROT_AGENT_ID` means "try first", never "only"; every failure is reported once, and
+     "recovered" is announced only when no connected agent is still marked down.
 7. **Keep new routes behind the admin gate.** Any route added under `/api/` is protected by
    the `ADMIN_PASSWORD` middleware automatically — do not add exceptions beyond `/api/health`
    and `/api/state` without a reason as good as theirs.

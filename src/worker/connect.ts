@@ -36,6 +36,7 @@ import {
   validateA2AUrl,
 } from './a2a';
 import { seal, unseal } from './crypto';
+import { markAgentUp } from './agent-health';
 import { now } from './db';
 
 const DEFAULT_API_BASE = 'https://api.manyfold.ai';
@@ -312,6 +313,8 @@ async function saveConnectedAgent(env: Env, entry: PollAgent): Promise<Connected
   )
     .bind(t, entry.agentId)
     .run();
+  // A new token is a new start: a failure recorded against the old one says nothing now.
+  await markAgentUp(env, entry.agentId);
 
   return {
     agentId: entry.agentId,
@@ -398,4 +401,5 @@ export async function disconnectAgent(env: Env, agentId: string): Promise<void> 
     env.DB.prepare('DELETE FROM conversations WHERE agent_id = ?').bind(agentId),
     env.DB.prepare('DELETE FROM agents WHERE agent_id = ?').bind(agentId),
   ]);
+  await markAgentUp(env, agentId);
 }
