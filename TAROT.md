@@ -94,8 +94,10 @@ POST /api/tarot/readings/:id/interpretation  →  diviner.speak({kind: 'interpre
 POST /api/tarot/readings/:id/follow-ups      →  diviner.speak({kind: 'followup', …})
 ```
 
-**Connecting one:** open `/settings`, give the admin password, connect an agent as usual. The most recently connected
-agent becomes the reader. On a deployment with several agents, pin one with `TAROT_AGENT_ID`.
+**Connecting one:** open `/settings`, give the admin password, connect an agent as usual. Every connected agent can be
+the reader: turns are shared out across them, and a turn whose agent fails goes to the next one, so a visitor only meets
+the reader's error once all of them have failed (an agent that failed waits at the back of the line for five minutes).
+To prefer one, pin it with `TAROT_AGENT_ID`: it is tried first while it is healthy.
 Set `TAROT_DEMO=1` to force the demo reader even when an agent is connected.
 
 **What the reader does:** catch the question, speak in an immersive diviner voice, give a

@@ -135,7 +135,7 @@ curl https://your-worker.workers.dev/api/tarot/reader
 # {"demo":true,...}    ← 还是内置的 demo 解读者
 ```
 
-如果连了多个 agent，用 `TAROT_AGENT_ID` 指定其中一个。想暂时切回 demo 解读者，设
+如果连了多个 agent，占卜会分给它们；某个 agent 出故障时，同一次回合自动交给下一个，所有 agent 都失败了才会报错。想优先用其中一个，用 `TAROT_AGENT_ID` 指定它。想暂时切回 demo 解读者，设
 `TAROT_DEMO=1`。然后用一条命令，对着线上部署从头到尾跑一次完整的占卜：
 
 ```bash
@@ -151,7 +151,7 @@ npm run smoke -- https://your-worker.workers.dev
 | --- | --- | --- | --- |
 | `ADMIN_PASSWORD` | secret | Cloudflare | **控制台密码，也是唯一的一个。** 不设置则控制台完全打不开。见第 2 步。 |
 | `CONFIG_ENCRYPTION_KEY` | secret | Cloudflare | ≥32 字符。加密 D1 中的设备码与 agent token。不设置则在首次使用时生成随机密钥并存进同一个数据库 —— 见[安全说明](#安全说明)。 |
-| `TAROT_AGENT_ID` | var | `wrangler.jsonc` | 指定由哪个已连接的 agent 解读。默认取最近连接的那个。 |
+| `TAROT_AGENT_ID` | var | `wrangler.jsonc` | 优先由哪个已连接的 agent 解读（它健康时先试它，出故障时由其他 agent 接手）。不设则在所有已连接的 agent 之间分配。 |
 | `TAROT_DEMO` | var | `wrangler.jsonc` | 设为 `1` 时强制使用内置 demo 解读者，即使已连接 agent。 |
 | `MANYFOLD_API_BASE_URL` | var | `wrangler.jsonc` | Manyfold API 地址，默认 `https://api.manyfold.ai`。 |
 | `ENVIRONMENT` | var | `wrangler.jsonc` | `production` 会强制 https-only，并拒绝私有/回环地址的 agent URL。 |

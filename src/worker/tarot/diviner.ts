@@ -18,11 +18,12 @@
 import type { Locale } from '../../shared/tarot/deck';
 import type { SpreadId } from '../../shared/tarot/types';
 import { A2AError, consumeA2AStream, fetchA2ATask, safeErrorText, TASK_NOT_FOUND, type StreamSnapshot } from '../a2a';
-import { reportAgentFailure, reportAgentSuccess } from '../alerts';
-import { credentialFor } from '../connect';
+import type { ConnectedAgent } from '../../shared/types';
+import { credentialFor, listConnectedAgents } from '../connect';
 import type { AgentCredential, Env } from '../types';
 import { demoFollowUp, demoGreeting, demoHint, demoReading } from './demo';
 import type { DrawnCard } from './draw';
+import { FailoverDiviner, HANDOFF_LIMITS, type AgentReader } from './failover';
 import {
   buildFollowUpPrompt,
   buildGreetingPrompt,
@@ -96,6 +97,13 @@ const LIMITS: Record<DivinerRequest['kind'], { start: number; idle: number; tota
   interpretation: { start: 180_000, idle: 180_000, total: 180_000 },
   followup: { start: 120_000, idle: 120_000, total: 120_000 },
 };
+
+/** What a turn may spend on one agent while another is waiting to take over. */
+const capLimits = (limits: { start: number; idle: number; total: number }) => ({
+  start: Math.min(limits.start, HANDOFF_LIMITS.start),
+  idle: Math.min(limits.idle, HANDOFF_LIMITS.idle),
+  total: Math.min(limits.total, HANDOFF_LIMITS.total),
+});
 
 const seconds = (ms: number) => `${Math.round(ms / 1000)}s`;
 
@@ -182,29 +190,28 @@ function buildPrompt(request: DivinerRequest): string {
 
 /* ───────── Agent 2 over A2A ───────── */
 
-class AgentDiviner implements Diviner {
-  readonly demo = false;
-  readonly agentId: string;
+/**
+ * One agent taking one turn. It does not report to the operator and does not
+ * remember whether it is healthy: that is the failover layer's job, because
+ * whether a failure is the visitor's problem depends on whether another agent
+ * is left to try (`./failover.ts`).
+ */
+class AgentDiviner implements AgentReader {
   private readonly env: Env;
 
-  constructor(env: Env, agentId: string) {
+  constructor(
+    env: Env,
+    readonly agent: ConnectedAgent,
+  ) {
     this.env = env;
-    this.agentId = agentId;
   }
 
-  async speak(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
-    // Every live turn is reported, including hints that fall back upstream: a
-    // visitor who sees the deck's line instead of the reader's is still a
-    // visitor the agent failed (src/worker/alerts.ts).
-    let result: TurnResult;
-    try {
-      result = await this.continueOrStartOver(request, options);
-    } catch (error) {
-      await reportAgentFailure(this.env, request.kind, error);
-      throw error;
-    }
-    await reportAgentSuccess(this.env);
-    return result;
+  private get agentId(): string {
+    return this.agent.agentId;
+  }
+
+  run(request: DivinerRequest, options: TurnOptions, capped: boolean): Promise<TurnResult> {
+    return this.continueOrStartOver(request, options, capped);
   }
 
   /**
@@ -218,24 +225,28 @@ class AgentDiviner implements Diviner {
    * conversations (the agent says so with -32001, and is asked once afresh —
    * same messageId, so still one turn to the agent).
    */
-  private async continueOrStartOver(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
+  private async continueOrStartOver(
+    request: DivinerRequest,
+    options: TurnOptions,
+    capped: boolean,
+  ): Promise<TurnResult> {
     const fresh = { ...options, contextId: null, taskId: null };
-    if (options.threadAgentId !== this.agentId) return this.turn(request, fresh);
-    if (!options.contextId && !options.taskId) return this.turn(request, options);
+    if (options.threadAgentId !== this.agentId) return this.turn(request, fresh, capped);
+    if (!options.contextId && !options.taskId) return this.turn(request, options, capped);
     try {
-      return await this.turn(request, options);
+      return await this.turn(request, options, capped);
     } catch (error) {
       if (!(error instanceof A2AError) || error.rpcCode !== TASK_NOT_FOUND) throw error;
       console.warn('tarot reader lost the conversation; starting a fresh one', request.kind);
-      return this.turn(request, fresh);
+      return this.turn(request, fresh, capped);
     }
   }
 
-  private async turn(request: DivinerRequest, options: TurnOptions): Promise<TurnResult> {
+  private async turn(request: DivinerRequest, options: TurnOptions, capped: boolean): Promise<TurnResult> {
     // Resolved per turn rather than cached: an expired or rotated authorization
     // must fail here, with a real message, instead of being used stale.
     const cred = await credentialFor(this.env, this.agentId);
-    const limits = LIMITS[request.kind];
+    const limits = capped ? capLimits(LIMITS[request.kind]) : LIMITS[request.kind];
     const controller = new AbortController();
     const startedAt = Date.now();
     const trace = new TurnTrace();
@@ -393,39 +404,32 @@ class DemoDiviner implements Diviner {
 /* ───────── selection ───────── */
 
 /**
- * Which agent plays the reader.
+ * The reader for this request.
  *
- * TAROT_AGENT_ID pins one explicitly, which is what a deployment with several
- * connected agents should do. With nothing pinned, the most recently connected
- * agent is used — that matches the one-click flow, where the visitor connects
- * exactly one agent and expects it to be the reader.
- */
-async function selectAgentId(env: Env): Promise<string | null> {
-  const pinned = (env.TAROT_AGENT_ID ?? '').trim();
-  if (pinned) {
-    const row = await env.DB.prepare('SELECT agent_id FROM agents WHERE agent_id = ?')
-      .bind(pinned)
-      .first<{ agent_id: string }>();
-    return row?.agent_id ?? null;
-  }
-  const row = await env.DB.prepare(
-    'SELECT agent_id FROM agents ORDER BY connected_at DESC, name LIMIT 1',
-  ).first<{ agent_id: string }>();
-  return row?.agent_id ?? null;
-}
-
-/**
- * Picks the reader for this request.
+ * Every connected agent can be the reader: turns are shared out across them and
+ * a turn that fails moves on to the next (`./failover.ts`), so the visitor only
+ * meets the reader's error once all of them have failed. TAROT_AGENT_ID still
+ * pins one explicitly, which now means "try this one first": it keeps the
+ * deployment's choice of reader while it is healthy, and is no longer a single
+ * point of failure. A pin that names no connected agent gives the demo reader,
+ * as it always did.
  *
- * Note what this does NOT do: fall back to the demo when a connected agent
+ * Note what this does NOT do: fall back to the demo when every connected agent
  * fails. Once a real reader exists, a failure is an error the visitor is told
  * about and can retry — silently swapping in sample text would be the app
  * putting words in the reader's mouth. The demo is only for "no reader yet".
  */
 export async function resolveDiviner(env: Env): Promise<Diviner> {
   if ((env.TAROT_DEMO ?? '').trim() === '1') return new DemoDiviner();
-  const agentId = await selectAgentId(env);
-  return agentId ? new AgentDiviner(env, agentId) : new DemoDiviner();
+  const agents = await listConnectedAgents(env);
+  const pinned = (env.TAROT_AGENT_ID ?? '').trim();
+  if (pinned && !agents.some((agent) => agent.agentId === pinned)) return new DemoDiviner();
+  if (agents.length === 0) return new DemoDiviner();
+  return new FailoverDiviner(
+    env,
+    agents.map((agent) => new AgentDiviner(env, agent)),
+    pinned || null,
+  );
 }
 
 /** Exposed for tests and for the readiness surface in /api/state. */
