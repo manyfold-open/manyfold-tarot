@@ -63,8 +63,10 @@
 @media (max-width:560px) {
   .taro-journal-entry-head { align-items:flex-start; }
     }
-/* A long call to action that has to wrap should wrap evenly, not strand one word. */
-.taro-primary,.taro-secondary { text-wrap:balance; }
+/* A call to action wraps normally. Neither `balance` nor `pretty` is safe here: WebKit applies them to a
+   shrink-to-fit button by splitting it into two lines even when one line fits, which cut "聆听解读" in half
+   on an iPhone. See tests/tarot-cta-wrap.test.ts. */
+.taro-primary,.taro-secondary { text-wrap:wrap; }
 
 .taro { padding-bottom:var(--consent-space,0px); box-sizing:border-box; }
 
