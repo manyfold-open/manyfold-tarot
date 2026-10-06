@@ -33,6 +33,8 @@ const deleteJournalEntry = vi.fn(async (_id: string) => ({ ok: true }));
 vi.mock('../../src/app/tarot/api', () => ({
   ApiError: class ApiError extends Error {},
   errorText: (_error: unknown, fallback: string) => fallback,
+  // The top bar asks where the Stick lives; the journal itself does not care.
+  fetchReader: vi.fn(async () => ({ demo: false, consentRequired: false, fortuneStickUrl: 'https://stick.example/' })),
   fetchJournal: vi.fn(async () => ({ entries: [entry('r1'), entry('r2')] })),
   saveJournalReview: vi.fn(),
   clearJournal: () => clearJournal(),
