@@ -9,6 +9,7 @@ import { track } from './analytics';
 import { clearJournal, deleteJournalEntry, errorText, fetchJournal, saveJournalReview, type JournalEntry } from './api';
 import Signature from './Signature';
 import Sky from './Sky';
+import TopBar from './TopBar';
 
 const LOCALE_KEY = 'taro.locale';
 const WEEKLY_REMINDER_KEY = 'taro.weeklyReviewReminder';
@@ -84,15 +85,7 @@ export default function JournalPage() {
   return (
     <div className="taro">
       <Sky />
-      <header className="taro-top">
-        <nav className="taro-product-nav" aria-label="Tarot">
-          <a href={appUrl('/')}>{copy.navigation.back}</a><a href={appUrl('/daily')}>{copy.navigation.daily}</a>
-        </nav>
-        <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
-          <button type="button" className={locale === 'zh' ? 'is-on' : ''} aria-pressed={locale === 'zh'} onClick={() => setLocale('zh')}>中文</button>
-          <button type="button" className={locale === 'en' ? 'is-on' : ''} aria-pressed={locale === 'en'} onClick={() => setLocale('en')}>EN</button>
-        </div>
-      </header>
+      <TopBar locale={locale} onLocale={setLocale} links={[{ href: appUrl('/'), label: copy.navigation.back }, { href: appUrl('/daily'), label: copy.navigation.daily }]} />
       <main className="taro-stage taro-journal-page">
         <h1 className="taro-ask-title">{copy.journal.title}</h1>
         <p className="taro-instruction">{copy.journal.intro}</p>

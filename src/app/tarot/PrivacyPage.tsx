@@ -19,6 +19,7 @@ import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import { appUrl } from '../base';
 import Signature from './Signature';
 import Sky from './Sky';
+import TopBar from './TopBar';
 import { setConsent, storedConsent, type Consent } from './analytics';
 
 const LOCALE_KEY = 'taro.locale';
@@ -45,26 +46,7 @@ export default function PrivacyPage() {
     <div className="taro">
       <Sky />
 
-      <header className="taro-top">
-        <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
-          <button
-            type="button"
-            className={locale === 'zh' ? 'is-on' : ''}
-            aria-pressed={locale === 'zh'}
-            onClick={() => setLocale('zh')}
-          >
-            中文
-          </button>
-          <button
-            type="button"
-            className={locale === 'en' ? 'is-on' : ''}
-            aria-pressed={locale === 'en'}
-            onClick={() => setLocale('en')}
-          >
-            EN
-          </button>
-        </div>
-      </header>
+      <TopBar locale={locale} onLocale={setLocale} />
 
       <main className="taro-stage">
         <article className="taro-prose">

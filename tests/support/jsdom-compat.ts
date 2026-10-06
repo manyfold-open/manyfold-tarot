@@ -12,3 +12,10 @@ if (browser?.localStorage) {
     // Non-browser test environments do not have storage to install.
   }
 }
+
+// jsdom has no layout, so it cannot scroll: its scrollTo only prints "not
+// implemented". The page scrolls between stages; nothing here asserts on it.
+const scrolling = (globalThis as { window?: { scrollTo?: unknown } }).window;
+if (scrolling && typeof scrolling.scrollTo === 'function') {
+  Object.defineProperty(scrolling, 'scrollTo', { configurable: true, writable: true, value: () => undefined });
+}

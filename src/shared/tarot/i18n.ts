@@ -87,7 +87,7 @@ export interface Copy {
     quickFollowUps: string[];
   };
 
-  navigation: { daily: string; journal: string; weeklyReview: string; back: string };
+  navigation: { daily: string; journal: string; weeklyReview: string; back: string; stick: string; stickShort: string; stickLabel: string };
 
   daily: {
     title: string;
@@ -346,7 +346,7 @@ const zh: Copy = {
     quickFollowUps: ['多说一点这张牌在这个牌位的意思', '三张牌之间最重要的联系是什么？', '我现在可以先做哪一件小事？'],
   },
 
-  navigation: { daily: '今日一牌', journal: '阅读日志', weeklyReview: '每周回顾', back: '回到阅读' },
+  navigation: { daily: '今日一牌', journal: '阅读日志', weeklyReview: '每周回顾', back: '回到阅读', stick: '求签', stickShort: '求签', stickLabel: '去求签，在新分页打开' },
 
   daily: {
     title: '今日一牌',
@@ -360,7 +360,7 @@ const zh: Copy = {
   },
 
   spreadPicker: {
-    title: '选择牌阵',
+    title: '你想怎么看这个问题？',
     selected: '已选择',
     dailyQuestion: '今天有什么值得我留意？',
     weeklyQuestion: '回顾这一周：我经历了什么、学到了什么，又想带着什么走进下周？',
@@ -611,7 +611,7 @@ const en: Copy = {
     quickFollowUps: ['Tell me more about this card in its position', 'What is the strongest connection between these cards?', 'What is one small thing I can do now?'],
   },
 
-  navigation: { daily: 'Daily card', journal: 'Reading journal', weeklyReview: 'Weekly review', back: 'Back to the reading' },
+  navigation: { daily: 'Daily card', journal: 'Reading journal', weeklyReview: 'Weekly review', back: 'Back to the reading', stick: 'Fortune Stick', stickShort: 'Stick', stickLabel: 'Open the Fortune Stick in a new tab' },
 
   daily: {
     title: 'Your card for today',
@@ -625,7 +625,7 @@ const en: Copy = {
   },
 
   spreadPicker: {
-    title: 'Choose a spread',
+    title: 'How do you want to look at it?',
     selected: 'Selected',
     dailyQuestion: 'What deserves my attention today?',
     weeklyQuestion: 'Looking back on this week: what happened, what did I learn, and what do I want to carry into next week?',

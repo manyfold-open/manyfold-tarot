@@ -470,7 +470,7 @@ html[data-app='taro'] body {
 
 .taro-product-nav a {
   color: var(--ink-2);
-  font-size: 11px;
+  font-size: 13px;
   text-decoration: none;
   transition: color 320ms ease;
 }
@@ -491,7 +491,7 @@ html[data-app='taro'] body {
   border: 0;
   padding: 2px 0;
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.18em;
   color: var(--ink-3);
   cursor: pointer;
@@ -514,7 +514,7 @@ html[data-app='taro'] body {
   max-width: 780px;
   margin: 0 auto;
   /* Clear of the fixed header: the top of a screen is content, not chrome. */
-  padding: 56px 24px 0;
+  padding: 72px 24px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -608,7 +608,7 @@ html[data-app='taro'] body {
 
 .taro-by {
   gap: 9px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   letter-spacing: 0.14em;
 }
@@ -645,7 +645,7 @@ html[data-app='taro'] body {
    lines now share one rhythm, and the only thing in the footer allowed to be
    large is the wordmark. */
 .taro-oss {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   letter-spacing: 0.14em;
   /* Tracking is trailing space, and trailing space is a centred line sitting
@@ -676,7 +676,7 @@ html[data-app='taro'] body {
 .taro-demo {
   max-width: 34em;
   margin-inline: auto;
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.7;
   letter-spacing: 0.04em;
   color: var(--ink-3);
@@ -751,7 +751,7 @@ html[data-app='taro'] body {
   border: 0;
   padding: 2px 0;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   color: var(--ink-3);
   border-bottom: 1px solid transparent;
@@ -849,7 +849,7 @@ html[data-app='taro'] body {
   gap: 16px;
   min-height: 15px;
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.14em;
   color: var(--ink-3);
 }
@@ -908,7 +908,7 @@ html[data-app='taro'] body {
 .taro-asked-label {
   display: block;
   font-family: var(--sans);
-  font-size: 10.5px;
+  font-size: 11.5px;
   letter-spacing: 0.3em;
   text-indent: 0.3em;
   color: var(--ink-3);
@@ -1111,7 +1111,7 @@ html[data-app='taro'] body {
 
 .taro-slot-title {
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 11.5px;
   letter-spacing: 0.26em;
   text-indent: 0.26em;
   text-align: center;
@@ -1140,7 +1140,7 @@ html[data-app='taro'] body {
    ink, one of them quieter. */
 .taro-orient {
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-indent: 0.2em;
   color: var(--ink-3);
@@ -1173,7 +1173,7 @@ html[data-app='taro'] body {
 
 .taro-hint-slot {
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.3em;
   text-indent: 0.3em;
   color: var(--ink-3);
@@ -1253,7 +1253,7 @@ html[data-app='taro'] body {
 
 .taro-pick-count {
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--star);
   opacity: 0.75;
@@ -1756,7 +1756,7 @@ html[data-app='taro'] body {
 .taro-reading-title {
   margin: 0;
   font-family: var(--sans);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.34em;
   text-indent: 0.34em;
@@ -1788,9 +1788,9 @@ html[data-app='taro'] body {
 .taro-section :is(h2, h3) {
   margin: 0 0 12px;
   font-family: var(--sans);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.24em;
   color: var(--ink-2);
   display: flex;
   flex-wrap: wrap;
@@ -1800,9 +1800,9 @@ html[data-app='taro'] body {
 
 .taro-section-card {
   letter-spacing: 0.1em;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--star);
-  opacity: 0.65;
+  opacity: 0.85;
 }
 
 .taro-section p {
@@ -1953,7 +1953,7 @@ html[data-app='taro'] body {
 
 .taro-follow label {
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12.5px;
   letter-spacing: 0.2em;
   text-indent: 0.2em;
   color: var(--ink-3);
@@ -2078,7 +2078,7 @@ html[data-app='taro'] body {
 .taro-shared-title {
   margin: 0;
   font-family: var(--sans);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.34em;
   text-indent: 0.34em;
@@ -2187,7 +2187,7 @@ html[data-app='taro'] body {
 .taro-read-card .taro-read-keywords {
   margin: 0;
   font-family: var(--sans);
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1.65;
   letter-spacing: 0.05em;
   color: var(--ink-2);
@@ -2305,7 +2305,7 @@ html[data-app='taro'] body {
      middle of the page means the middle of what is under it. */
   .taro-table {
     gap: clamp(14px, 2.4vh, 26px);
-    padding: 42px 0 14px;
+    padding: 30px 0 14px;
   }
 
   .taro-table-foot {
@@ -2326,7 +2326,7 @@ html[data-app='taro'] body {
 
   .taro-table {
     gap: clamp(10px, 1.8vh, 18px);
-    padding: 36px 0 10px;
+    padding: 24px 0 10px;
   }
 
   .taro-instruction {
@@ -2345,7 +2345,7 @@ html[data-app='taro'] body {
   }
 
   .taro-product-nav a {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .taro-lang {
@@ -2353,7 +2353,7 @@ html[data-app='taro'] body {
   }
 
   .taro-stage {
-    padding: 52px 20px 0;
+    padding: 64px 20px 0;
   }
 
   .taro-cards {
@@ -2365,12 +2365,14 @@ html[data-app='taro'] body {
   }
 
   .taro-slot-title {
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-indent: 0.14em;
-    /* Two lines' worth, so a label that wraps ("The hidden influence") does not
-       push its own card's name below its neighbours'. */
-    min-height: 3.7em;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-indent: 0.08em;
+    line-height: 1.5;
+    /* Three lines' worth: at this size the longest English labels ("The pull
+       beneath the choice") run to three on a phone-width card, and a label that
+       wraps must not push its own card's name below its neighbours'. */
+    min-height: 4.5em;
   }
 
   .taro-ask-input {
@@ -2428,7 +2430,7 @@ html[data-app='taro'] body {
   flex: 1 1 300px;
   margin: 0;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
   color: var(--ink-2);
 }
@@ -2446,7 +2448,7 @@ html[data-app='taro'] body {
   border-radius: 3px;
   background: none;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   color: var(--ink);
   cursor: pointer;
@@ -2470,7 +2472,7 @@ html[data-app='taro'] body {
 .taro-foot-link {
   margin-top: 10px;
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--ink-3);
   text-decoration: none;

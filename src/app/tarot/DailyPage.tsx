@@ -9,6 +9,7 @@ import { errorText, fetchDailyCard } from './api';
 import CardSlot from './Card';
 import Signature from './Signature';
 import Sky from './Sky';
+import TopBar from './TopBar';
 
 const LOCALE_KEY = 'taro.locale';
 const DAILY_REMINDER_KEY = 'taro.dailyReminder';
@@ -42,15 +43,7 @@ export default function DailyPage() {
   return (
     <div className="taro">
       <Sky />
-      <header className="taro-top">
-        <nav className="taro-product-nav" aria-label="Tarot">
-          <a href={appUrl('/')}>{copy.navigation.back}</a><a href={appUrl('/journal')}>{copy.navigation.journal}</a>
-        </nav>
-        <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
-          <button type="button" className={locale === 'zh' ? 'is-on' : ''} aria-pressed={locale === 'zh'} onClick={() => setLocale('zh')}>中文</button>
-          <button type="button" className={locale === 'en' ? 'is-on' : ''} aria-pressed={locale === 'en'} onClick={() => setLocale('en')}>EN</button>
-        </div>
-      </header>
+      <TopBar locale={locale} onLocale={setLocale} links={[{ href: appUrl('/'), label: copy.navigation.back }, { href: appUrl('/journal'), label: copy.navigation.journal }]} />
       <main className="taro-stage taro-daily-page">
         <h1 className="taro-ask-title">{copy.daily.title}</h1>
         <p className="taro-instruction">{copy.daily.intro}</p>

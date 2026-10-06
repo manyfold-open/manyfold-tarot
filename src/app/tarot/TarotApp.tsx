@@ -43,6 +43,9 @@ import ShareBox from './ShareBox';
 import StickCard from './StickCard';
 import Signature from './Signature';
 import Sky from './Sky';
+import TopBar from './TopBar';
+import { DEFAULT_STICK_URL, stickLink } from './stick';
+import { haptic } from './haptics';
 import { streamErrorText } from './streamError';
 import Speaking from './Speaking';
 import JournalPanel from './JournalPanel';
@@ -59,18 +62,6 @@ import {
   streamDiviner,
 } from './api';
 import { readTarotHandoff } from './bridge';
-
-const DEFAULT_STICK_URL = 'https://app.manyfold.ai/fortune-stick/';
-const stickLink = (base: string, placement: 'outro' | 'locked'): string => {
-  const url = new URL(base, location.href);
-  url.searchParams.set('utm_source', 'tarot');
-  url.searchParams.set('utm_medium', 'referral');
-  url.searchParams.set('utm_content', placement);
-  // Where the Stick should send this visitor back to, so the reward lands in
-  // this host's session. The Stick Worker only honours hosts it knows.
-  url.searchParams.set('tarot_return', `${location.origin}${appUrl('/')}`);
-  return url.toString();
-};
 
 /** What the page says about a Stick reward it could not save. */
 type BonusNotice = 'expired' | 'dailyLimit' | 'unusable' | 'failed';
@@ -169,6 +160,7 @@ export default function TarotApp() {
     handoff.locale ?? normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language),
   );
   const copy = useMemo(() => copyFor(locale), [locale]);
+  const spreadChoices = useMemo(() => allSpreads(locale), [locale]);
   const [selectedSpread, setSelectedSpread] = useState<SpreadId>(() =>
     isSpreadId(launchQuery.get('spread')) ? launchQuery.get('spread') as SpreadId : 'current',
   );
@@ -388,6 +380,27 @@ export default function TarotApp() {
     if (phase === 'ask' || phase === 'outro') void refreshAccess();
   }, [phase, refreshAccess]);
 
+  // Each stage is a different page-length: the reading is tall, the table is
+  // not. Without this the visitor arrives at the next stage wherever the last
+  // one left their scroll, which after a long reading is nowhere near it. The
+  // first render is left alone so a reading restored on reload keeps its place.
+  const previousPhase = useRef(phase);
+  useEffect(() => {
+    if (previousPhase.current === phase) return;
+    previousPhase.current = phase;
+    const behavior: ScrollBehavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      ? 'auto'
+      : 'smooth';
+    if (phase === 'outro') {
+      // One frame, so the reading is in the page by the time it is looked for.
+      const frame = requestAnimationFrame(() =>
+        document.querySelector('.taro-reading')?.scrollIntoView?.({ behavior, block: 'start' }),
+      );
+      return () => cancelAnimationFrame(frame);
+    }
+    window.scrollTo?.({ top: 0, behavior });
+  }, [phase]);
+
   /* ───────── one diviner turn ───────── */
 
   const runTurn = useCallback(
@@ -604,13 +617,19 @@ export default function TarotApp() {
    * nothing turns over — this is the visitor deciding, and until they say they
    * are done they can change their mind as often as they like.
    */
-  const choose = useCallback((position: number) => {
-    setPicked((current) => {
-      if (current.includes(position)) return current.filter((place) => place !== position);
-      if (current.length >= SLOT_ORDER.length) return current;
-      return [...current, position];
-    });
-  }, []);
+  const choose = useCallback(
+    (position: number) => {
+      // A tap in the hand only for a pick that does something: a full hand of
+      // three that cannot take a fourth stays quiet.
+      if (picked.includes(position) || picked.length < SLOT_ORDER.length) haptic(10);
+      setPicked((current) => {
+        if (current.includes(position)) return current.filter((place) => place !== position);
+        if (current.length >= SLOT_ORDER.length) return current;
+        return [...current, position];
+      });
+    },
+    [picked],
+  );
 
   const confirmPicks = useCallback(() => {
     if (picked.length < SLOT_ORDER.length) return;
@@ -632,6 +651,7 @@ export default function TarotApp() {
       await runTurn(readingPath(reading.readingId, '/reveal'), { index }, (event) => {
         if (event.type === 'card') {
           landed = true;
+          haptic(18);
           setReading((current) => (current ? withCard(current, event.card) : current));
         } else if (event.type === 'delta') {
           setSpoken(event.text);
@@ -849,30 +869,15 @@ export default function TarotApp() {
       <Sky />
       {/* The only chrome on the page. There is no mark and no name: the first
           thing anyone sees should be the question, not a logo. */}
-      <header className="taro-top">
-        <nav className="taro-product-nav" aria-label="Tarot">
-          <a href={appUrl('/daily')}>{copy.navigation.daily}</a>
-          <a href={appUrl('/journal')}>{copy.navigation.journal}</a>
-        </nav>
-        <div className="taro-lang" role="group" aria-label={copy.languageLabel}>
-          <button
-            type="button"
-            className={locale === 'zh' ? 'is-on' : ''}
-            aria-pressed={locale === 'zh'}
-            onClick={() => setLocale('zh')}
-          >
-            中文
-          </button>
-          <button
-            type="button"
-            className={locale === 'en' ? 'is-on' : ''}
-            aria-pressed={locale === 'en'}
-            onClick={() => setLocale('en')}
-          >
-            EN
-          </button>
-        </div>
-      </header>
+      <TopBar
+        locale={locale}
+        onLocale={setLocale}
+        stickUrl={fortuneStickUrl}
+        links={[
+          { href: appUrl('/daily'), label: copy.navigation.daily },
+          { href: appUrl('/journal'), label: copy.navigation.journal },
+        ]}
+      />
 
       <main className="taro-stage">
         {error && (
@@ -939,13 +944,25 @@ export default function TarotApp() {
             <h1 className="taro-ask-title">{copy.ask.title}</h1>
             <fieldset className="taro-spread-picker">
               <legend>{copy.spreadPicker.title}</legend>
-              {allSpreads(locale).map((item) => (
-                <label className={selectedSpread === item.id ? 'is-selected' : ''} key={item.id}>
-                  <input type="radio" name="tarot-spread" value={item.id} checked={selectedSpread === item.id}
-                    onChange={() => setSelectedSpread(item.id)} />
-                  <span><strong>{item.title}</strong><small>{item.description}</small></span>
-                </label>
-              ))}
+              <div className="taro-spread-tiles">
+                {spreadChoices.map((item) => (
+                  <label className={selectedSpread === item.id ? 'is-selected' : ''} key={item.id}>
+                    <input
+                      type="radio"
+                      name="tarot-spread"
+                      value={item.id}
+                      checked={selectedSpread === item.id}
+                      onChange={() => setSelectedSpread(item.id)}
+                    />
+                    <span>{item.title}</span>
+                  </label>
+                ))}
+              </div>
+              {/* One line for the chosen spread, in a box that keeps its height
+                  whichever is chosen: nothing under it moves when the choice does. */}
+              <p className="taro-spread-hint" aria-live="polite">
+                {spreadChoices.find((item) => item.id === selectedSpread)?.description}
+              </p>
             </fieldset>
             <form
               onSubmit={(event) => {
