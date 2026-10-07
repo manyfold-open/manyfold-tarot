@@ -208,6 +208,16 @@ export default function TarotApp() {
   const [error, setError] = useState('');
   /** Live text of the turn currently being spoken; null when nobody is speaking. */
   const [spoken, setSpoken] = useState<string | null>(null);
+  /**
+   * Which turned card is in focus. On a phone the spread stays on top and only
+   * the focused card's line is shown under it, so the screen is never more than
+   * one passage long; the card that has just turned takes the focus, and tapping
+   * another face-up card takes it back. On a desktop the three lines stand under
+   * their own cards side by side, and the focus is only a mark.
+   */
+  const [focusIndex, setFocusIndex] = useState(0);
+  /** The card whose line is being spoken right now, while it streams in. */
+  const [turningIndex, setTurningIndex] = useState<number | null>(null);
   const [followUps, setFollowUps] = useState<FollowUpMessage[]>([]);
   const [followDraft, setFollowDraft] = useState('');
   const [followOpen, setFollowOpen] = useState(false);
@@ -722,12 +732,14 @@ export default function TarotApp() {
       turning.current = key;
       setBusy(true);
       setSpoken('');
+      setTurningIndex(index);
       let landed = false;
       await runTurn(readingPath(reading.readingId, '/reveal'), { index }, (event) => {
         if (event.type === 'card') {
           landed = true;
           haptic(18);
           setReading((current) => (current ? withCard(current, event.card) : current));
+          setFocusIndex(event.card.index);
         } else if (event.type === 'delta') {
           setSpoken(event.text);
         } else if (event.type === 'hint') {
@@ -747,9 +759,26 @@ export default function TarotApp() {
       // A turn that never produced a card has to be askable again.
       if (!landed) turning.current = null;
       setSpoken(null);
+      setTurningIndex(null);
       setBusy(false);
     },
     [reading, runTurn],
+  );
+
+  /** A face-up card was tapped. While the cards are turning it takes the focus;
+   *  under the finished reading it opens that card's own section and goes to it. */
+  const pickCard = useCallback(
+    (index: number) => {
+      if (phase === 'reveal') {
+        setFocusIndex(index);
+        return;
+      }
+      const section = document.getElementById(`taro-detail-${SLOT_ORDER[index]}`);
+      if (!(section instanceof HTMLDetailsElement)) return;
+      section.open = true;
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    [phase],
   );
 
   /**
@@ -884,6 +913,7 @@ export default function TarotApp() {
     turning.current = null;
     setReading(null);
     setPicked([]);
+    setFocusIndex(0);
     setFollowUps([]);
     setFollowDraft('');
     setFollowOpen(false);
@@ -1202,32 +1232,74 @@ export default function TarotApp() {
 
         {/* ── 5 · turning them over ── */}
         {(phase === 'reveal' || phase === 'reading' || phase === 'outro') && reading && (
-          <section className="taro-spread">
+          <section className={`taro-spread${phase === 'reveal' ? ' is-revealing' : ''}`}>
+            {/* One grid for the cards and what is said about them. The cards hold
+                the first row; each card's line is placed in the second — under
+                its own card on a desktop, or across the whole row on a phone,
+                where only the focused one is shown (tarot.css, "the spread"). */}
             <div className="taro-cards">
-              {SLOT_ORDER.map((slot, index) => (
-                <CardSlot
-                  key={slot}
-                  slot={slot}
-                  locale={locale}
-                  card={reading.cards.find((card) => card.index === index) ?? null}
-                  settling={phase === 'reveal' && index === revealedCount && !busy}
-                  positionTitle={spreadFor(reading.spreadId, locale).slots[slot].title}
-                />
-              ))}
+              {SLOT_ORDER.map((slot, index) => {
+                const card = reading.cards.find((drawn) => drawn.index === index) ?? null;
+                const focused = Boolean(card) && focusIndex === index;
+                return (
+                  <div
+                    key={slot}
+                    className={`taro-slot-pick${card ? ' is-up' : ''}${focused ? ' is-focus' : ''}`}
+                    style={{ gridColumn: index + 1, gridRow: 1 }}
+                    role={card ? 'button' : undefined}
+                    tabIndex={card ? 0 : undefined}
+                    aria-pressed={card && phase === 'reveal' ? focused : undefined}
+                    onClick={card ? () => pickCard(index) : undefined}
+                    onKeyDown={card ? (event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      pickCard(index);
+                    } : undefined}
+                  >
+                    <CardSlot
+                      slot={slot}
+                      locale={locale}
+                      card={card}
+                      settling={phase === 'reveal' && index === revealedCount && !busy}
+                      positionTitle={spreadFor(reading.spreadId, locale).slots[slot].title}
+                    />
+                  </div>
+                );
+              })}
+
+              {phase === 'reveal' &&
+                reading.cards.map((card) => {
+                  const entry = cardById(card.cardId);
+                  const speaking = turningIndex === card.index && spoken !== null;
+                  return (
+                    <div
+                      key={`line-${card.index}`}
+                      className={`taro-hint${focusIndex === card.index ? ' is-focus' : ''}`}
+                      style={{ '--hint-col': card.index + 1 } as React.CSSProperties}
+                    >
+                      {/* On a phone the caption under the small card is only its
+                          place; the name rides here, with the line about it. */}
+                      <p className="taro-hint-head">
+                        <span className="taro-hint-slot">{spreadFor(reading.spreadId, locale).slots[card.slot].title}</span>
+                        <span className="taro-hint-card">
+                          {entry?.name[locale]}
+                          <span className={card.reversed ? 'taro-orient is-reversed' : 'taro-orient'}>
+                            {card.reversed ? copy.reveal.reversed : copy.reveal.upright}
+                          </span>
+                        </span>
+                      </p>
+                      {speaking ? (
+                        <Speaking text={spoken ?? ''} className="taro-hint-text" />
+                      ) : (
+                        card.hint && <p className="taro-hint-text">{card.hint}</p>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             {phase === 'reveal' && (
               <div className="taro-turn">
-                {reading.cards.map((card) =>
-                  card.hint ? (
-                    <p className="taro-hint" key={card.index}>
-                      <span className="taro-hint-slot">{spreadFor(reading.spreadId, locale).slots[card.slot].title}</span>
-                      {card.hint}
-                    </p>
-                  ) : null,
-                )}
-                {spoken !== null && <Speaking text={spoken} className="taro-hint" />}
-
                 {/* One line for the card that is about to turn, and nothing to
                     press: the visitor already made every choice they get. */}
                 {!allRevealed && nextSlot && !error && (
@@ -1242,6 +1314,7 @@ export default function TarotApp() {
 
                 {allRevealed && (
                   <>
+                    <p className="taro-tap-card">{copy.reveal.tapCard}</p>
                     <p className="taro-instruction">{copy.reveal.allRevealed}</p>
                     <button
                       type="button"

@@ -72,6 +72,8 @@ export interface Copy {
   reveal: {
     faceDown: string;
     allRevealed: string;
+    /** On a phone, where only one card's line shows at a time. */
+    tapCard: string;
     listen: string;
     upright: string;
     reversed: string;
@@ -331,6 +333,7 @@ const zh: Copy = {
   reveal: {
     faceDown: '尚未翻开',
     allRevealed: '牌已经到齐。让我把它们连在一起。',
+    tapCard: '点一张牌，看它的那段话',
     listen: '聆听解读',
     upright: '正位',
     reversed: '逆位',
@@ -591,6 +594,7 @@ const en: Copy = {
   reveal: {
     faceDown: 'Face down',
     allRevealed: 'All three are here. Let me draw the line between them.',
+    tapCard: 'Tap a card to read its line',
     listen: 'Hear the reading',
     upright: 'Upright',
     reversed: 'Reversed',
