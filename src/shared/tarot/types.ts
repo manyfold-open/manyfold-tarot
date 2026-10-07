@@ -88,6 +88,18 @@ export interface ReadingView {
   /** True when the reading is rendered by the built-in demo diviner, not Agent 2. */
   demo: boolean;
   createdAt: string;
+  /**
+   * Present only when the reading was started from the daily card. It is the
+   * context the reader was given, not a fourth card: it holds no position and
+   * is never one of `cards`. The Worker works it out from the day itself.
+   */
+  dailyCard?: DailyCardContext;
+}
+
+/** Today's card as handed to the reader: which card, and which way up. */
+export interface DailyCardContext {
+  cardId: string;
+  reversed: boolean;
 }
 
 /**
@@ -166,6 +178,12 @@ export interface CreateReadingBody {
   /** Opaque invite token carried by a friend opening a referral link. */
   referralToken?: string | null;
   spreadId?: SpreadId;
+  /**
+   * The UTC day (`YYYY-MM-DD`) of the daily card this reading was started
+   * from. Only today or yesterday counts; anything else is ignored, not
+   * refused. There is deliberately no field for the card itself.
+   */
+  dailyDate?: string;
 }
 
 export interface ShareBody {

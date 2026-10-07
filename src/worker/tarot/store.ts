@@ -32,6 +32,7 @@ import { parseDraw, serializeDraw, type DrawnCard } from './draw';
 import { statusAfterReveal, type ReadingRecord } from './flow';
 import { shareConclusion } from './prompt';
 import { isSpreadId } from '../../shared/tarot/spreads';
+import { dailyCardContext } from '../../shared/tarot/daily';
 
 interface ReadingRow {
   id: string;
@@ -51,6 +52,7 @@ interface ReadingRow {
   created_at: string;
   updated_at: string;
   spread_id: string | null;
+  daily_day: string | null;
 }
 
 const READING_COLUMNS = `id, session_id, question, locale, status, greeting, cards, revealed, hints,
@@ -89,6 +91,7 @@ function toRecord(row: ReadingRow): ReadingRecord {
     demo: row.demo === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    dailyDay: row.daily_day ?? null,
   };
 }
 
@@ -102,11 +105,15 @@ export async function createReading(
     locale: Locale;
     previousReadingId: string | null;
     spreadId: SpreadId;
+    /** Already checked by the caller (`acceptedDailyDay`); null for every other reading. */
+    dailyDay: string | null;
   },
 ): Promise<ReadingRecord> {
   const id = crypto.randomUUID();
   const timestamp = now();
-  await env.DB.batch([
+  // One batch, so a reading never exists without the rows that say what kind
+  // of reading it is.
+  const statements = [
     env.DB.prepare(
     `INSERT INTO tarot_readings
      (id, session_id, question, locale, status, greeting, cards, revealed, hints,
@@ -123,7 +130,14 @@ export async function createReading(
     ),
     env.DB.prepare('INSERT INTO tarot_reading_spreads (reading_id, spread_id) VALUES (?, ?)')
       .bind(id, input.spreadId),
-  ]);
+  ];
+  if (input.dailyDay) {
+    statements.push(
+      env.DB.prepare('INSERT INTO tarot_reading_daily (reading_id, day) VALUES (?, ?)')
+        .bind(id, input.dailyDay),
+    );
+  }
+  await env.DB.batch(statements);
   const created = await loadReading(env, id);
   if (!created) throw new HttpError(500, 'reading_not_created', 'Could not start the reading.');
   return created;
@@ -132,7 +146,8 @@ export async function createReading(
 export async function loadReading(env: Env, readingId: string): Promise<ReadingRecord | null> {
   const row = await env.DB.prepare(
     `SELECT ${READING_COLUMNS},
-      (SELECT spread_id FROM tarot_reading_spreads WHERE reading_id = tarot_readings.id) AS spread_id
+      (SELECT spread_id FROM tarot_reading_spreads WHERE reading_id = tarot_readings.id) AS spread_id,
+      (SELECT day FROM tarot_reading_daily WHERE reading_id = tarot_readings.id) AS daily_day
      FROM tarot_readings WHERE id = ?`,
   )
     .bind(readingId)
@@ -331,6 +346,9 @@ export function toReadingView(reading: ReadingRecord, followUps: FollowUpMessage
     followUps,
     demo: reading.demo,
     createdAt: reading.createdAt,
+    // Absent rather than null for every other reading, so a plain reading's
+    // view is exactly what it was before daily cards existed.
+    ...(reading.dailyDay ? { dailyCard: dailyCardContext(reading.dailyDay) } : {}),
   };
 }
 
@@ -511,6 +529,7 @@ export async function deleteReadingData(env: Env, readingId: string) {
     env.DB.prepare('DELETE FROM tarot_followups WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_journal WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_reading_spreads WHERE reading_id = ?').bind(readingId),
+    env.DB.prepare('DELETE FROM tarot_reading_daily WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_reading_access WHERE reading_id = ?').bind(readingId),
     env.DB.prepare('DELETE FROM tarot_readings WHERE id = ?').bind(readingId),
   ]);
@@ -522,6 +541,7 @@ export async function clearJournalAndReadings(env: Env, sessionId: string) {
     env.DB.prepare('DELETE FROM tarot_followups WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_journal WHERE session_id = ?').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_reading_spreads WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
+    env.DB.prepare('DELETE FROM tarot_reading_daily WHERE reading_id IN (SELECT id FROM tarot_readings WHERE session_id = ?)').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_reading_access WHERE session_id = ?').bind(sessionId),
     env.DB.prepare('DELETE FROM tarot_readings WHERE session_id = ?').bind(sessionId),
   ]);

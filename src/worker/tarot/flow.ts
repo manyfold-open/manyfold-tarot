@@ -41,6 +41,12 @@ export interface ReadingRecord {
   demo: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The UTC day of the daily card this reading was started from, or null. The
+   * card itself is recomputed from it (src/shared/tarot/daily.ts), and is
+   * context for the reader only — it is never among `cards`.
+   */
+  dailyDay: string | null;
 }
 
 const conflict = (code: string, message: string) => new HttpError(409, code, message);

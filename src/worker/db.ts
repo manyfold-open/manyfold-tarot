@@ -116,6 +116,14 @@ CREATE TABLE IF NOT EXISTS tarot_reading_spreads (
   spread_id  TEXT NOT NULL DEFAULT 'current'
 );
 
+-- Readings started from the daily card, and which UTC day it was. Only the day
+-- is kept: the card is recomputed from it, so nothing the browser sent can
+-- name one. It is context for the reader, never one of the drawn cards.
+CREATE TABLE IF NOT EXISTS tarot_reading_daily (
+  reading_id TEXT PRIMARY KEY,
+  day        TEXT NOT NULL
+);
+
 -- Saved journal entries and private reflections, scoped to the anonymous browser session.
 CREATE TABLE IF NOT EXISTS tarot_journal (
   reading_id   TEXT PRIMARY KEY,

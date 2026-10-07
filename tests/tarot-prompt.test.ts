@@ -174,6 +174,73 @@ describe('prompts', () => {
   });
 });
 
+describe('today’s card, as context for the reader', () => {
+  // The Moon, reversed — deliberately not one of CARDS, so a match below can
+  // only have come from the daily block.
+  const DAILY = { cardId: 'major-18', reversed: true };
+  const followUp = (locale: 'zh' | 'en', dailyCard?: typeof DAILY) =>
+    buildFollowUpPrompt({
+      question: 'q',
+      locale,
+      cards: CARDS,
+      conclusion: 'c',
+      followUp: 'f',
+      history: [],
+      dailyCard,
+    });
+
+  it('says nothing about it when the reading did not come from it', () => {
+    for (const locale of ['zh', 'en'] as const) {
+      const reading = buildReadingPrompt({ question: 'q', locale, cards: CARDS });
+      expect(reading).not.toContain('今日一牌');
+      expect(reading).not.toContain('daily card');
+      expect(buildReadingPrompt({ question: 'q', locale, cards: CARDS, dailyCard: undefined })).toBe(reading);
+      expect(followUp(locale)).not.toContain('今日一牌');
+      expect(followUp(locale)).not.toContain('daily card');
+    }
+  });
+
+  it('names it with the deck’s own label and keywords, and says it is not a fourth card', () => {
+    const zh = buildReadingPrompt({ question: 'q', locale: 'zh', cards: CARDS, dailyCard: DAILY });
+    expect(zh).toContain('来访者是从「今日一牌」进入这次阅读的。今天的牌是月亮（逆位），传统关键词：');
+    expect(zh).toContain('不要把它当作第四张牌来解读');
+    const en = buildReadingPrompt({ question: 'q', locale: 'en', cards: CARDS, dailyCard: DAILY });
+    expect(en).toContain("They came to this reading from today's daily card: The Moon (reversed). Traditional keywords: ");
+    expect(en).toContain('do not read it as a fourth card');
+  });
+
+  it('sits after the spread and before the tagged sections', () => {
+    for (const locale of ['zh', 'en'] as const) {
+      const prompt = buildReadingPrompt({ question: 'q', locale, cards: CARDS, dailyCard: DAILY });
+      const spread = prompt.indexOf(describeCards(CARDS, locale));
+      const daily = prompt.indexOf(locale === 'zh' ? '今日一牌' : 'daily card');
+      const tags = prompt.indexOf('[CONCLUSION]');
+      expect(spread).toBeGreaterThan(-1);
+      expect(daily).toBeGreaterThan(spread);
+      expect(tags).toBeGreaterThan(daily);
+    }
+  });
+
+  it('carries into follow-ups too, after the spread', () => {
+    for (const locale of ['zh', 'en'] as const) {
+      const prompt = followUp(locale, DAILY);
+      const daily = prompt.indexOf(locale === 'zh' ? '今日一牌' : 'daily card');
+      expect(daily).toBeGreaterThan(prompt.indexOf(describeCards(CARDS, locale)));
+      expect(daily).toBeLessThan(prompt.indexOf(locale === 'zh' ? '你此前给出的结论' : 'The conclusion you already gave'));
+    }
+  });
+
+  it('stays out of a card it does not know', () => {
+    const prompt = buildReadingPrompt({
+      question: 'q',
+      locale: 'zh',
+      cards: CARDS,
+      dailyCard: { cardId: 'not-a-card', reversed: false },
+    });
+    expect(prompt).toBe(buildReadingPrompt({ question: 'q', locale: 'zh', cards: CARDS }));
+  });
+});
+
 describe('parsing the reading back', () => {
   const tagged = [
     '[CONCLUSION]',
