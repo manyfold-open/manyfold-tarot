@@ -53,9 +53,7 @@ export const fetchAccess = (): Promise<{
 }> => api(`${base}/access`);
 
 export const startReading = (
-  // The day of the daily card this round comes from, when it does; the Worker
-  // works out the card from the date and never takes one from the browser.
-  body: CreateReadingBody & { dailyDate?: string },
+  body: CreateReadingBody,
 ): Promise<{ reading: ReadingView; accessSource: 'free' | 'stick' | 'referral' | 'test' }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });
 
