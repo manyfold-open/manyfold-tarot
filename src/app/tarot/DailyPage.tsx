@@ -59,7 +59,7 @@ export default function DailyPage() {
               <h2>{copy.result.reflection}</h2>
               <p>{daily.reflection}</p>
             </section>
-            <a className="taro-primary" href={appUrl(`/?spread=next-step&prompt=daily`)}>{copy.daily.openReading}</a>
+            <a className="taro-primary" href={appUrl(`/?spread=next-step&prompt=daily&daily=${daily.date}`)}>{copy.daily.openReading}</a>
           </>
         )}
         <section className="taro-reminder-settings">

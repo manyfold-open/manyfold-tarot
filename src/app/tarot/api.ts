@@ -53,7 +53,9 @@ export const fetchAccess = (): Promise<{
 }> => api(`${base}/access`);
 
 export const startReading = (
-  body: CreateReadingBody,
+  // The day of the daily card this round comes from, when it does; the Worker
+  // works out the card from the date and never takes one from the browser.
+  body: CreateReadingBody & { dailyDate?: string },
 ): Promise<{ reading: ReadingView; accessSource: 'free' | 'stick' | 'referral' | 'test' }> =>
   api(`${base}/readings`, { method: 'POST', body: JSON.stringify(body) });
 
@@ -121,8 +123,9 @@ export const clearJournal = (): Promise<{ ok: boolean }> => api(`${base}/journal
 
 export const fetchDailyCard = (
   locale: Locale,
+  date: string = new Date().toISOString().slice(0, 10),
 ): Promise<{ date: string; cardId: string; reversed: boolean; reflection: string; keywords: string }> =>
-  api(`${base}/daily?locale=${encodeURIComponent(locale)}&date=${new Date().toISOString().slice(0, 10)}`);
+  api(`${base}/daily?locale=${encodeURIComponent(locale)}&date=${encodeURIComponent(date)}`);
 
 export const fetchShare = (token: string): Promise<{ share: ShareSnapshot }> =>
   api(`${base}/share/${encodeURIComponent(token)}`);

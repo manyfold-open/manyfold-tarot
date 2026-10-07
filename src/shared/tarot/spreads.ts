@@ -7,6 +7,13 @@ export interface SpreadDefinition {
   description: string;
   instruction: string;
   /**
+   * A whole question of the kind this spread is for, in the visitor's own voice.
+   * Choosing the spread puts it in the box, so a first-time visitor starts from a
+   * real question to edit rather than from a blank line; it is also the
+   * placeholder once the box is emptied.
+   */
+  example: string;
+  /**
    * What the reader is asked for in the three closing sections of a full reading.
    * The sections are the same for every spread; what each one is *for* is not —
    * a decision weighs, a next step narrows, a weekly review looks back.
@@ -17,10 +24,11 @@ export interface SpreadDefinition {
   slots: Record<SlotId, { title: string; prompt: string }>;
 }
 
-type LocalizedSpread = Omit<SpreadDefinition, 'title' | 'description' | 'instruction' | 'guidance' | 'quickFollowUps' | 'slots'> & {
+type LocalizedSpread = Omit<SpreadDefinition, 'title' | 'description' | 'instruction' | 'example' | 'guidance' | 'quickFollowUps' | 'slots'> & {
   title: Record<Locale, string>;
   description: Record<Locale, string>;
   instruction: Record<Locale, string>;
+  example: Record<Locale, string>;
   guidance: Record<'response' | 'actions' | 'reflection' | 'followUp', Record<Locale, string>>;
   quickFollowUps?: Record<Locale, [string, string, string]>;
   slots: Record<SlotId, { title: Record<Locale, string>; prompt: Record<Locale, string> }>;
@@ -32,6 +40,7 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
     title: { zh: '理解目前状态', en: 'Understand where things stand' },
     description: { zh: '看见眼前处境、尚未察觉的影响，以及可以采取的方向。', en: 'See the situation, what is out of view, and a direction you can take.' },
     instruction: { zh: '请以「理解目前状态」为主轴解读：先辨认现况，再指出未被看见的因素，最后给出可行方向。', en: 'Read this as a way to understand the current situation: name what is happening, what is not yet in view, and a practical direction.' },
+    example: { zh: '我现在的工作状态到底怎么样？有什么是我还没看清的？', en: 'Where do things really stand with my work right now, and what am I not seeing?' },
     guidance: {
       response: { zh: '回到来访者的问题，给出综合回应，说明牌面对这个具体处境意味着什么。', en: 'Back to their question: what this spread means for this specific situation.' },
       actions: { zh: '两到三条现实中可以做的事，每条独占一行，以「- 」开头，具体、可执行、不空泛。', en: 'Two or three things they can actually do, each on its own line starting with "- ", concrete and doable.' },
@@ -49,6 +58,7 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
     title: { zh: '做一个决定', en: 'Make a decision' },
     description: { zh: '整理选择的拉力、取舍，以及值得依循的原则。', en: 'Clarify the pull, the trade-off, and a principle to decide by.' },
     instruction: { zh: '请以决策为主轴，不替来访者决定，也不要预言结果；比较各方拉力，点出取舍，最后提出一个可用来判断的原则。回到问题时，把接受与不接受两边的得失并列写出，不要说哪一边“分量较重”“更重”或“更该选”，也不要用语气暗示倾向。', en: 'Read this as decision support. Do not decide for the visitor or predict an outcome; compare the forces, name the trade-off, and offer a principle they can use. When you come back to their question, set the cost and gain of each side next to each other; never say one side weighs more or should win, and never lean by tone.' },
+    example: { zh: '我该接受新的工作机会，还是留在现在的公司？', en: 'Should I take the new job offer, or stay where I am?' },
     guidance: {
       response: { zh: '回到来访者的问题：把他要在哪些选项之间取舍说清楚——每个选项各自会得到什么、要放下什么。问题里没写明选项时，就从问题推出最可能的两边。不要替他选，也不要暗示哪一边“对”，也不要说牌面让哪一边或“改变”“留下”显得更重、更大、更占上风，或用“倾向”“偏向”这类比较词。改为说明每张牌各自提醒他去衡量什么，两边的得失用同样的分量写。', en: 'Back to their question: lay out what they are choosing between — what each option would give them and what it would cost. If the question names no options, infer the two most likely sides. Do not choose for them or hint that one side is "right", and never say the cards make either side, or "changing" or "staying", weigh more, count for more or come out ahead, and avoid words like "lean" or "tilt". Instead say what each card asks them to weigh, and give both sides the same weight on the page.' },
       actions: { zh: '两到三条帮助他做决定的现实步骤，每条独占一行，以「- 」开头，例如：把某个选项最坏和最好的结果各写下来、向某个具体的人确认一个事实、给自己设一个做出决定的期限。要具体、可执行，而不是直接告诉他该选什么。', en: 'Two or three practical steps that help them decide, each on its own line starting with "- " — for example writing down the worst and best realistic outcome of an option, checking one fact with a specific person, or setting a date by which to decide. Concrete and doable; never a verdict on what to pick.' },
@@ -70,6 +80,7 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
     title: { zh: '下一步反思', en: 'Reflect on the next step' },
     description: { zh: '找到值得关注的地方、第一个小步骤，以及需要留意的信号。', en: 'Find your focus, one small first move, and a signal to watch.' },
     instruction: { zh: '请聚焦在可采取的下一步：辨认优先事项，提出一个小而具体的行动，并指出后续值得观察的信号。', en: 'Focus on a next step: identify the priority, suggest one small concrete action, and name a signal worth watching.' },
+    example: { zh: '我想开始做一个自己的副业，第一步该从哪里着手？', en: 'I want to start a side project of my own. Where should the first step be?' },
     guidance: {
       response: { zh: '回到来访者的问题，只谈眼前，不谈整个未来：指出现在最该优先的一件事、为什么是它，以及可以先放一放的部分。', en: 'Back to their question, about what is in front of them and not the whole future: name the one thing to put first, why it is that one, and what can wait.' },
       actions: { zh: '恰好两条，每条独占一行，以「- 」开头：第一条是一个小到今天或本周就能开始的行动，写清楚做什么、怎么做；第二条是一个要留意的信号，说明出现什么迹象代表方向对了，或需要调整。', en: 'Exactly two, each on its own line starting with "- ": first, one action small enough to begin today or this week, with what to do and how; second, one signal to watch for — what would show the direction is right, or needs adjusting.' },
@@ -91,6 +102,7 @@ const spreads: Record<SpreadId, LocalizedSpread> = {
     title: { zh: '每周回顾', en: 'Weekly review' },
     description: { zh: '回看这周发生的事、带走一个领悟，并为下周留出空间。', en: 'Look back at the week, name what you learned, and make room for next week.' },
     instruction: { zh: '请协助来访者回顾一周，而非预言未来：整理这周的主题、辨认留下的领悟，再提出一个下周可以带着走的意图。', en: 'Help the visitor reflect on the week rather than predict the future: name its theme, identify a lesson, and suggest an intention to carry into next week.' },
+    example: { zh: '回顾这一周：我经历了什么、学到了什么，又想带着什么走进下周？', en: 'Looking back on this week: what happened, what did I learn, and what do I want to carry into next week?' },
     guidance: {
       response: { zh: '回到来访者的问题，以“这一周”为范围：这周发生了什么、哪里消耗了他、哪里给了他力量，以及他带走的是什么。如果问题与这周无关，就把它当作这周背景的一部分，不要转去预测未来。', en: 'Back to their question, within the span of this one week: what happened, what drained them, what gave them strength, and what they are taking from it. If the question is not about this week, treat it as part of the week’s background rather than turning to predict the future.' },
       actions: { zh: '两到三条下周可以带着走的具体做法，每条独占一行，以「- 」开头：一件想继续做的事、一件想放下或调整的事，以及一个放进下周日程的小意图。不要写成宏大的目标。', en: 'Two or three concrete things to carry into next week, each on its own line starting with "- ": one thing to keep doing, one to let go of or adjust, and one small intention to put in next week’s calendar. No grand goals.' },
@@ -122,6 +134,7 @@ export function spreadFor(id: SpreadId | null | undefined, locale: Locale): Spre
     title: spread.title[locale],
     description: spread.description[locale],
     instruction: spread.instruction[locale],
+    example: spread.example[locale],
     guidance: {
       response: spread.guidance.response[locale],
       actions: spread.guidance.actions[locale],

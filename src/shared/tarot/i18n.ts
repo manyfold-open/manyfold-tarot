@@ -31,12 +31,14 @@ export interface Copy {
 
   ask: {
     title: string;
-    placeholder: string;
     submit: string;
     submitting: string;
     remaining: (n: number) => string;
     empty: string;
     hintKeys: string;
+    /** The line over the question when today's card comes along into the reading. */
+    carryDaily: (card: string) => string;
+    dropDaily: string;
   };
 
   greeting: {
@@ -286,12 +288,13 @@ const zh: Copy = {
 
   ask: {
     title: '把你的问题告诉我。',
-    placeholder: '',
     submit: '开始',
     submitting: '正在递给占卜师……',
     remaining: (n) => `还可以写 ${n} 字`,
     empty: '先写下你想问的事。',
     hintKeys: 'Enter 送出，Shift + Enter 换行',
+    carryDaily: (card) => `带着今日一牌：${card}`,
+    dropDaily: '不带今日一牌',
   },
 
   greeting: {
@@ -362,7 +365,7 @@ const zh: Copy = {
   spreadPicker: {
     title: '你想怎么看这个问题？',
     selected: '已选择',
-    dailyQuestion: '今天有什么值得我留意？',
+    dailyQuestion: '今天，哪一件小事值得我多留意一点？',
     weeklyQuestion: '回顾这一周：我经历了什么、学到了什么，又想带着什么走进下周？',
   },
 
@@ -547,12 +550,13 @@ const en: Copy = {
 
   ask: {
     title: 'Tell me what you want to ask.',
-    placeholder: '',
     submit: 'Begin',
     submitting: 'Passing it to the reader…',
     remaining: (n) => `${n} characters left`,
     empty: 'Write down what you want to ask first.',
     hintKeys: 'Enter to send, Shift + Enter for a new line',
+    carryDaily: (card) => `Bringing today’s card: ${card}`,
+    dropDaily: 'Leave today’s card out',
   },
 
   greeting: {
@@ -627,7 +631,7 @@ const en: Copy = {
   spreadPicker: {
     title: 'How do you want to look at it?',
     selected: 'Selected',
-    dailyQuestion: 'What deserves my attention today?',
+    dailyQuestion: 'What small thing deserves a little more of my attention today?',
     weeklyQuestion: 'Looking back on this week: what happened, what did I learn, and what do I want to carry into next week?',
   },
 

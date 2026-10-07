@@ -8,7 +8,8 @@
 import { describe, expect, it } from 'vitest';
 import { DECK, LOCALES, type Locale } from '../src/shared/tarot/deck';
 import { COPY, copyFor, normalizeLocale, type Copy } from '../src/shared/tarot/i18n';
-import { SLOT_ORDER } from '../src/shared/tarot/types';
+import { SPREAD_IDS, spreadFor } from '../src/shared/tarot/spreads';
+import { QUESTION_MAX_CHARS, SLOT_ORDER } from '../src/shared/tarot/types';
 
 /** Every string in a Copy tree, with a dotted path, for sweeping assertions. */
 function leaves(value: unknown, path = ''): Array<[string, string]> {
@@ -138,17 +139,23 @@ describe('two languages, one shape', () => {
     expect(shapeOf(COPY.en)).toEqual(shapeOf(COPY.zh));
   });
 
-  it('offers no example question, in either language', () => {
-    // The one deliberately empty string in the file. The spec bans examples from
-    // the first screen, and a placeholder is an example that types itself.
-    expect(COPY.zh.ask.placeholder).toBe('');
-    expect(COPY.en.ask.placeholder).toBe('');
+  it('gives every spread a whole example question, in both languages', () => {
+    // Choosing a spread puts its example in the box, so a first-time visitor
+    // starts from a question to edit rather than a blank line.
+    for (const id of SPREAD_IDS) {
+      const zh = spreadFor(id, 'zh').example;
+      const en = spreadFor(id, 'en').example;
+      expect(zh.trim(), `${id}.zh`).not.toBe('');
+      expect(en.trim(), `${id}.en`).not.toBe('');
+      expect(en, id).not.toBe(zh);
+      expect(zh.length, `${id}.zh`).toBeLessThanOrEqual(QUESTION_MAX_CHARS);
+      expect(en.length, `${id}.en`).toBeLessThanOrEqual(QUESTION_MAX_CHARS);
+    }
   });
 
   it('leaves nothing else blank and nothing untranslated', () => {
     const zh = new Map(leaves(COPY.zh));
     for (const [path, english] of leaves(COPY.en)) {
-      if (path === 'ask.placeholder') continue;
       expect(english.trim(), `en.${path}`).not.toBe('');
       expect(english, `en.${path}`).not.toBe(zh.get(path));
     }
