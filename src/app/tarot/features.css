@@ -9,7 +9,8 @@
 .taro-share-options legend { padding:0 0 10px; font-family:var(--serif); font-size:var(--fs-meta); letter-spacing:var(--track-label); color:var(--ink-2); }
 /* The share box has a border, so its legend sits in the notch of the top edge. With the shared rule the notch had no side padding and 10px underneath: the label touched the rounded corner and the edge ran along its baseline. */
 .taro-share-options legend { padding:0 8px; margin-inline-start:6px; line-height:1; }
-.taro-reading-details { width:min(var(--column),100%); margin:26px auto; border-top:1px solid var(--line); }
+.taro-reading-details { width:min(var(--column),100%); margin:0 auto; }
+.taro-reading-details-title { margin:0 0 4px; padding-bottom:12px; border-bottom:1px solid var(--line); color:var(--ink-2); font-size:var(--fs-meta); font-weight:400; letter-spacing:var(--track-label); }
 .taro-detail { margin:0!important; padding:15px 0!important; border-bottom:1px solid var(--line); scroll-margin-top:84px; }
 .taro-detail>summary { list-style:none; display:flex; align-items:baseline; justify-content:space-between; gap:16px; color:var(--ink-2); font-family:var(--serif); font-size:var(--fs-ui); cursor:pointer; }
 .taro-detail>summary::-webkit-details-marker { display:none; }

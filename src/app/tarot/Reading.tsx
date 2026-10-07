@@ -1,13 +1,15 @@
 /**
- * The full reading: eight sections, always in this order, never relabelled as
- * machine output.
+ * The full reading: eight sections, never relabelled as machine output.
  *
  *   1 直接结论 · 2 三张牌概览 · 3 每张牌在牌位上的解释 · 4 三张牌之间的联系
  *   5 对问题的综合回应 · 6 现实行动建议 · 7 一个反思问题 · 8 收尾语
  *
- * The order lives here, in one array-free explicit sequence, so that a section
- * cannot quietly go missing or swap places: whatever the reader sends back is
- * poured into this shape.
+ * The reader writes them in that order; the page shows them in the order they
+ * are used. The answer, then what to do about it and the question to keep —
+ * the parts people come back for — and only then the reading of the cards,
+ * folded into one list to be opened rather than scrolled past. The sequence
+ * lives here, written out, so that a section cannot quietly go missing or swap
+ * places: whatever the reader sends back is poured into this shape.
  */
 
 import { cardById, type Locale } from '../../shared/tarot/deck';
@@ -67,16 +69,39 @@ export default function Reading({ interpretation, cards, locale, spreadId = 'cur
       {/* 1 — the answer, before anything else */}
       <Prose text={interpretation.conclusion} className="taro-conclusion" />
 
-      {/* 2 */}
-      <section className="taro-section">
-        <h3>{copy.result.overview}</h3>
-        <Prose text={interpretation.overview} />
-      </section>
+      {/* 6 — what to do about it, straight after the answer */}
+      {interpretation.actions.length > 0 && (
+        <section className="taro-section">
+          <h3>{copy.result.actions}</h3>
+          <ol className="taro-actions">
+            {interpretation.actions.map((action, index) => (
+              <li key={index}>{action}</li>
+            ))}
+          </ol>
+        </section>
+      )}
 
-      {/* 3 — one per card, in reveal order */}
-      <div className="taro-reading-details">
+      {/* 7 */}
+      {interpretation.reflection.trim() && (
+        <section className="taro-section taro-reflection">
+          <h3>{copy.result.reflection}</h3>
+          <Prose text={interpretation.reflection} />
+        </section>
+      )}
+
+      {/* 2, 3, 4, 5 — the reading of the cards, one row each, opened on demand.
+          Each card's row carries an id so the spread beside it can open it. */}
+      <section className="taro-reading-details" aria-label={copy.result.fullReading}>
+        <h3 className="taro-reading-details-title">{copy.result.fullReading}</h3>
+        <details className="taro-section taro-detail" onToggle={(event) => {
+          if (event.currentTarget.open) track('result_detail_opened', { locale, section: 'overview' });
+        }}>
+          <summary>{copy.result.overview}</summary>
+          <Prose text={interpretation.overview} />
+        </details>
+
         {interpretation.perCard.map((entry) => (
-          <details className="taro-section taro-detail" id={`taro-detail-${entry.slot}`} key={entry.slot} onToggle={(event) => {
+          <details className="taro-section taro-detail" id={`taro-detail-${entry.slot}`} data-slot={entry.slot} key={entry.slot} onToggle={(event) => {
             if (event.currentTarget.open) track('result_detail_opened', { locale, section: `card_${entry.slot}` });
           }}>
             <summary>
@@ -100,27 +125,7 @@ export default function Reading({ interpretation, cards, locale, spreadId = 'cur
           <summary>{copy.result.response}</summary>
           <Prose text={interpretation.response} />
         </details>
-      </div>
-
-      {/* 6 */}
-      {interpretation.actions.length > 0 && (
-        <section className="taro-section">
-          <h3>{copy.result.actions}</h3>
-          <ol className="taro-actions">
-            {interpretation.actions.map((action, index) => (
-              <li key={index}>{action}</li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {/* 7 */}
-      {interpretation.reflection.trim() && (
-        <section className="taro-section taro-reflection">
-          <h3>{copy.result.reflection}</h3>
-          <Prose text={interpretation.reflection} />
-        </section>
-      )}
+      </section>
 
       {/* 8 */}
       {interpretation.closing.trim() && (

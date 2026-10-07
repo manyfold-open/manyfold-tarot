@@ -83,6 +83,10 @@ export interface Copy {
     title: string;
     loading: string[];
     overview: string;
+    /** The heading over everything that is there to be opened, not read straight through. */
+    fullReading: string;
+    /** The strip of cards that stays on a phone's screen once the spread scrolls away. */
+    cardsNav: string;
     connections: string;
     response: string;
     actions: string;
@@ -343,6 +347,8 @@ const zh: Copy = {
     title: '为你照见的部分',
     loading: ['我正在梳理三张牌之间的联系……', '这组牌的信息很多，让我慢慢为你展开。'],
     overview: '三张牌',
+    fullReading: '完整解读',
+    cardsNav: '三张牌',
     connections: '三张牌之间',
     response: '回到你的问题',
     actions: '你可以做的事',
@@ -607,6 +613,8 @@ const en: Copy = {
       'There is a lot here. Let me open it slowly.',
     ],
     overview: 'The three cards',
+    fullReading: 'The full reading',
+    cardsNav: 'The three cards',
     connections: 'Between the cards',
     response: 'Back to your question',
     actions: 'What you can do',

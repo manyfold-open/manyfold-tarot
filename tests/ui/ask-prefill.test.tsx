@@ -67,10 +67,11 @@ afterEach(() => {
 });
 
 describe('choosing a spread', () => {
-  it('fills an empty box with that spread’s example', () => {
+  it('opens with the chosen spread’s example, and swaps it for another spread’s', () => {
     render(<TarotApp />);
-    expect(box().value).toBe('');
-    expect(box().placeholder).toBe('Where do things really stand with my work right now, and what am I not seeing?');
+    // Never a placeholder standing in for a question: the box has one, and Begin is live.
+    expect(box().value).toBe('Where do things really stand with my work right now, and what am I not seeing?');
+    expect((screen.getByRole('button', { name: 'Begin' }) as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByLabelText('Make a decision'));
     expect(box().value).toBe('Should I take the new job offer, or stay where I am?');
