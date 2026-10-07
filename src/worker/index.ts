@@ -121,9 +121,12 @@ app.onError((error, c) => {
     return c.json({ error: { code: 'misconfigured', message: error.message } }, 400);
   }
   if (error instanceof A2AError) {
+    // What the platform or the tunnel said is for the logs; the body carries a fixed line,
+    // and the browser words the code in the visitor's language.
+    console.error('agent error', error.message);
     return error.retryable
-      ? c.json({ error: { code: 'manyfold_unavailable', message: error.message } }, 502)
-      : c.json({ error: { code: 'manyfold_rejected', message: error.message } }, 400);
+      ? c.json({ error: { code: 'manyfold_unavailable', message: 'The reader could not answer just now.' } }, 502)
+      : c.json({ error: { code: 'manyfold_rejected', message: 'The reader could not take this request.' } }, 400);
   }
   console.error('unhandled', error);
   return c.json({ error: { code: 'internal', message: 'Something went wrong.' } }, 500);

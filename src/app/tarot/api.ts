@@ -192,9 +192,14 @@ export async function streamDiviner(
 }
 
 /** Turns any thrown value into a line the visitor can read. */
+/** Codes that mean the reader or the platform behind it failed: worded by `fallback`, never by the message. */
+export const READER_FAILURE_CODES = new Set(['manyfold_unavailable', 'manyfold_rejected', 'internal', 'reader_unavailable']);
+
 export const errorText = (error: unknown, fallback: string): string => {
   // A thrown Error that is not the Worker's ("Failed to fetch", a JSON parse
-  // error) is the browser talking, not something to read aloud.
+  // error) is the browser talking, not something to read aloud. Neither is
+  // whatever the agent platform said about its own failure.
+  if (error instanceof ApiError && READER_FAILURE_CODES.has(error.code)) return fallback;
   return error instanceof ApiError && error.message ? error.message : fallback;
 };
 
