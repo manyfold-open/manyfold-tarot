@@ -91,14 +91,14 @@ export default function JournalPage() {
         <p className="taro-instruction">{copy.journal.intro}</p>
 
         <section className="taro-reminder-settings">
-          <label>
-            <input type="checkbox" checked={weeklyReminder} onChange={(event) => {
+          <label className="taro-switch">
+            <span>{copy.journal.reminderLabel}</span>
+            <input type="checkbox" role="switch" checked={weeklyReminder} onChange={(event) => {
               const enabled = event.target.checked;
               setWeeklyReminder(enabled);
               localStorage.setItem(WEEKLY_REMINDER_KEY, enabled ? 'on' : 'off');
               track('reminder_enabled', { kind: 'weekly_review', enabled, locale });
             }} />
-            {weeklyReminder ? copy.journal.reminderOff : copy.journal.reminderOn}
           </label>
           <p>{copy.journal.reminderHint}</p>
         </section>

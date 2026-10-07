@@ -93,12 +93,11 @@ export interface Copy {
 
   daily: {
     title: string;
-    intro: string;
     prompt: string;
     openReading: string;
     reminderTitle: string;
-    reminderOn: string;
-    reminderOff: string;
+    /** What the switch does, the same words whether it is on or off. */
+    reminderLabel: string;
     reminderHint: string;
   };
 
@@ -143,8 +142,8 @@ export interface Copy {
     clearConfirm: string;
     savedOn: string;
     reminderTitle: string;
-    reminderOn: string;
-    reminderOff: string;
+    /** What the switch does, the same words whether it is on or off. */
+    reminderLabel: string;
     reminderHint: string;
   };
 
@@ -353,13 +352,11 @@ const zh: Copy = {
 
   daily: {
     title: '今日一牌',
-    intro: '每天一张牌，附上一个可以带着走的反思。',
     prompt: '今天，哪一件小事值得你多留意一点？',
-    openReading: '用这个提示开始阅读',
+    openReading: '带着这张牌问一个问题',
     reminderTitle: '每日提醒',
-    reminderOn: '开启：回到网站时显示今日一牌',
-    reminderOff: '关闭每日提醒',
-    reminderHint: '这是在网站内显示的自愿提醒，不会发送推送通知。',
+    reminderLabel: '回到网站时显示今日一牌',
+    reminderHint: '只在网站内显示，不会发送推送通知。',
   },
 
   spreadPicker: {
@@ -402,9 +399,8 @@ const zh: Copy = {
     clearConfirm: '这会删除这个浏览器的所有阅读、笔记和分享链接，无法恢复。确定清除？',
     savedOn: '收藏日期',
     reminderTitle: '每周回顾提醒',
-    reminderOn: '开启：回到网站时显示每周回顾',
-    reminderOff: '关闭每周提醒',
-    reminderHint: '这是在网站内显示的自愿提醒，不会发送推送通知。',
+    reminderLabel: '回到网站时显示每周回顾',
+    reminderHint: '只在网站内显示，不会发送推送通知。',
   },
 
   outro: {
@@ -619,13 +615,11 @@ const en: Copy = {
 
   daily: {
     title: 'Your card for today',
-    intro: 'One card and a short reflection to carry into the day.',
     prompt: 'What small thing deserves a little more of your attention today?',
-    openReading: 'Start a reading from today’s card',
+    openReading: 'Ask a question with this card',
     reminderTitle: 'Daily reminder',
-    reminderOn: 'Turn on: show the daily card when I return',
-    reminderOff: 'Turn off the daily reminder',
-    reminderHint: 'This is an optional reminder inside the site. It does not send push notifications.',
+    reminderLabel: 'Show the daily card when I come back',
+    reminderHint: 'Shown on this site only. No push notifications.',
   },
 
   spreadPicker: {
@@ -668,9 +662,8 @@ const en: Copy = {
     clearConfirm: 'This deletes all readings, notes, and share links for this browser. This cannot be undone. Clear all?',
     savedOn: 'Saved',
     reminderTitle: 'Weekly review reminder',
-    reminderOn: 'Turn on: show the weekly review when I return',
-    reminderOff: 'Turn off the weekly reminder',
-    reminderHint: 'This is an optional reminder inside the site. It does not send push notifications.',
+    reminderLabel: 'Show the weekly review when I come back',
+    reminderHint: 'Shown on this site only. No push notifications.',
   },
 
   outro: {

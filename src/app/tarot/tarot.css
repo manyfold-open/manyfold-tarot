@@ -71,6 +71,36 @@ html[data-app='taro'] body {
   /* Reading measure. Long prose never grows past this, whatever the window does. */
   --column: 34em;
 
+  /* The type scale, and the only one. Every size on the site is one of these,
+     named for the job it does rather than for its pixels, so that the same kind
+     of thing is the same size on every page. There used to be seventeen sizes,
+     with a card's name set smaller than the keywords under it; the order here is
+     the order of importance, and nothing lower on the list may be set larger
+     than something above it.
+       display  the one title on a page
+       title    what the page has come down to: the conclusion, the reader's
+                voice, a card's name when it stands alone
+       lead     what the visitor writes, and the line under a title
+       body     reading text
+       small    supporting text beside reading text
+       ui       controls, links, form labels
+       meta     labels, positions, dates, notes
+       fine     the footer, and nothing else */
+  --fs-display: clamp(23px, 4.2vw, 33px);
+  --fs-title: clamp(19px, 2.5vw, 22px);
+  --fs-lead: 17px;
+  --fs-body: 16px;
+  --fs-small: 14px;
+  --fs-ui: 13px;
+  --fs-meta: 12px;
+  --fs-fine: 11px;
+  /* Two trackings for spaced-out sans. Spacing is what makes a small label read
+     as a label, but past about 0.15em a word comes apart into letters, and a
+     call to action that is all gaps wraps on a phone. Running text keeps its own
+     near-zero tracking. */
+  --track-label: 0.14em;
+  --track-cta: 0.12em;
+
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
@@ -470,7 +500,7 @@ html[data-app='taro'] body {
 
 .taro-product-nav a {
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   text-decoration: none;
   transition: color 320ms ease;
 }
@@ -487,12 +517,14 @@ html[data-app='taro'] body {
 }
 
 .taro-lang button {
+  /* 中文 is one word: a crowded bar on a phone used to stack it a glyph per line. */
+  white-space: nowrap;
   background: none;
   border: 0;
   padding: 2px 0;
   font-family: var(--sans);
-  font-size: 12px;
-  letter-spacing: 0.18em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
   color: var(--ink-3);
   cursor: pointer;
   transition: color 320ms ease;
@@ -608,9 +640,9 @@ html[data-app='taro'] body {
 
 .taro-by {
   gap: 9px;
-  font-size: 11px;
+  font-size: var(--fs-fine);
   line-height: 1;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--track-label);
 }
 
 /* The smallest type on the page, and deliberately: it introduces the mark and
@@ -645,12 +677,12 @@ html[data-app='taro'] body {
    lines now share one rhythm, and the only thing in the footer allowed to be
    large is the wordmark. */
 .taro-oss {
-  font-size: 11px;
+  font-size: var(--fs-fine);
   line-height: 1;
-  letter-spacing: 0.14em;
+  letter-spacing: var(--track-label);
   /* Tracking is trailing space, and trailing space is a centred line sitting
      half a letter-space to the left of the middle. Give it back. */
-  text-indent: 0.14em;
+  text-indent: var(--track-label);
 }
 
 .taro-by:hover,
@@ -676,7 +708,7 @@ html[data-app='taro'] body {
 .taro-demo {
   max-width: 34em;
   margin-inline: auto;
-  font-size: 12.5px;
+  font-size: var(--fs-ui);
   line-height: 1.7;
   letter-spacing: 0.04em;
   color: var(--ink-3);
@@ -696,11 +728,11 @@ html[data-app='taro'] body {
   border: 0;
   padding: 11px 4px 13px;
   font-family: var(--sans);
-  font-size: 13px;
-  letter-spacing: 0.3em;
+  font-size: var(--fs-ui);
+  letter-spacing: var(--track-cta);
   /* letter-spacing hangs a gap off the last glyph; this puts the word back in
      the middle of its own rule. */
-  text-indent: 0.3em;
+  text-indent: var(--track-cta);
   text-decoration: none;
   cursor: pointer;
   transition: color 320ms ease, opacity 320ms ease;
@@ -751,8 +783,8 @@ html[data-app='taro'] body {
   border: 0;
   padding: 2px 0;
   font-family: var(--sans);
-  font-size: 13px;
-  letter-spacing: 0.16em;
+  font-size: var(--fs-ui);
+  letter-spacing: var(--track-cta);
   color: var(--ink-3);
   border-bottom: 1px solid transparent;
   cursor: pointer;
@@ -783,7 +815,7 @@ html[data-app='taro'] body {
 .taro-ask-title {
   margin: 0;
   max-width: 22ch;
-  font-size: clamp(23px, 4.2vw, 33px);
+  font-size: var(--fs-display);
   font-weight: 400;
   letter-spacing: 0.06em;
   line-height: 1.7;
@@ -849,8 +881,8 @@ html[data-app='taro'] body {
   gap: 16px;
   min-height: 15px;
   font-family: var(--sans);
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
   color: var(--ink-3);
 }
 
@@ -899,7 +931,7 @@ html[data-app='taro'] body {
   margin: 0 auto;
   max-width: 32em;
   color: var(--ink-3);
-  font-size: 14px;
+  font-size: var(--fs-small);
   line-height: 1.9;
   letter-spacing: 0.02em;
   white-space: pre-wrap;
@@ -908,9 +940,9 @@ html[data-app='taro'] body {
 .taro-asked-label {
   display: block;
   font-family: var(--sans);
-  font-size: 11.5px;
-  letter-spacing: 0.3em;
-  text-indent: 0.3em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   color: var(--ink-3);
   margin-bottom: 10px;
 }
@@ -926,7 +958,7 @@ html[data-app='taro'] body {
 .taro-voice p,
 .taro-speaking {
   margin: 0 0 14px;
-  font-size: clamp(18px, 2.4vw, 21px);
+  font-size: var(--fs-title);
   line-height: 1.95;
   letter-spacing: 0.02em;
   color: var(--ink);
@@ -979,7 +1011,7 @@ html[data-app='taro'] body {
 .taro-instruction {
   margin: 0 auto;
   max-width: 30em;
-  font-size: 17px;
+  font-size: var(--fs-lead);
   line-height: 2;
   letter-spacing: 0.03em;
   color: var(--ink-2);
@@ -1111,18 +1143,20 @@ html[data-app='taro'] body {
 
 .taro-slot-title {
   font-family: var(--sans);
-  font-size: 11.5px;
-  letter-spacing: 0.26em;
-  text-indent: 0.26em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   text-align: center;
   color: var(--ink-2);
 }
 
+/* The card's name is what the visitor came to see, so it is the largest line
+   under the card — never smaller than the position over it. */
 .taro-card-label {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--ink);
 }
 
@@ -1133,16 +1167,16 @@ html[data-app='taro'] body {
 
 .taro-card-label.muted {
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 /* Upright and reversed are a fact about the card, not a verdict on it: same
    ink, one of them quieter. */
 .taro-orient {
   font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-indent: 0.2em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   color: var(--ink-3);
 }
 
@@ -1166,16 +1200,16 @@ html[data-app='taro'] body {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  font-size: 15.5px;
+  font-size: var(--fs-body);
   line-height: 1.9;
   color: var(--ink-2);
 }
 
 .taro-hint-slot {
   font-family: var(--sans);
-  font-size: 11px;
-  letter-spacing: 0.3em;
-  text-indent: 0.3em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   color: var(--ink-3);
 }
 
@@ -1246,15 +1280,15 @@ html[data-app='taro'] body {
   margin: 0 auto;
   max-width: 32em;
   min-height: 1.6em;
-  font-size: 14px;
+  font-size: var(--fs-small);
   line-height: 1.6;
   color: var(--ink-3);
 }
 
 .taro-pick-count {
   font-family: var(--sans);
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
   color: var(--star);
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
@@ -1756,10 +1790,10 @@ html[data-app='taro'] body {
 .taro-reading-title {
   margin: 0;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 400;
-  letter-spacing: 0.34em;
-  text-indent: 0.34em;
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   color: var(--ink-2);
 }
 
@@ -1775,7 +1809,7 @@ html[data-app='taro'] body {
 .taro-conclusion,
 .taro-conclusion p {
   margin: 0;
-  font-size: clamp(20px, 2.6vw, 23px);
+  font-size: var(--fs-title);
   line-height: 1.8;
   letter-spacing: 0.02em;
   color: #eef1f5;
@@ -1788,9 +1822,9 @@ html[data-app='taro'] body {
 .taro-section :is(h2, h3) {
   margin: 0 0 12px;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 400;
-  letter-spacing: 0.24em;
+  letter-spacing: var(--track-label);
   color: var(--ink-2);
   display: flex;
   flex-wrap: wrap;
@@ -1800,7 +1834,7 @@ html[data-app='taro'] body {
 
 .taro-section-card {
   letter-spacing: 0.1em;
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--star);
   opacity: 0.85;
 }
@@ -1821,7 +1855,7 @@ html[data-app='taro'] body {
 
 .taro-actions li::marker {
   color: var(--ink-4);
-  font-size: 12px;
+  font-size: var(--fs-meta);
 }
 
 .taro-reflection {
@@ -1848,7 +1882,7 @@ html[data-app='taro'] body {
 }
 
 .taro-said {
-  font-size: 16px;
+  font-size: var(--fs-body);
   color: #d1d6df;
 }
 
@@ -1861,13 +1895,13 @@ html[data-app='taro'] body {
 .taro-said .taro-speaking {
   margin-inline: 0;
   max-width: none;
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1.9;
 }
 
 .taro-suggest {
   margin: 0;
-  font-size: 14.5px;
+  font-size: var(--fs-small);
   color: var(--ink-2);
 }
 
@@ -1888,7 +1922,7 @@ html[data-app='taro'] body {
   display: inline-block;
   min-height: 44px;
   padding: 12px 6px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 
 /* The way out to the Stick: full ink, a touch heavier, and a rule in the
@@ -1939,7 +1973,7 @@ html[data-app='taro'] body {
 .taro-stick-bridge p {
   margin: 0;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   line-height: 1.7;
 }
 
@@ -1953,14 +1987,14 @@ html[data-app='taro'] body {
 
 .taro-follow label {
   font-family: var(--sans);
-  font-size: 12.5px;
-  letter-spacing: 0.2em;
-  text-indent: 0.2em;
+  font-size: var(--fs-ui);
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   color: var(--ink-3);
 }
 
 .taro-follow-input {
-  font-size: 17px;
+  font-size: var(--fs-lead);
 }
 
 .taro-share {
@@ -1979,14 +2013,14 @@ html[data-app='taro'] body {
 .taro-referral-copy,
 .taro-referral-invite {
   color: var(--ink-2);
-  font-size: 14.5px;
+  font-size: var(--fs-small);
   line-height: 1.7;
 }
 
 .taro-referral-status {
   margin: 0;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   line-height: 1.7;
   text-align: center;
 }
@@ -2037,7 +2071,7 @@ html[data-app='taro'] body {
 .taro-share-url {
   width: min(520px, 100%);
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   letter-spacing: 0.04em;
   text-align: center;
   color: var(--ink-2);
@@ -2078,10 +2112,10 @@ html[data-app='taro'] body {
 .taro-shared-title {
   margin: 0;
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 400;
-  letter-spacing: 0.34em;
-  text-indent: 0.34em;
+  letter-spacing: var(--track-label);
+  text-indent: var(--track-label);
   color: var(--ink-3);
 }
 
@@ -2170,7 +2204,7 @@ html[data-app='taro'] body {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 3px 10px;
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.4;
   color: var(--ink);
 }
@@ -2187,7 +2221,7 @@ html[data-app='taro'] body {
 .taro-read-card .taro-read-keywords {
   margin: 0;
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: var(--fs-ui);
   line-height: 1.65;
   letter-spacing: 0.05em;
   color: var(--ink-2);
@@ -2238,7 +2272,7 @@ html[data-app='taro'] body {
   margin: 0 auto;
   max-width: 32em;
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   line-height: 1.8;
   letter-spacing: 0.04em;
   color: #d6929d;
@@ -2330,7 +2364,7 @@ html[data-app='taro'] body {
   }
 
   .taro-instruction {
-    font-size: 15px;
+    font-size: var(--fs-body);
   }
 }
 
@@ -2345,7 +2379,7 @@ html[data-app='taro'] body {
   }
 
   .taro-product-nav a {
-    font-size: 12px;
+    font-size: var(--fs-meta);
   }
 
   .taro-lang {
@@ -2361,11 +2395,11 @@ html[data-app='taro'] body {
   }
 
   .taro-card-label {
-    font-size: 12px;
+    font-size: var(--fs-ui);
   }
 
   .taro-slot-title {
-    font-size: 11px;
+    font-size: var(--fs-meta);
     letter-spacing: 0.08em;
     text-indent: 0.08em;
     line-height: 1.5;
@@ -2376,7 +2410,7 @@ html[data-app='taro'] body {
   }
 
   .taro-ask-input {
-    font-size: 18px;
+    font-size: var(--fs-lead);
   }
 }
 
@@ -2430,7 +2464,7 @@ html[data-app='taro'] body {
   flex: 1 1 300px;
   margin: 0;
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: var(--fs-ui);
   line-height: 1.7;
   color: var(--ink-2);
 }
@@ -2448,8 +2482,8 @@ html[data-app='taro'] body {
   border-radius: 3px;
   background: none;
   font-family: var(--sans);
-  font-size: 13px;
-  letter-spacing: 0.14em;
+  font-size: var(--fs-ui);
+  letter-spacing: var(--track-cta);
   color: var(--ink);
   cursor: pointer;
   transition: border-color 320ms ease, background 320ms ease;
@@ -2472,8 +2506,8 @@ html[data-app='taro'] body {
 .taro-foot-link {
   margin-top: 10px;
   font-family: var(--sans);
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: var(--fs-meta);
+  letter-spacing: var(--track-label);
   color: var(--ink-3);
   text-decoration: none;
   transition: color 320ms ease;
@@ -2501,7 +2535,7 @@ html[data-app='taro'] body {
 .taro-prose h1 {
   margin: 0 0 20px;
   font-family: var(--serif);
-  font-size: 26px;
+  font-size: var(--fs-display);
   font-weight: 400;
   letter-spacing: 0.04em;
   color: var(--ink);
@@ -2509,16 +2543,16 @@ html[data-app='taro'] body {
 
 .taro-prose h2 {
   margin: 32px 0 10px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 500;
-  letter-spacing: 0.18em;
+  letter-spacing: var(--track-label);
   text-transform: none;
   color: var(--ink);
 }
 
 .taro-prose p {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-size: var(--fs-small);
   line-height: 1.9;
 }
 
@@ -2588,6 +2622,6 @@ html[data-app='taro'] body {
   flex-basis: 100%;
   margin: 0;
   color: var(--ink-2);
-  font-size: 14px;
+  font-size: var(--fs-small);
   line-height: 1.7;
 }
