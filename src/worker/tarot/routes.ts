@@ -29,7 +29,14 @@
 
 import { Hono } from 'hono';
 import { normalizeLocale } from '../../shared/tarot/i18n';
-import { DECK, DECK_SIZE, cardKeywords } from '../../shared/tarot/deck';
+import {
+  DAY_PATTERN,
+  acceptedDailyDay,
+  dailyCardContext,
+  dailyCardFor,
+  dailyCardKeywords,
+  utcDay,
+} from '../../shared/tarot/daily';
 import {
   QUESTION_MAX_CHARS,
   READER_UNAVAILABLE,
@@ -236,23 +243,28 @@ tarot.get('/reader', async (c) => {
 
 tarot.get('/access', async (c) => c.json(await accessFor(c.env, c.get('sessionId'))));
 
+/**
+ * Any day may be looked at here, past or future: it is a calendar, not a claim.
+ * What a reading may *say* it came from is narrower (`acceptedDailyDay`, in
+ * POST /readings). A day that does not parse reads as today, and an
+ * out-of-range one such as 02-30 rolls over the way Date does — both kept as
+ * they always were, so no card this route has already shown changes.
+ */
 tarot.get('/daily', (c) => {
   const requested = c.req.query('date');
-  const date = requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)
+  const date = requested && DAY_PATTERN.test(requested)
     ? new Date(`${requested}T00:00:00.000Z`)
     : new Date();
-  const day = Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
-  const dayNumber = Math.floor(Date.parse(`${day}T00:00:00.000Z`) / 86_400_000);
-  const index = ((dayNumber % DECK_SIZE) + DECK_SIZE) % DECK_SIZE;
-  const card = DECK[index];
+  const daily = dailyCardFor(Number.isNaN(date.getTime()) ? utcDay() : utcDay(date));
+  const locale = normalizeLocale(c.req.query('locale'));
   return c.json({
-    date: day,
-    cardId: card.id,
-    reversed: dayNumber % 2 === 1,
-    reflection: normalizeLocale(c.req.query('locale')) === 'zh'
+    date: daily.day,
+    cardId: daily.cardId,
+    reversed: daily.reversed,
+    reflection: locale === 'zh'
       ? '今天，哪一件小事值得你多留意一点？'
       : 'What small thing deserves a little more of your attention today?',
-    keywords: cardKeywords(card, dayNumber % 2 === 1, normalizeLocale(c.req.query('locale'))),
+    keywords: dailyCardKeywords(daily, locale),
   });
 });
 
@@ -313,6 +325,11 @@ tarot.post('/readings', async (c) => {
     throw new HttpError(400, 'bad_spread', 'That spread does not exist.');
   }
   const spreadId = requestedSpread ?? 'current';
+  // The browser may say which day's card it came from, never which card: the
+  // card is worked out again from the day when it is needed. A day that is not
+  // today's or yesterday's is quietly dropped rather than refused — a daily
+  // page left open for a weekend should still be able to ask its question.
+  const dailyDay = acceptedDailyDay(body?.dailyDate);
 
   const sessionId = c.get('sessionId');
   const referralToken =
@@ -338,6 +355,7 @@ tarot.post('/readings', async (c) => {
     locale: normalizeLocale(body?.locale),
     previousReadingId: previous,
     spreadId,
+    dailyDay,
   });
   await recordReadingAccess(c.env, reading.id, sessionId, grant);
   if (referralToken) await bindReferralToReading(c.env, reading.id, referralToken);
@@ -557,6 +575,7 @@ tarot.post('/readings/:id/interpretation', async (c) => {
         question: reading.question,
         cards: reading.cards!,
         spreadId: reading.spreadId,
+        dailyCard: dailyCardContext(reading.dailyDay),
       },
       {
         idempotencyKey: `${reading.id}-reading`,
@@ -655,6 +674,7 @@ tarot.post('/readings/:id/follow-ups', async (c) => {
         followUp: message,
         history: history.map((entry) => ({ role: entry.role, content: entry.content })),
         spreadId: reading.spreadId,
+        dailyCard: dailyCardContext(reading.dailyDay),
       },
       {
         idempotencyKey: `${reading.id}-follow-${userMessageId}`,

@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DECK_SIZE, type Locale } from '../../shared/tarot/deck';
+import { DECK_SIZE, cardById, type Locale } from '../../shared/tarot/deck';
 import { SITE_NAME, copyFor, normalizeLocale } from '../../shared/tarot/i18n';
 import { appUrl } from '../base';
 import {
@@ -33,6 +33,7 @@ import {
   type SpreadId,
 } from '../../shared/tarot/types';
 import { allSpreads, isSpreadId, spreadFor } from '../../shared/tarot/spreads';
+import { acceptedDailyDay } from '../../shared/tarot/daily';
 import { track } from './analytics';
 import CardSlot from './Card';
 import Consent from './Consent';
@@ -53,6 +54,7 @@ import {
   ApiError,
   errorText,
   fetchAccess,
+  fetchDailyCard,
   fetchReader,
   fetchReading,
   redeemStickBonus,
@@ -67,6 +69,30 @@ import { readTarotHandoff } from './bridge';
 type BonusNotice = 'expired' | 'dailyLimit' | 'unusable' | 'failed';
 
 type Phase = 'ask' | 'greeting' | 'shuffle' | 'choose' | 'reveal' | 'reading' | 'outro';
+
+/**
+ * A question the page put in the box itself, named rather than stored as text:
+ * while the visitor has not touched it, it is still ours, so a change of
+ * language rewrites it in the new one and choosing another spread swaps it for
+ * that spread's example. The first keystroke makes the words theirs, and from
+ * then on nothing here writes over them.
+ */
+type Prefill = { kind: 'spread'; id: SpreadId } | { kind: 'daily' } | { kind: 'weekly' };
+
+const prefillText = (prefill: Prefill, locale: Locale): string => {
+  if (prefill.kind === 'daily') return copyFor(locale).spreadPicker.dailyQuestion;
+  if (prefill.kind === 'weekly') return copyFor(locale).spreadPicker.weeklyQuestion;
+  return spreadFor(prefill.id, locale).example;
+};
+
+/** Today's card as the daily page showed it: the date is what goes to the
+ *  Worker, which works the card out again for itself; the rest is for the line
+ *  over the question. */
+interface DailyCarry {
+  date: string;
+  cardId: string;
+  reversed: boolean;
+}
 
 const READING_KEY = 'taro.readingId';
 const LOCALE_KEY = 'taro.locale';
@@ -169,13 +195,15 @@ export default function TarotApp() {
 
   const [phase, setPhase] = useState<Phase>('ask');
   const [reading, setReading] = useState<ReadingView | null>(null);
-  const [question, setQuestion] = useState(() => {
+  const [launchPrefill] = useState<Prefill | null>(() => {
     const prompt = launchQuery.get('prompt');
-    const startingLocale = normalizeLocale(localStorage.getItem(LOCALE_KEY) ?? navigator.language);
-    if (prompt === 'daily') return copyFor(startingLocale).spreadPicker.dailyQuestion;
-    if (prompt === 'weekly') return copyFor(startingLocale).spreadPicker.weeklyQuestion;
-    return '';
+    if (prompt === 'daily') return { kind: 'daily' };
+    if (prompt === 'weekly') return { kind: 'weekly' };
+    return null;
   });
+  const [prefill, setPrefill] = useState<Prefill | null>(launchPrefill);
+  const [question, setQuestion] = useState(() => (launchPrefill ? prefillText(launchPrefill, locale) : ''));
+  const [dailyCarry, setDailyCarry] = useState<DailyCarry | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   /** Live text of the turn currently being spoken; null when nobody is speaking. */
@@ -488,6 +516,7 @@ export default function TarotApp() {
         spreadId: selectedSpread,
         previousReadingId: previousReadingId.current,
         referralToken,
+        dailyDate: dailyCarry?.date,
       });
       if (location.search) history.replaceState(null, '', location.pathname);
       if (referralToken) setReferralToken(null);
@@ -536,7 +565,7 @@ export default function TarotApp() {
     } finally {
       setBusy(false);
     }
-  }, [busy, question, locale, selectedSpread, acquisitionSource, copy, referralToken, runGreeting, refreshAccess, handoff]);
+  }, [busy, question, locale, selectedSpread, acquisitionSource, copy, referralToken, dailyCarry, runGreeting, refreshAccess, handoff]);
 
   /** The field is a line, not a box: it opens one row high and grows downward
    *  with the question instead of reserving room for one nobody has written. */
@@ -549,6 +578,52 @@ export default function TarotApp() {
   }, []);
 
   useEffect(fitQuestionBox, [question, phase, fitQuestionBox]);
+
+  // A question the page wrote is rewritten whenever what it stands for changes:
+  // another spread, or another language.
+  useEffect(() => {
+    if (prefill) setQuestion(prefillText(prefill, locale));
+  }, [prefill, locale]);
+
+  /** Choosing a spread fills the box with that spread's example — but only a box
+   *  that is empty or still holds one of ours. A question the visitor has
+   *  written is never replaced by a tap that was only meant to pick a lens. */
+  const chooseSpread = (id: SpreadId) => {
+    setSelectedSpread(id);
+    if (!prefill && question.trim().length > 0) return;
+    setPrefill({ kind: 'spread', id });
+    // On a desktop the cursor goes back to the end of the question, ready to be
+    // edited. On a phone it does not: focusing would raise the keyboard over the
+    // other three tiles on every tap, when the visitor may only be comparing.
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    window.requestAnimationFrame(() => {
+      const box = questionBox.current;
+      if (!box) return;
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    });
+  };
+
+  // From the daily page the address carries the day it showed. The card is
+  // looked up only to name it over the question. A day the Worker would no longer
+  // take (more than a day old, by the same rule it uses) is not offered at all:
+  // naming a card the reader will never be told about would be a promise broken.
+  useEffect(() => {
+    const date = acceptedDailyDay(launchQuery.get('daily'));
+    if (!date) return;
+    let cancelled = false;
+    void fetchDailyCard(locale, date)
+      .then((daily) => {
+        if (!cancelled && daily.date === date) {
+          setDailyCarry({ date: daily.date, cardId: daily.cardId, reversed: daily.reversed });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // Once per page load: the card does not change with the language it is named in.
+  }, [launchQuery]);
 
   const onQuestionKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter sends on a physical keyboard. On a touch keyboard Enter is how people
@@ -813,7 +888,9 @@ export default function TarotApp() {
     setFollowDraft('');
     setFollowOpen(false);
     setSuggestsNew(false);
+    setPrefill(null);
     setQuestion('');
+    setDailyCarry(null);
     setSpoken(null);
     setError('');
     setPhase('ask');
@@ -952,7 +1029,7 @@ export default function TarotApp() {
                       name="tarot-spread"
                       value={item.id}
                       checked={selectedSpread === item.id}
-                      onChange={() => setSelectedSpread(item.id)}
+                      onChange={() => chooseSpread(item.id)}
                     />
                     <span>{item.title}</span>
                   </label>
@@ -970,6 +1047,18 @@ export default function TarotApp() {
                 void submitQuestion();
               }}
             >
+              {dailyCarry && (
+                <p className="taro-carry">
+                  <span>
+                    {copy.ask.carryDaily(
+                      `${cardById(dailyCarry.cardId)?.name[locale] ?? ''} · ${dailyCarry.reversed ? copy.reveal.reversed : copy.reveal.upright}`,
+                    )}
+                  </span>
+                  <button type="button" aria-label={copy.ask.dropDaily} title={copy.ask.dropDaily} onClick={() => setDailyCarry(null)}>
+                    ×
+                  </button>
+                </p>
+              )}
               <div className="taro-field">
                 <textarea
                   ref={questionBox}
@@ -979,9 +1068,12 @@ export default function TarotApp() {
                   rows={1}
                   maxLength={QUESTION_MAX_CHARS}
                   enterKeyHint="send"
-                  placeholder={copy.ask.placeholder}
+                  placeholder={spreadChoices.find((item) => item.id === selectedSpread)?.example}
                   aria-label={copy.ask.title}
-                  onChange={(event) => setQuestion(event.target.value)}
+                  onChange={(event) => {
+                    setPrefill(null);
+                    setQuestion(event.target.value);
+                  }}
                   onKeyDown={onQuestionKeyDown}
                 />
               </div>

@@ -19,6 +19,7 @@ import {
   FOLLOW_UP_MAX_CHARS,
   QUESTION_MAX_CHARS,
   SLOT_ORDER,
+  type DailyCardContext,
   type Interpretation,
   type SlotId,
   type SpreadId,
@@ -195,6 +196,28 @@ export function describeCards(cards: DrawnCard[], locale: Locale, spreadId: Spre
     .join('\n');
 }
 
+/**
+ * The lines about today's card, for a reading started from it — or nothing.
+ *
+ * It sits right under the spread so the reader meets it as part of the table,
+ * and it says three times over what it is not: a fourth card, a position, a
+ * reason to read the drawn three differently. The draw is the reading; today's
+ * card is only where the visitor walked in from. Returned as lines (with the
+ * blank one after) so a reading without it builds the very same prompt as before.
+ */
+export function describeDailyCard(dailyCard: DailyCardContext | undefined, locale: Locale): string[] {
+  if (!dailyCard) return [];
+  const card = cardById(dailyCard.cardId);
+  if (!card) return [];
+  const label = cardLabel(card, dailyCard.reversed, locale);
+  const keywords = cardKeywords(card, dailyCard.reversed, locale);
+  const text =
+    locale === 'zh'
+      ? `来访者是从「今日一牌」进入这次阅读的。今天的牌是${label}，传统关键词：${keywords}。它不是这次牌阵里的牌，不占任何牌位，也不能改变上面三张牌的含义；可以在合适的地方用一句话点出它与这次牌面的呼应，但不要把它当作第四张牌来解读。`
+      : `They came to this reading from today's daily card: ${label}. Traditional keywords: ${keywords}. It is not part of this spread, holds no position, and cannot change what the three cards above mean; you may note in one sentence where it echoes this spread, but do not read it as a fourth card.`;
+  return [text, ''];
+}
+
 export interface GreetingPromptInput {
   question: string;
   locale: Locale;
@@ -291,6 +314,8 @@ export interface ReadingPromptInput {
   locale: Locale;
   cards: DrawnCard[];
   spreadId?: SpreadId;
+  /** Today's card, when the reading was started from it. Context only. */
+  dailyCard?: DailyCardContext;
 }
 
 /**
@@ -299,9 +324,16 @@ export interface ReadingPromptInput {
  * The tags are what make the result renderable as structure instead of a wall
  * of text — and what let the share card quote a real one-sentence conclusion.
  */
-export function buildReadingPrompt({ question, locale, cards, spreadId = 'current' }: ReadingPromptInput): string {
+export function buildReadingPrompt({
+  question,
+  locale,
+  cards,
+  spreadId = 'current',
+  dailyCard,
+}: ReadingPromptInput): string {
   const spread = spreadFor(spreadId, locale);
   const list = describeCards(cards, locale, spreadId);
+  const daily = describeDailyCard(dailyCard, locale);
   const titles = SLOT_ORDER.map((slot) => slotTitle(slot, locale, spreadId));
   if (locale === 'zh') {
     return [
@@ -314,6 +346,7 @@ export function buildReadingPrompt({ question, locale, cards, spreadId = 'curren
       '牌面：',
       list,
       '',
+      ...daily,
       '严格按下面的标记分段输出，标记独占一行，原样保留方括号：',
       `[${TAGS.conclusion}]`,
       '直接给出结论，一到两句，先回答问题本身，不要铺垫。',
@@ -351,6 +384,7 @@ export function buildReadingPrompt({ question, locale, cards, spreadId = 'curren
     'The spread:',
     list,
     '',
+    ...daily,
     'Output in exactly these tagged sections. Each tag sits alone on its line, brackets kept verbatim:',
     `[${TAGS.conclusion}]`,
     'The answer itself, one or two sentences, no preamble.',
@@ -389,6 +423,8 @@ export interface FollowUpPromptInput {
   /** Earlier follow-ups in this reading, oldest first. */
   history: { role: 'user' | 'diviner'; content: string }[];
   spreadId?: SpreadId;
+  /** Today's card, when the reading was started from it. Context only. */
+  dailyCard?: DailyCardContext;
 }
 
 /**
@@ -403,6 +439,7 @@ export function buildFollowUpPrompt(input: FollowUpPromptInput): string {
   const spreadId = input.spreadId ?? 'current';
   const spread = spreadFor(spreadId, locale);
   const list = describeCards(input.cards, locale, spreadId);
+  const daily = describeDailyCard(input.dailyCard, locale);
   const history = input.history
     .slice(-6)
     .map((entry) =>
@@ -423,6 +460,7 @@ export function buildFollowUpPrompt(input: FollowUpPromptInput): string {
       '牌面：',
       list,
       '',
+      ...daily,
       `你此前给出的结论：${input.conclusion}`,
       history ? `\n之前的对话：\n${history}` : '',
       '',
@@ -447,6 +485,7 @@ export function buildFollowUpPrompt(input: FollowUpPromptInput): string {
     'The spread:',
     list,
     '',
+    ...daily,
     `The conclusion you already gave: ${input.conclusion}`,
     history ? `\nEarlier in this conversation:\n${history}` : '',
     '',

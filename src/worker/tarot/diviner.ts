@@ -16,7 +16,7 @@
  */
 
 import type { Locale } from '../../shared/tarot/deck';
-import type { SpreadId } from '../../shared/tarot/types';
+import type { DailyCardContext, SpreadId } from '../../shared/tarot/types';
 import { A2AError, consumeA2AStream, fetchA2ATask, safeErrorText, TASK_NOT_FOUND, type StreamSnapshot } from '../a2a';
 import type { ConnectedAgent } from '../../shared/types';
 import { credentialFor, listConnectedAgents } from '../connect';
@@ -36,7 +36,15 @@ import {
 export type DivinerRequest =
   | { kind: 'greeting'; locale: Locale; question: string; spreadId?: SpreadId }
   | { kind: 'hint'; locale: Locale; question: string; card: DrawnCard; index: number; spreadId?: SpreadId }
-  | { kind: 'interpretation'; locale: Locale; question: string; cards: DrawnCard[]; spreadId?: SpreadId }
+  | {
+      kind: 'interpretation';
+      locale: Locale;
+      question: string;
+      cards: DrawnCard[];
+      spreadId?: SpreadId;
+      /** Today's card, when the reading came from it: context, never a fourth card. */
+      dailyCard?: DailyCardContext;
+    }
   | {
       kind: 'followup';
       locale: Locale;
@@ -46,6 +54,7 @@ export type DivinerRequest =
       followUp: string;
       history: { role: 'user' | 'diviner'; content: string }[];
       spreadId?: SpreadId;
+      dailyCard?: DailyCardContext;
     };
 
 export interface TurnOptions {
@@ -174,6 +183,7 @@ function buildPrompt(request: DivinerRequest): string {
         locale: request.locale,
         cards: request.cards,
         spreadId: request.spreadId ?? 'current',
+        dailyCard: request.dailyCard,
       });
     case 'followup':
       return buildFollowUpPrompt({
@@ -184,6 +194,7 @@ function buildPrompt(request: DivinerRequest): string {
         followUp: request.followUp,
         history: request.history,
         spreadId: request.spreadId ?? 'current',
+        dailyCard: request.dailyCard,
       });
   }
 }

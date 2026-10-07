@@ -121,8 +121,9 @@ export const clearJournal = (): Promise<{ ok: boolean }> => api(`${base}/journal
 
 export const fetchDailyCard = (
   locale: Locale,
+  date: string = new Date().toISOString().slice(0, 10),
 ): Promise<{ date: string; cardId: string; reversed: boolean; reflection: string; keywords: string }> =>
-  api(`${base}/daily?locale=${encodeURIComponent(locale)}&date=${new Date().toISOString().slice(0, 10)}`);
+  api(`${base}/daily?locale=${encodeURIComponent(locale)}&date=${encodeURIComponent(date)}`);
 
 export const fetchShare = (token: string): Promise<{ share: ShareSnapshot }> =>
   api(`${base}/share/${encodeURIComponent(token)}`);

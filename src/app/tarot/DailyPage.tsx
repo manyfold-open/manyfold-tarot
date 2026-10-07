@@ -44,33 +44,41 @@ export default function DailyPage() {
     <div className="taro">
       <Sky />
       <TopBar locale={locale} onLocale={setLocale} links={[{ href: appUrl('/'), label: copy.navigation.back }, { href: appUrl('/journal'), label: copy.navigation.journal }]} />
+      {/* One card, read top to bottom in the order it matters: which day, which
+          card, what it means, what to ask yourself, what to do next. The page
+          names itself once, in a quiet line, so that the card's own name is the
+          largest thing on it — and the card is cut short enough on a phone for
+          that name to be on the first screen with it. */}
       <main className="taro-stage taro-daily-page">
-        <h1 className="taro-ask-title">{copy.daily.title}</h1>
-        <p className="taro-instruction">{copy.daily.intro}</p>
+        <h1 className="taro-daily-head">
+          {copy.daily.title}
+          {daily && (
+            <span> · {new Intl.DateTimeFormat(locale === 'zh' ? 'zh-Hans' : 'en-GB', { weekday: 'short', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${daily.date}T12:00:00Z`))}</span>
+          )}
+        </h1>
         {error && <p className="taro-error" role="alert">{error}</p>}
         {daily && entry && (
           <>
-            <p className="taro-daily-date">{new Intl.DateTimeFormat(locale === 'zh' ? 'zh-Hans' : 'en-GB', { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(`${daily.date}T12:00:00Z`))}</p>
             <div className="taro-daily-card">
-              <CardSlot slot="situation" locale={locale} card={card} positionTitle={copy.daily.title} />
-              <p className="taro-daily-keywords">{daily.keywords}</p>
+              <CardSlot slot="situation" locale={locale} card={card} positionTitle={null} />
             </div>
+            <p className="taro-daily-keywords">{daily.keywords}</p>
             <section className="taro-daily-reflection">
               <h2>{copy.result.reflection}</h2>
               <p>{daily.reflection}</p>
             </section>
-            <a className="taro-primary" href={appUrl(`/?spread=next-step&prompt=daily`)}>{copy.daily.openReading}</a>
+            <a className="taro-primary" href={appUrl(`/?spread=next-step&prompt=daily&daily=${daily.date}`)}>{copy.daily.openReading}</a>
           </>
         )}
         <section className="taro-reminder-settings">
-          <label>
-            <input type="checkbox" checked={reminder} onChange={(event) => {
+          <label className="taro-switch">
+            <span>{copy.daily.reminderLabel}</span>
+            <input type="checkbox" role="switch" checked={reminder} onChange={(event) => {
               const enabled = event.target.checked;
               setReminder(enabled);
               localStorage.setItem(DAILY_REMINDER_KEY, enabled ? 'on' : 'off');
               track('reminder_enabled', { kind: 'daily_card', enabled, locale });
             }} />
-            {reminder ? copy.daily.reminderOff : copy.daily.reminderOn}
           </label>
           <p>{copy.daily.reminderHint}</p>
         </section>
