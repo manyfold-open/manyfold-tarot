@@ -227,6 +227,31 @@ describe('after the picking is closed', () => {
     expect(revealed).toEqual([0, 1, 2]);
   });
 
+  it('keeps each card\'s line with its card, and the newest one in focus', async () => {
+    await pickThree();
+    await letThemTurn();
+
+    // One line per card, each placed under its own card on a desktop.
+    const lines = Array.from(document.querySelectorAll<HTMLElement>('.taro-hint'));
+    expect(lines.map((line) => line.style.getPropertyValue('--hint-col'))).toEqual(['1', '2', '3']);
+    expect(lines.map((line) => line.querySelector('.taro-hint-text')?.textContent)).toEqual([
+      '第 1 张的话。',
+      '第 2 张的话。',
+      '第 3 张的话。',
+    ]);
+
+    // The card that turned last holds the focus; on a phone it is the only line shown.
+    const focused = () => document.querySelector('.taro-hint.is-focus .taro-hint-text')?.textContent;
+    expect(focused()).toBe('第 3 张的话。');
+
+    // Tapping an earlier card gives it back the focus.
+    const picks = document.querySelectorAll<HTMLElement>('.taro-slot-pick');
+    fireEvent.click(picks[0]);
+    expect(focused()).toBe('第 1 张的话。');
+    expect(picks[0].getAttribute('aria-pressed')).toBe('true');
+    expect(picks[2].getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('offers the reading only once all three are up', async () => {
     await pickThree();
     await act(async () => {

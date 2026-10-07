@@ -28,10 +28,13 @@ html[data-app='taro'] body {
 
 .taro {
   --ink: #e4e7ed;
-  /* The quiet inks, lifted so that every one of them can carry words: ink-2 and
-     ink-3 clear 4.5:1 on black, ink-4 (3.5:1) is for markers and rules only. */
-  --ink-2: #9aa3b6;
-  --ink-3: #7d879b;
+  /* The quiet inks, lifted so that every one of them can carry words: ink-2 is
+     what the reader says and anything meant to be read through (12:1 on black),
+     ink-3 is labels and asides (8:1). They were a step darker, and a reading set
+     in them looked dimmed rather than quiet. ink-4 (3.5:1) is for markers and
+     rules only. */
+  --ink-2: #c8cfdb;
+  --ink-3: #a4adbd;
   --ink-4: #5c6579;
   /* Tinted rather than white, and carried at a higher alpha to pay for it: blue
      contributes almost nothing to luminance, so a tinted hairline at the old
@@ -45,8 +48,10 @@ html[data-app='taro'] body {
   --deep: #002c8b;
   --star: #9ab4ed;
 
+  /* One typeface for the whole site, controls included. A second family for
+     labels and buttons made every screen two voices, and on a page that is
+     mostly a reader speaking, the change of voice read as noise. */
   --serif: 'Noto Serif SC', 'Songti SC', Georgia, 'Times New Roman', serif;
-  --sans: ui-sans-serif, -apple-system, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
 
   /* The deck's own proportions and its one back, in one place: every card on the
      page is cut to this shape, face up or face down, thumbnail or full size. */
@@ -94,12 +99,11 @@ html[data-app='taro'] body {
   --fs-ui: 13px;
   --fs-meta: 12px;
   --fs-fine: 11px;
-  /* Two trackings for spaced-out sans. Spacing is what makes a small label read
-     as a label, but past about 0.15em a word comes apart into letters, and a
-     call to action that is all gaps wraps on a phone. Running text keeps its own
-     near-zero tracking. */
-  --track-label: 0.14em;
-  --track-cta: 0.12em;
+  /* Two trackings, both slight. A serif label is told apart by its size and
+     ink, not by gaps between its letters: spaced wide, a word in this face
+     comes apart, and a call to action that is all gaps wraps on a phone. */
+  --track-label: 0.04em;
+  --track-cta: 0.08em;
 
   position: relative;
   min-height: 100vh;
@@ -522,7 +526,7 @@ html[data-app='taro'] body {
   background: none;
   border: 0;
   padding: 2px 0;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   color: var(--ink-3);
@@ -592,7 +596,7 @@ html[data-app='taro'] body {
      exists only when both do — a margin that half the time collapses into
      padding is a footer with two heights. */
   gap: 14px;
-  font-family: var(--sans);
+  font-family: var(--serif);
   color: var(--ink-2);
 }
 
@@ -727,7 +731,7 @@ html[data-app='taro'] body {
   background: none;
   border: 0;
   padding: 11px 4px 13px;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   letter-spacing: var(--track-cta);
   /* letter-spacing hangs a gap off the last glyph; this puts the word back in
@@ -782,7 +786,7 @@ html[data-app='taro'] body {
   background: none;
   border: 0;
   padding: 2px 0;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   letter-spacing: var(--track-cta);
   color: var(--ink-3);
@@ -880,7 +884,7 @@ html[data-app='taro'] body {
   justify-content: center;
   gap: 16px;
   min-height: 15px;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   color: var(--ink-3);
@@ -939,7 +943,7 @@ html[data-app='taro'] body {
 
 .taro-asked-label {
   display: block;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   text-indent: var(--track-label);
@@ -1142,7 +1146,7 @@ html[data-app='taro'] body {
 }
 
 .taro-slot-title {
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   text-indent: var(--track-label);
@@ -1173,7 +1177,7 @@ html[data-app='taro'] body {
 /* Upright and reversed are a fact about the card, not a verdict on it: same
    ink, one of them quieter. */
 .taro-orient {
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   text-indent: var(--track-label);
@@ -1193,25 +1197,152 @@ html[data-app='taro'] body {
   width: 100%;
 }
 
+/* ── the spread, with what is said about it ──
+   The cards take the first row of `.taro-cards`, and the line about each card
+   the second. On a desktop the measure widens while the cards turn, so that each
+   line can stand under its own card at a width that reads as a paragraph rather
+   than a ribbon. On a phone the three lines share one place across the row and
+   only the focused card's is shown: the spread stays in view, and the screen is
+   never more than one passage long. */
+.taro-spread.is-revealing .taro-cards {
+  width: min(60em, 100%);
+  column-gap: 32px;
+  row-gap: 28px;
+}
+
+.taro-spread.is-revealing .taro-slot {
+  width: min(100%, 190px);
+  margin-inline: auto;
+}
+
+.taro-slot-pick {
+  min-width: 0;
+  border-radius: 6px;
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+
+.taro-slot-pick.is-up {
+  cursor: pointer;
+}
+
+.taro-slot-pick:focus-visible {
+  outline: 1px solid var(--star);
+  outline-offset: 6px;
+}
+
 .taro-hint {
-  margin: 0 auto;
-  max-width: 32em;
+  grid-column: var(--hint-col);
+  grid-row: 2;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 8px;
+  text-align: left;
   font-size: var(--fs-body);
-  line-height: 1.9;
+  line-height: 1.85;
   color: var(--ink-2);
 }
 
+.taro-hint-head {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .taro-hint-slot {
-  font-family: var(--sans);
   font-size: var(--fs-meta);
-  letter-spacing: var(--track-label);
-  text-indent: var(--track-label);
   color: var(--ink-3);
 }
+
+.taro-hint-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-lead);
+  color: var(--ink);
+}
+
+.taro-hint-card .taro-orient {
+  font-size: var(--fs-meta);
+  text-indent: 0;
+}
+
+.taro-hint-text {
+  margin: 0;
+}
+
+.taro-hint .taro-speaking {
+  margin: 0;
+  max-width: none;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+/* Only a phone hides the other lines, so only a phone says how to see them. */
+.taro-tap-card {
+  display: none;
+  margin: -6px 0 0;
+  font-size: var(--fs-meta);
+  color: var(--ink-3);
+}
+
+/* On a desktop the card's place and name are already in the caption under it. */
+@media (min-width: 761px) {
+  .taro-hint-head {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .taro-hint {
+    grid-column: 1 / -1;
+    display: none;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  .taro-hint.is-focus {
+    display: flex;
+  }
+
+  /* The name moves into the line below, beside what is said about it. */
+  .taro-spread.is-revealing .taro-card-label {
+    display: none;
+  }
+
+  .taro-spread.is-revealing .taro-slot-pick.is-up:not(.is-focus) {
+    opacity: 0.55;
+  }
+
+  .taro-spread.is-revealing .taro-slot-pick.is-focus {
+    transform: translateY(-6px);
+  }
+
+  .taro-tap-card {
+    display: block;
+  }
+
+  /* Under the finished reading the cards are an index, not the subject: small
+     enough that the one sentence the reading comes down to is on the first
+     screen with them, and each one a way into its own section. */
+  .taro-spread:not(.is-revealing) .taro-slot {
+    width: min(100%, 84px);
+    margin-inline: auto;
+    gap: 8px;
+  }
+
+  .taro-spread:not(.is-revealing) .taro-slot-title {
+    min-height: 0;
+  }
+
+  .taro-spread:not(.is-revealing) .taro-orient {
+    display: none;
+  }
+}
+
 
 /* ── 4b · the table: the deck shuffling, then swept open ──
    Every card in the deck, face down, and nothing else on the screen. First
@@ -1286,7 +1417,7 @@ html[data-app='taro'] body {
 }
 
 .taro-pick-count {
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   color: var(--star);
@@ -1789,7 +1920,7 @@ html[data-app='taro'] body {
 
 .taro-reading-title {
   margin: 0;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   font-weight: 400;
   letter-spacing: var(--track-label);
@@ -1821,7 +1952,7 @@ html[data-app='taro'] body {
    shared link with a screen reader should hear one heading level, not a gap. */
 .taro-section :is(h2, h3) {
   margin: 0 0 12px;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   font-weight: 400;
   letter-spacing: var(--track-label);
@@ -1833,7 +1964,7 @@ html[data-app='taro'] body {
 }
 
 .taro-section-card {
-  letter-spacing: 0.1em;
+  letter-spacing: var(--track-label);
   font-size: var(--fs-meta);
   color: var(--star);
   opacity: 0.85;
@@ -1986,7 +2117,7 @@ html[data-app='taro'] body {
 }
 
 .taro-follow label {
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   letter-spacing: var(--track-label);
   text-indent: var(--track-label);
@@ -2070,7 +2201,7 @@ html[data-app='taro'] body {
    host, /s/, and a 24-character token — at the 12px it is set in. */
 .taro-share-url {
   width: min(520px, 100%);
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: 0.04em;
   text-align: center;
@@ -2111,7 +2242,7 @@ html[data-app='taro'] body {
 
 .taro-shared-title {
   margin: 0;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   font-weight: 400;
   letter-spacing: var(--track-label);
@@ -2220,7 +2351,7 @@ html[data-app='taro'] body {
    sits under the claim rather than competing with it. */
 .taro-read-card .taro-read-keywords {
   margin: 0;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   line-height: 1.65;
   letter-spacing: 0.05em;
@@ -2271,7 +2402,7 @@ html[data-app='taro'] body {
 .taro-error {
   margin: 0 auto;
   max-width: 32em;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   line-height: 1.8;
   letter-spacing: 0.04em;
@@ -2463,7 +2594,7 @@ html[data-app='taro'] body {
 .taro-consent-line {
   flex: 1 1 300px;
   margin: 0;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   line-height: 1.7;
   color: var(--ink-2);
@@ -2481,7 +2612,7 @@ html[data-app='taro'] body {
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   background: none;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-ui);
   letter-spacing: var(--track-cta);
   color: var(--ink);
@@ -2505,7 +2636,7 @@ html[data-app='taro'] body {
    being sent through. */
 .taro-foot-link {
   margin-top: 10px;
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: var(--fs-meta);
   letter-spacing: var(--track-label);
   color: var(--ink-3);
@@ -2528,7 +2659,7 @@ html[data-app='taro'] body {
   margin: 0 auto;
   padding: 40px 0 24px;
   text-align: left;
-  font-family: var(--sans);
+  font-family: var(--serif);
   color: var(--ink-2);
 }
 

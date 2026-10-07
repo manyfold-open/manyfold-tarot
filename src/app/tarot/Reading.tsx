@@ -76,7 +76,7 @@ export default function Reading({ interpretation, cards, locale, spreadId = 'cur
       {/* 3 — one per card, in reveal order */}
       <div className="taro-reading-details">
         {interpretation.perCard.map((entry) => (
-          <details className="taro-section taro-detail" key={entry.slot} onToggle={(event) => {
+          <details className="taro-section taro-detail" id={`taro-detail-${entry.slot}`} key={entry.slot} onToggle={(event) => {
             if (event.currentTarget.open) track('result_detail_opened', { locale, section: `card_${entry.slot}` });
           }}>
             <summary>
