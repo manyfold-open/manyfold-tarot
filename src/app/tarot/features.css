@@ -53,14 +53,15 @@
 .taro-danger-link:disabled { opacity:.35; cursor:default; }
 .taro-daily-page { text-align:center; }
 /* The page's name and the day share one quiet line: the card is the headline. */
-.taro-daily-head { margin:0; color:var(--ink-2); font-family:var(--sans); font-size:var(--fs-ui); font-weight:400; letter-spacing:var(--track-label); }
+.taro-daily-head { margin:0; padding-top:28px; color:var(--ink-2); font-family:var(--sans); font-size:var(--fs-ui); font-weight:400; letter-spacing:var(--track-label); }
+@media (max-width:560px) { .taro-daily-head { padding-top:4px; } }
 /* Cut by the screen's height as well as its width, so that on a phone the card's
    name and meaning are on the first screen with the card instead of under it. */
 .taro-daily-card { width:min(240px,62vw,calc(42svh * 640 / 1109)); margin:0 auto; }
 .taro-daily-card .taro-cards { justify-content:center; }
 .taro-daily-card .taro-card-label { font-size:var(--fs-title); gap:6px; }
 .taro-daily-card .taro-orient { font-size:var(--fs-meta); }
-.taro-daily-keywords { margin:14px auto 0; max-width:30em; color:var(--ink-2); font-size:var(--fs-body); text-wrap:balance; }
+.taro-daily-keywords { margin:0 auto; max-width:30em; color:var(--ink-2); font-size:var(--fs-body); text-wrap:balance; }
 .taro-daily-reflection { max-width:500px; margin:8px auto; padding:20px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
 .taro-daily-reflection h2 { margin:0 0 8px; color:var(--ink-2); font-family:var(--sans); font-size:var(--fs-meta); font-weight:400; letter-spacing:var(--track-label); }
 .taro-daily-reflection p { margin:0; color:var(--ink); font-size:var(--fs-lead); text-wrap:balance; }
@@ -69,14 +70,15 @@
    whether it is on. A checkbox whose words flip to "turn off" once it is ticked
    reads as a contradiction. */
 .taro-switch { justify-content:space-between; }
-.taro-switch input { appearance:none; flex:none; position:relative; width:38px; height:22px; margin:0; border:1px solid var(--line-strong); border-radius:999px; background:transparent; cursor:pointer; transition:background 160ms ease,border-color 160ms ease; }
-.taro-switch input::before { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:var(--ink-2); transition:transform 160ms ease,background 160ms ease; }
-.taro-switch input:checked { background:rgb(154 180 237 / 22%); border-color:var(--star); }
-.taro-switch input:checked::before { transform:translateX(16px); background:var(--ink); }
-.taro-switch input:focus-visible { outline:2px solid var(--star); outline-offset:2px; }
+/* Written against the site's own checkbox (further down), which it has to outrank. */
+.taro .taro-switch input[type=checkbox] { display:block; position:relative; width:38px; height:22px; border:1px solid var(--line-strong); border-radius:999px; background:transparent; }
+.taro .taro-switch input[type=checkbox]::before { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; clip-path:none; background:var(--ink-2); transform:none; transition:transform 160ms ease,background 160ms ease; }
+.taro .taro-switch input[type=checkbox]:checked { background:rgb(154 180 237 / 22%); border-color:var(--star); }
+.taro .taro-switch input[type=checkbox]:checked::before { transform:translateX(16px); background:var(--ink); }
+.taro .taro-switch input[type=checkbox]:focus-visible { outline:2px solid var(--star); outline-offset:2px; }
 /* Today's card, brought along from the daily page, named over the question. */
-.taro-carry { width:min(var(--column),100%); box-sizing:border-box; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; gap:6px; color:var(--star); font-family:var(--sans); font-size:var(--fs-ui); }
-.taro-carry button { min-width:32px; min-height:32px; padding:0; border:0; background:none; color:var(--ink-2); font-size:var(--fs-body); line-height:1; cursor:pointer; }
+.taro-carry { width:fit-content; max-width:100%; box-sizing:border-box; margin:0 auto 12px; padding:2px 2px 2px 14px; display:flex; align-items:center; gap:2px; border:1px solid var(--line-strong); border-radius:999px; color:var(--star); font-family:var(--sans); font-size:var(--fs-ui); line-height:1.4; }
+.taro-carry button { flex:none; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:none; color:var(--ink-2); font-size:var(--fs-body); line-height:1; cursor:pointer; }
 .taro-carry button:hover { color:var(--ink); }
 @media (max-width:560px) {
   .taro-journal-entry-head { align-items:flex-start; }

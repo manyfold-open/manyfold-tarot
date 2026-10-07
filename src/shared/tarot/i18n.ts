@@ -292,7 +292,7 @@ const zh: Copy = {
     remaining: (n) => `还可以写 ${n} 字`,
     empty: '先写下你想问的事。',
     hintKeys: 'Enter 送出，Shift + Enter 换行',
-    carryDaily: (card) => `带着今日一牌：${card}`,
+    carryDaily: (card) => `今日一牌：${card}`,
     dropDaily: '不带今日一牌',
   },
 
@@ -551,7 +551,7 @@ const en: Copy = {
     remaining: (n) => `${n} characters left`,
     empty: 'Write down what you want to ask first.',
     hintKeys: 'Enter to send, Shift + Enter for a new line',
-    carryDaily: (card) => `Bringing today’s card: ${card}`,
+    carryDaily: (card) => `Today’s card: ${card}`,
     dropDaily: 'Leave today’s card out',
   },
 

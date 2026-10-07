@@ -103,7 +103,7 @@ describe('arriving from the daily card', () => {
     render(<TarotApp />);
 
     expect(box().value).toBe('What small thing deserves a little more of my attention today?');
-    expect(await screen.findByText('Bringing today’s card: King of Swords · Reversed')).toBeTruthy();
+    expect(await screen.findByText('Today’s card: King of Swords · Reversed')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await waitFor(() => expect(startReading).toHaveBeenCalledTimes(1));
@@ -118,7 +118,7 @@ describe('arriving from the daily card', () => {
     render(<TarotApp />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Leave today’s card out' }));
-    expect(screen.queryByText(/Bringing today’s card/)).toBeNull();
+    expect(screen.queryByText(/Today’s card:/)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await waitFor(() => expect(startReading).toHaveBeenCalledTimes(1));

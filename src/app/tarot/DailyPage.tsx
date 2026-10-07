@@ -61,8 +61,8 @@ export default function DailyPage() {
           <>
             <div className="taro-daily-card">
               <CardSlot slot="situation" locale={locale} card={card} positionTitle={null} />
-              <p className="taro-daily-keywords">{daily.keywords}</p>
             </div>
+            <p className="taro-daily-keywords">{daily.keywords}</p>
             <section className="taro-daily-reflection">
               <h2>{copy.result.reflection}</h2>
               <p>{daily.reflection}</p>
