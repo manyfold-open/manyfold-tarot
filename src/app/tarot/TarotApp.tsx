@@ -473,7 +473,7 @@ export default function TarotApp() {
         } else if (caught instanceof ApiError && caught.status === 404) {
           setError(copy.errors.lost);
         } else if (caught instanceof ApiError) {
-          setError(caught.message);
+          setError(errorText(caught, copy.errors.generic));
         } else {
           // A dropped connection says "Failed to fetch"; that is not for the visitor.
           setError(copy.errors.generic);
