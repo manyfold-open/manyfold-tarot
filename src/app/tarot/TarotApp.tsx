@@ -33,6 +33,7 @@ import {
   type SpreadId,
 } from '../../shared/tarot/types';
 import { allSpreads, isSpreadId, spreadFor } from '../../shared/tarot/spreads';
+import { acceptedDailyDay } from '../../shared/tarot/daily';
 import { track } from './analytics';
 import CardSlot from './Card';
 import Consent from './Consent';
@@ -604,11 +605,12 @@ export default function TarotApp() {
   };
 
   // From the daily page the address carries the day it showed. The card is
-  // looked up only to name it over the question; if the day has turned since, the
-  // Worker answers for a different date and nothing is carried.
+  // looked up only to name it over the question. A day the Worker would no longer
+  // take (more than a day old, by the same rule it uses) is not offered at all:
+  // naming a card the reader will never be told about would be a promise broken.
   useEffect(() => {
-    const date = launchQuery.get('daily');
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const date = acceptedDailyDay(launchQuery.get('daily'));
+    if (!date) return;
     let cancelled = false;
     void fetchDailyCard(locale, date)
       .then((daily) => {

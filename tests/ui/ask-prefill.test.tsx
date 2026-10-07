@@ -43,6 +43,8 @@ vi.mock('../../src/app/tarot/api', () => ({
 
 const { default: TarotApp } = await import('../../src/app/tarot/TarotApp');
 
+const today = new Date().toISOString().slice(0, 10);
+
 // Found by its class: its accessible name is the page title, which changes with the language.
 const box = () => document.querySelector('.taro-ask-input') as HTMLTextAreaElement;
 
@@ -99,7 +101,7 @@ describe('choosing a spread', () => {
 
 describe('arriving from the daily card', () => {
   it('names today’s card over the question and sends only its date', async () => {
-    history.replaceState(null, '', '/?spread=next-step&prompt=daily&daily=2026-10-07');
+    history.replaceState(null, '', `/?spread=next-step&prompt=daily&daily=${today}`);
     render(<TarotApp />);
 
     expect(box().value).toBe('What small thing deserves a little more of my attention today?');
@@ -108,13 +110,21 @@ describe('arriving from the daily card', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Begin' }));
     await waitFor(() => expect(startReading).toHaveBeenCalledTimes(1));
     const body = startReading.mock.calls[0][0];
-    expect(body.dailyDate).toBe('2026-10-07');
+    expect(body.dailyDate).toBe(today);
     expect(body.spreadId).toBe('next-step');
     expect(body).not.toHaveProperty('cardId');
   });
 
+  it('offers no card for a day the Worker would no longer take', async () => {
+    history.replaceState(null, '', '/?spread=next-step&prompt=daily&daily=2020-01-01');
+    render(<TarotApp />);
+    await waitFor(() => expect(box().value).not.toBe(''));
+    expect(fetchDailyCard).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Today’s card:/)).toBeNull();
+  });
+
   it('leaves the card out once the visitor sets it aside', async () => {
-    history.replaceState(null, '', '/?spread=next-step&prompt=daily&daily=2026-10-07');
+    history.replaceState(null, '', `/?spread=next-step&prompt=daily&daily=${today}`);
     render(<TarotApp />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Leave today’s card out' }));

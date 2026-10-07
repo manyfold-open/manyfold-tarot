@@ -107,7 +107,7 @@ html[data-app='taro'] body {
   display: flex;
   flex-direction: column;
   color: var(--ink);
-  font: 16px/1.85 var(--serif);
+  font: var(--fs-body)/1.85 var(--serif);
   text-align: center;
   /* Two lights on the black, and both are off-screen or nearly so — nothing on
      this page should look lit from a lamp inside it. The first sits behind the

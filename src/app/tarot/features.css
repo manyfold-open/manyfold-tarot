@@ -43,7 +43,8 @@
 .taro-journal-note-display { margin:12px 0; color:var(--ink-2); font-size:var(--fs-ui); }
 .taro-journal-note-display p { margin:5px 0 0; color:var(--ink-2); white-space:pre-wrap; }
 .taro-journal-review { margin:14px 0; display:flex; flex-direction:column; align-items:flex-start; gap:9px; }
-.taro-note-input { display:block; width:100%; min-height:96px; box-sizing:border-box; resize:none; padding:10px 12px; border:1px solid var(--line-strong); border-radius:6px; background:rgb(255 255 255 / 3%); color:var(--ink); font:400 15px/1.7 var(--serif); text-align:left; }
+.taro-note-input { display:block; width:100%; min-height:96px; box-sizing:border-box; resize:none; padding:10px 12px; border:1px solid var(--line-strong); border-radius:6px; background:rgb(255 255 255 / 3%); color:var(--ink); font:400 var(--fs-body)/1.7 var(--serif); text-align:left; }
+/* 16px is also the floor below which iOS Safari zooms the page into a field it focuses. */
 .taro-note-input::placeholder { color:var(--ink-3); }
 .taro-note-input:focus { outline:none; border-color:rgb(154 180 237 / 55%); }
 .taro-journal-entry-actions { justify-content:space-between; padding-top:4px; border-top:1px solid var(--line); }
@@ -54,7 +55,8 @@
 .taro-daily-page { text-align:center; }
 /* The page's name and the day share one quiet line: the card is the headline. */
 .taro-daily-head { margin:0; padding-top:28px; color:var(--ink-2); font-family:var(--sans); font-size:var(--fs-ui); font-weight:400; letter-spacing:var(--track-label); }
-@media (max-width:560px) { .taro-daily-head { padding-top:4px; } }
+@media (max-width:560px) { .taro-daily-head { padding-top:4px; letter-spacing:.04em; } }
+.taro-daily-head span { white-space:nowrap; }
 /* Cut by the screen's height as well as its width, so that on a phone the card's
    name and meaning are on the first screen with the card instead of under it. */
 .taro-daily-card { width:min(240px,62vw,calc(42svh * 640 / 1109)); margin:0 auto; }
