@@ -38,11 +38,17 @@ The template is designed to be extended and reshaped; these are the load-bearing
    - agent-supplied URLs go through `validateA2AUrl` before use (SSRF guard);
    - error strings pass through `safeErrorText` before leaving the worker;
    - A2A `messageId`s are derived from stored rows, not random, so retries cannot
-     double-bill (`src/worker/chat.ts`).
+     double-bill (`src/worker/chat.ts`). The one exception is a turn the agent refused: the
+     next ask carries an attempt suffix (`tarot_turn_attempts`), because the agent would only
+     replay its refusal for the old id;
+   - a turn that ends in a failure state (`failed`, `rejected`, `canceled`, `auth-required`)
+     is an error, never a reply: its status message is the platform's reason, for the logs
+     and the operator, and must not reach the visitor (`terminalFailure` in `src/worker/a2a.ts`).
    - connect more than one agent (ideally one that runs somewhere else) and a turn that fails
      moves on to the next (`src/worker/tarot/failover.ts`, `src/worker/agent-health.ts`); turns are
      shared out across the agents by their idempotency key, and a failed agent waits at the back
-     of the line for `AGENT_COOLDOWN_MS`. Keep these true: failover only chooses who speaks (the
+     of the line for `cooldownFor(streak)` — `AGENT_COOLDOWN_MS`, doubling with every failure in
+     a row, up to `AGENT_COOLDOWN_MAX_MS`. Keep these true: failover only chooses who speaks (the
      cards are already drawn, and nothing a reader says may change them); a turn is only handed on
      while nothing has reached the visitor; a reading's own agent goes first while it is healthy,
      and an agent's `contextId` / `taskId` go back only to the agent that issued them
