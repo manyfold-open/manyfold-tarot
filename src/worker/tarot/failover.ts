@@ -25,7 +25,7 @@
  */
 
 import type { ConnectedAgent } from '../../shared/types';
-import { reportAgentFailure, reportAgentSuccess } from '../alerts';
+import { reportAgentFailure, reportAgentSuccess, type FailedAgent } from '../alerts';
 import { markAgentDown, markAgentUp, orderAgents, readDownAgents } from '../agent-health';
 import { listConnectedAgents } from '../connect';
 import type { Env } from '../types';
@@ -100,6 +100,7 @@ export class FailoverDiviner implements Diviner {
     };
 
     let failure: unknown;
+    let failedAgent: FailedAgent | null = null;
     for (let index = 0; index < order.length; index += 1) {
       const reader = byId.get(order[index].agentId);
       if (!reader) continue;
@@ -111,16 +112,17 @@ export class FailoverDiviner implements Diviner {
         return result;
       } catch (error) {
         failure = error;
-        await markAgentDown(this.env, reader.agent.agentId);
+        const { agentId, name } = reader.agent;
+        failedAgent = { id: agentId, name, streak: await markAgentDown(this.env, agentId) };
         // Words already reached the visitor: this failure ends the turn.
         if (streamed || !hasNext) break;
         // A failure that is handed on is still a failure of that agent.
-        await reportAgentFailure(this.env, request.kind, error);
+        await reportAgentFailure(this.env, request.kind, error, Date.now(), failedAgent);
       }
     }
     // The failure that ends the turn is reported here, once, exactly as the
     // single reader always did.
-    await reportAgentFailure(this.env, request.kind, failure);
+    await reportAgentFailure(this.env, request.kind, failure, Date.now(), failedAgent);
     throw failure;
   }
 }

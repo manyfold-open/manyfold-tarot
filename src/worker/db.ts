@@ -276,6 +276,19 @@ CREATE TABLE IF NOT EXISTS agent_failures (
   reason TEXT NOT NULL
 );
 
+-- Failed turns per day (UTC), agent and kind, for the operator console:
+-- agent_failures keeps only the newest rows, and an agent that fails every turn
+-- fills those in minutes. Seen in production [2026-10-08 → 2026-10-16]: 4,600
+-- failures behind a list of 50. Rows older than 30 days are dropped on insert.
+CREATE TABLE IF NOT EXISTS agent_failure_days (
+  day        TEXT NOT NULL,
+  agent_id   TEXT NOT NULL,
+  agent_name TEXT NOT NULL,
+  kind       TEXT NOT NULL,
+  count      INTEGER NOT NULL,
+  PRIMARY KEY (day, agent_id, kind)
+);
+
 -- How many times a turn had to be asked again of one agent. A2A dedupes on the
 -- messageId, so a turn the agent once refused would be answered with that same
 -- refusal forever: asking again needs a messageId the agent has not seen

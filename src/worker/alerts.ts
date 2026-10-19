@@ -29,6 +29,9 @@ import { HttpError, type Env } from './types';
 export const ALERT_WINDOW_MS = 15 * 60_000;
 /** How many failure rows the console keeps. */
 export const FAILURES_KEPT = 50;
+/** How many days of per-agent failure counts the console shows, and how many it keeps. */
+export const FAILURE_DAYS_SHOWN = 7;
+const FAILURE_DAYS_KEPT = 30;
 const WEBHOOK_TIMEOUT_MS = 5_000;
 const STATE_KEY = 'alerts:agent';
 const WEBHOOK_KEY = 'alerts:discord';
@@ -135,9 +138,17 @@ async function readState(env: Env): Promise<AlertState> {
 
 const minutes = (ms: number) => Math.max(1, Math.round(ms / 60_000));
 const reasonOf = (error: unknown) => safeErrorText(error instanceof Error ? error.message : error);
+const utcDay = (at: number) => new Date(at).toISOString().slice(0, 10);
 
-async function recordFailure(env: Env, kind: string, reason: string, at: number): Promise<void> {
-  await env.DB.batch([
+/** The agent whose turn failed, and how many of its turns in a row have now failed. */
+export interface FailedAgent {
+  id: string;
+  name: string;
+  streak: number;
+}
+
+async function recordFailure(env: Env, kind: string, reason: string, at: number, agent: FailedAgent | null): Promise<void> {
+  const statements = [
     env.DB.prepare('INSERT INTO agent_failures (at, kind, reason) VALUES (?, ?, ?)').bind(
       new Date(at).toISOString(),
       kind,
@@ -146,7 +157,17 @@ async function recordFailure(env: Env, kind: string, reason: string, at: number)
     env.DB.prepare(
       'DELETE FROM agent_failures WHERE id NOT IN (SELECT id FROM agent_failures ORDER BY id DESC LIMIT ?)',
     ).bind(FAILURES_KEPT),
-  ]);
+  ];
+  if (agent) {
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO agent_failure_days (day, agent_id, agent_name, kind, count) VALUES (?, ?, ?, ?, 1)
+         ON CONFLICT (day, agent_id, kind) DO UPDATE SET count = count + 1, agent_name = excluded.agent_name`,
+      ).bind(utcDay(at), agent.id, agent.name, kind),
+      env.DB.prepare('DELETE FROM agent_failure_days WHERE day < ?').bind(utcDay(at - FAILURE_DAYS_KEPT * 86_400_000)),
+    );
+  }
+  await env.DB.batch(statements);
 }
 
 /**
@@ -158,11 +179,12 @@ export async function reportAgentFailure(
   kind: string,
   error: unknown,
   at: number = Date.now(),
+  agent: FailedAgent | null = null,
 ): Promise<void> {
   const reason = reasonOf(error);
-  console.error('tarot agent failed', kind, reason);
+  console.error('tarot agent failed', kind, agent?.id ?? '', reason);
   try {
-    await recordFailure(env, kind, reason, at);
+    await recordFailure(env, kind, reason, at, agent);
     const state = await readState(env);
 
     if (state.failing && at - state.lastSentAt < ALERT_WINDOW_MS) {
@@ -181,7 +203,10 @@ export async function reportAgentFailure(
       state.suppressed > 0
         ? `\n上一則通知之後又失敗了 ${state.suppressed} 次`
         : '';
-    await notify(env, `🔴 **Tarot agent 失敗**${ongoing}\n環節：\`${kind}\`\n原因：${reason}${extra}`);
+    // Name the agent and how long it has been failing: one that has failed every
+    // turn for an hour needs a different look from one that failed once.
+    const who = agent ? `\nAgent：${agent.name}（連續失敗 ${agent.streak} 次）` : '';
+    await notify(env, `🔴 **Tarot agent 失敗**${ongoing}\n環節：\`${kind}\`${who}\n原因：${reason}${extra}`);
   } catch (alertError) {
     console.error('alert bookkeeping failed', reasonOf(alertError));
   }
@@ -203,12 +228,18 @@ export async function reportAgentSuccess(env: Env, at: number = Date.now()): Pro
 /* ───────── the console's view ───────── */
 
 export async function alertsView(env: Env): Promise<AlertsView> {
-  const [webhookRaw, state, failures] = await Promise.all([
+  const [webhookRaw, state, failures, failureDays] = await Promise.all([
     getSetting(env, WEBHOOK_KEY),
     readState(env),
     env.DB.prepare('SELECT at, kind, reason FROM agent_failures ORDER BY id DESC LIMIT ?')
       .bind(FAILURES_KEPT)
       .all<{ at: string; kind: string; reason: string }>(),
+    env.DB.prepare(
+      `SELECT day, agent_id AS agentId, agent_name AS agent, kind, count FROM agent_failure_days
+       WHERE day >= ? ORDER BY day DESC, agent_name, kind`,
+    )
+      .bind(utcDay(Date.now() - (FAILURE_DAYS_SHOWN - 1) * 86_400_000))
+      .all<AlertsView['failureDays'][number]>(),
   ]);
   let savedAt: string | null = null;
   if (webhookRaw) {
@@ -224,5 +255,6 @@ export async function alertsView(env: Env): Promise<AlertsView> {
     failing: state.failing,
     failingSince: state.failing ? new Date(state.since).toISOString() : null,
     failures: failures.results ?? [],
+    failureDays: failureDays.results ?? [],
   };
 }

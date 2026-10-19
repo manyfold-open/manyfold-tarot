@@ -40,6 +40,7 @@ const alerts: AlertsView = {
   failing: false,
   failingSince: null,
   failures: [],
+  failureDays: [],
 };
 
 const at = async (url: string) => {

@@ -1,13 +1,18 @@
 /**
  * Which agents recently failed, kept in `settings` (no schema of its own).
  *
- * One key per agent, `agent:down:<agentId>`, holding when its last turn failed.
- * It is written when a turn fails and deleted when a turn succeeds, when the
- * agent is connected again and when it is disconnected. Two readers:
+ * One key per agent, `agent:down:<agentId>`, holding when its last turn failed and
+ * how many turns in a row it has failed (`{"at": ms, "streak": n}`). It is written
+ * when a turn fails and deleted when a turn succeeds, when the agent is connected
+ * again and when it is disconnected. Two readers:
  *
- *  · ordering: an agent that failed in the last AGENT_COOLDOWN_MS goes to the back
- *    of the line, so visitors stop queueing behind a dead runner. It is still tried
- *    last, which is how a single agent keeps working and how a recovery is noticed;
+ *  · ordering: an agent in its cooldown goes to the back of the line, so visitors
+ *    stop queueing behind a dead runner. It is still tried last, which is how a
+ *    single agent keeps working and how a recovery is noticed. The cooldown doubles
+ *    with every failure in a row (cooldownFor): an agent that is merely flaky is
+ *    back in a few minutes, one that is dead stops taking a share of the readings.
+ *    Seen in production [2026-10-08 → 2026-10-16]: a sandbox that failed every turn
+ *    for eight days came back into rotation every five minutes;
  *  · alerts: "recovered" is only announced once no connected agent is marked down,
  *    otherwise the healthy one succeeding would announce a recovery of the broken one.
  *
@@ -18,8 +23,21 @@ import type { ConnectedAgent } from '../shared/types';
 import { safeErrorText } from './a2a';
 import type { Env } from './types';
 
-/** How long a failed agent is kept at the back of the line. */
+/** How long an agent that failed once is kept at the back of the line. */
 export const AGENT_COOLDOWN_MS = 5 * 60_000;
+/** The longest cooldown, however many turns in a row the agent has failed. */
+export const AGENT_COOLDOWN_MAX_MS = 60 * 60_000;
+
+/** An agent whose last turn failed: when, and how many turns in a row. */
+export interface AgentDown {
+  at: number;
+  streak: number;
+}
+
+/** 5, 10, 20, 40, then 60 minutes. */
+export function cooldownFor(streak: number): number {
+  return Math.min(AGENT_COOLDOWN_MS * 2 ** Math.max(0, streak - 1), AGENT_COOLDOWN_MAX_MS);
+}
 
 const PREFIX = 'agent:down:';
 
@@ -31,16 +49,16 @@ async function quietly(label: string, work: () => Promise<void>): Promise<void> 
   }
 }
 
-/** agentId → when its last turn failed (ms since epoch), for every agent still marked down. */
-export async function readDownAgents(env: Env): Promise<Map<string, number>> {
-  const down = new Map<string, number>();
+/** agentId → its last failure, for every agent still marked down. */
+export async function readDownAgents(env: Env): Promise<Map<string, AgentDown>> {
+  const down = new Map<string, AgentDown>();
   try {
     const { results } = await env.DB.prepare('SELECT key, value FROM settings WHERE key LIKE ?')
       .bind(`${PREFIX}%`)
       .all<{ key: string; value: string }>();
     for (const row of results ?? []) {
-      const at = Number(row.value);
-      if (Number.isFinite(at)) down.set(row.key.slice(PREFIX.length), at);
+      const mark = parseMark(row.value);
+      if (mark) down.set(row.key.slice(PREFIX.length), mark);
     }
   } catch (error) {
     console.error('agent health read failed', safeErrorText(error instanceof Error ? error.message : error));
@@ -48,15 +66,32 @@ export async function readDownAgents(env: Env): Promise<Map<string, number>> {
   return down;
 }
 
-export function markAgentDown(env: Env, agentId: string, at: number = Date.now()): Promise<void> {
-  return quietly('agent health write failed', async () => {
-    await env.DB.prepare(
-      `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+function parseMark(value: string): AgentDown | null {
+  try {
+    const mark = JSON.parse(value) as Partial<AgentDown>;
+    if (Number.isFinite(mark.at) && Number.isInteger(mark.streak) && mark.streak! > 0) return mark as AgentDown;
+  } catch {
+    /* not a mark */
+  }
+  return null;
+}
+
+/** Marks one more failed turn; returns how many turns in a row the agent has now failed (0 if the write failed). */
+export async function markAgentDown(env: Env, agentId: string, at: number = Date.now()): Promise<number> {
+  let streak = 0;
+  await quietly('agent health write failed', async () => {
+    const row = await env.DB.prepare(
+      `INSERT INTO settings (key, value, updated_at) VALUES (?, json_object('at', ?, 'streak', 1), ?)
+       ON CONFLICT (key) DO UPDATE SET
+         value = json_object('at', ?, 'streak', coalesce(json_extract(settings.value, '$.streak'), 0) + 1),
+         updated_at = excluded.updated_at
+       RETURNING json_extract(value, '$.streak') AS streak`,
     )
-      .bind(`${PREFIX}${agentId}`, String(at), new Date(at).toISOString())
-      .run();
+      .bind(`${PREFIX}${agentId}`, at, new Date(at).toISOString(), at)
+      .first<{ streak: number }>();
+    streak = Number(row?.streak ?? 0);
   });
+  return streak;
 }
 
 export function markAgentUp(env: Env, agentId: string): Promise<void> {
@@ -83,18 +118,19 @@ function spread(seed: string): number {
  *     all landing on the first one;
  *  2. `preferred` (the agent that already holds this reading's context) jumps to the
  *     front if it is healthy;
- *  3. agents in cooldown come last, the one that failed longest ago first.
+ *  3. agents in cooldown (cooldownFor their streak) come last, the one that failed
+ *     longest ago first.
  */
 export function orderAgents(
   agents: ConnectedAgent[],
-  down: Map<string, number>,
+  down: Map<string, AgentDown>,
   seed: string,
   nowMs: number,
   preferred: string | null = null,
 ): ConnectedAgent[] {
   const cooling = (agent: ConnectedAgent): boolean => {
-    const at = down.get(agent.agentId);
-    return at !== undefined && nowMs - at < AGENT_COOLDOWN_MS;
+    const mark = down.get(agent.agentId);
+    return mark !== undefined && nowMs - mark.at < cooldownFor(mark.streak);
   };
   const byId = (a: ConnectedAgent, b: ConnectedAgent) => (a.agentId < b.agentId ? -1 : a.agentId > b.agentId ? 1 : 0);
   const rotate = (list: ConnectedAgent[]): ConnectedAgent[] => {
@@ -113,6 +149,6 @@ export function orderAgents(
 
   const resting = agents
     .filter(cooling)
-    .sort((a, b) => (down.get(a.agentId) ?? 0) - (down.get(b.agentId) ?? 0) || byId(a, b));
+    .sort((a, b) => (down.get(a.agentId)?.at ?? 0) - (down.get(b.agentId)?.at ?? 0) || byId(a, b));
   return [...ordered, ...resting];
 }

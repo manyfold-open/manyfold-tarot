@@ -47,7 +47,7 @@ beforeEach(async () => {
     ADMIN_PASSWORD: 'pw',
   } as Env;
   await ensureSchema(env.DB);
-  for (const table of ['agent_failures', 'agents']) d1.query(`DELETE FROM ${table}`);
+  for (const table of ['agent_failures', 'agent_failure_days', 'agents']) d1.query(`DELETE FROM ${table}`);
   d1.query("DELETE FROM settings WHERE key LIKE 'alerts:%'");
   posts = [];
   discordStatus = 204;
@@ -142,9 +142,51 @@ describe('failure alerts', () => {
     expect(view.failing).toBe(true);
   });
 
+  it('names the agent and how many of its turns in a row have failed', async () => {
+    await reportAgentFailure(env, 'hint', new Error('x'), T0, { id: 'a1', name: 'tarot-master-2', streak: 7 });
+    expect(posts[0].content).toContain('tarot-master-2（連續失敗 7 次）');
+  });
+
   it('never throws, even when Discord refuses', async () => {
     discordStatus = 404;
     await expect(reportAgentFailure(env, 'greeting', new Error('x'), T0)).resolves.toBeUndefined();
+  });
+});
+
+describe('failure counts per day and agent', () => {
+  const A = { id: 'a1', name: 'tarot-master', streak: 1 };
+  const B = { id: 'a2', name: 'tarot-master-2', streak: 1 };
+
+  it('count every failed turn, past the rows the list keeps', async () => {
+    const now = Date.now();
+    for (let i = 0; i < FAILURES_KEPT + 10; i++) await reportAgentFailure(env, 'hint', new Error(`e${i}`), now, B);
+    for (let i = 0; i < 3; i++) await reportAgentFailure(env, 'greeting', new Error('g'), now, B);
+    await reportAgentFailure(env, 'hint', new Error('h'), now, A);
+
+    const view = await alertsView(env);
+    expect(view.failures).toHaveLength(FAILURES_KEPT);
+    const day = new Date(now).toISOString().slice(0, 10);
+    expect(view.failureDays).toEqual([
+      { day, agentId: 'a1', agent: 'tarot-master', kind: 'hint', count: 1 },
+      { day, agentId: 'a2', agent: 'tarot-master-2', kind: 'greeting', count: 3 },
+      { day, agentId: 'a2', agent: 'tarot-master-2', kind: 'hint', count: FAILURES_KEPT + 10 },
+    ]);
+  });
+
+  it('show the last seven days and keep thirty', async () => {
+    const now = Date.now();
+    await reportAgentFailure(env, 'hint', new Error('old'), now - 40 * 86_400_000, A);
+    await reportAgentFailure(env, 'hint', new Error('last week'), now - 10 * 86_400_000, A);
+    await reportAgentFailure(env, 'hint', new Error('today'), now, A);
+
+    expect((await alertsView(env)).failureDays.map((row) => row.count)).toEqual([1]);
+    const kept = d1.query('SELECT day FROM agent_failure_days ORDER BY day') as { day: string }[];
+    expect(kept).toHaveLength(2);
+  });
+
+  it('are not kept for a failure no agent is named for', async () => {
+    await reportAgentFailure(env, 'greeting', new Error('x'), Date.now());
+    expect((await alertsView(env)).failureDays).toEqual([]);
   });
 });
 
@@ -184,7 +226,9 @@ describe('the live reader reports its own turns', () => {
     const view = await alertsView(env);
     expect(view.failures).toHaveLength(1);
     expect(view.failures[0].kind).toBe('greeting');
+    expect(view.failureDays).toMatchObject([{ agentId: 'a1', agent: 'Reader', kind: 'greeting', count: 1 }]);
     expect(posts).toHaveLength(1);
+    expect(posts[0].content).toContain('Reader（連續失敗 1 次）');
     // The visitor's question stays out of both.
     expect(posts[0].content).not.toContain('Will it rain');
     expect(JSON.stringify(view)).not.toContain('Will it rain');
