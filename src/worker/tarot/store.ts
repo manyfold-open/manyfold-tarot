@@ -283,6 +283,21 @@ export async function rememberContext(
 
 /* ───────── follow-ups ───────── */
 
+/**
+ * The next attempt number for one turn on one agent, starting at 1. The first
+ * ask is attempt 0 and never written: only a turn the agent refused gets a row.
+ */
+export async function nextTurnAttempt(env: Env, agentId: string, turnKey: string): Promise<number> {
+  const row = await env.DB.prepare(
+    `INSERT INTO tarot_turn_attempts (agent_id, turn_key, attempt, updated_at) VALUES (?, ?, 1, ?)
+     ON CONFLICT (agent_id, turn_key) DO UPDATE SET attempt = attempt + 1, updated_at = excluded.updated_at
+     RETURNING attempt`,
+  )
+    .bind(agentId, turnKey, now())
+    .first<{ attempt: number }>();
+  return row?.attempt ?? 1;
+}
+
 export async function addFollowUp(
   env: Env,
   readingId: string,

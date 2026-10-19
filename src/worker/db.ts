@@ -275,6 +275,18 @@ CREATE TABLE IF NOT EXISTS agent_failures (
   kind   TEXT NOT NULL,
   reason TEXT NOT NULL
 );
+
+-- How many times a turn had to be asked again of one agent. A2A dedupes on the
+-- messageId, so a turn the agent once refused would be answered with that same
+-- refusal forever: asking again needs a messageId the agent has not seen
+-- (src/worker/tarot/diviner.ts). Only ids, never what was asked.
+CREATE TABLE IF NOT EXISTS tarot_turn_attempts (
+  agent_id   TEXT NOT NULL,
+  turn_key   TEXT NOT NULL,
+  attempt    INTEGER NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (agent_id, turn_key)
+);
 `;
 
 /**
