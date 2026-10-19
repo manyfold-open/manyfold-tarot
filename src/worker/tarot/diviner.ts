@@ -235,16 +235,26 @@ class AgentDiviner implements AgentReader {
   }
 
   /**
-   * One turn, asked again once when the refusal was not about this turn at all:
-   * a refusal the agent replays for a messageId it already failed. A2A dedupes
-   * on the messageId, so asking again means asking under a new one.
+   * One turn, asked again once when the refusal was not about this turn at all.
+   * A2A dedupes on the messageId, so asking again means asking under a new one.
+   *
+   *  - replayed: the agent answered with a refusal it gave this messageId before;
+   *  - busy: the conversation still has another turn running — one this site gave
+   *    up waiting for, still holding the agent's session. Every prompt carries the
+   *    whole reading, so a fresh conversation loses nothing.
+   *    Seen in production [2026-10-16]: a turn lost by the platform held a
+   *    reading's session for 30 minutes, and the next hint was refused at once.
    */
   async run(request: DivinerRequest, options: TurnOptions, capped: boolean): Promise<TurnResult> {
     try {
       return await this.continueOrStartOver(request, options, capped, 0);
     } catch (error) {
-      if (!(error instanceof AgentRefusal) || !error.replayed) throw error;
+      if (!(error instanceof AgentRefusal) || !(error.replayed || error.busy)) throw error;
       const attempt = await nextTurnAttempt(this.env, this.agentId, options.idempotencyKey);
+      if (error.busy) {
+        console.warn('tarot reader conversation is busy; starting a fresh one', request.kind, attempt);
+        return this.turn(request, { ...options, contextId: null, taskId: null }, capped, attempt);
+      }
       console.warn('tarot reader replayed an old refusal; asking again', request.kind, attempt);
       return this.continueOrStartOver(request, options, capped, attempt);
     }
@@ -391,15 +401,23 @@ class AgentDiviner implements AgentReader {
  * `replayed` is a refusal the agent did not just make: the task was never seen
  * running, which is what an A2A server answers when a messageId it already
  * failed is sent again — the stored task, terminal from its first event.
+ *
+ * `busy` is a refusal of the conversation rather than of the turn: Manyfold's
+ * words for a session that already has a turn running, is held open in a
+ * terminal, or is still importing what one wrote.
  */
 export class AgentRefusal extends A2AError {
   readonly replayed: boolean;
+  readonly busy: boolean;
 
   constructor(message: string, failure: A2AError, replayed: boolean) {
     super(message, failure.retryable, failure.refreshCredential);
     this.replayed = replayed;
+    this.busy = BUSY_CONVERSATION.test(failure.message);
   }
 }
+
+const BUSY_CONVERSATION = /session has an active assistant turn|session is open in a terminal|still importing what its terminal wrote/i;
 
 /**
  * A refusal that came without its reason may still have it on the task: an A2A

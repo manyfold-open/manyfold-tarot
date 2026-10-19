@@ -172,11 +172,11 @@ describe('an agent that fails the turn', () => {
 
   it('reads the reason back from the task when the stream ended without one', async () => {
     await connect('agent-a', 'a.test');
-    agentsAnswer({ 'a.test': [failedBare, storedTask('failed', 'session has an active assistant turn')] });
+    agentsAnswer({ 'a.test': [failedBare, storedTask('failed', 'server is restarting; retry the turn')] });
     const diviner = await resolveDiviner(env);
 
     await expect(diviner.speak(GREETING, turn())).rejects.toThrow(
-      /ended the turn failed: session has an active assistant turn.*tasks\/get:reason/,
+      /ended the turn failed: server is restarting; retry the turn.*tasks\/get:reason/,
     );
     expect(calls.map((call) => call.method)).toEqual(['message/stream', 'tasks/get']);
   });
@@ -228,5 +228,43 @@ describe('an agent that replays a refusal it already gave', () => {
       'taro-r1-greeting',
       'taro-r1-greeting-2',
     ]);
+  });
+});
+
+describe('a conversation still busy with another turn', () => {
+  const BUSY = 'session has an active assistant turn';
+  const HINT: DivinerRequest = {
+    kind: 'hint',
+    locale: 'en',
+    question: 'Will it rain?',
+    card: { slot: 'situation', cardId: 'major-00', reversed: false },
+    index: 1,
+    spreadId: 'current',
+  } as DivinerRequest;
+  const continuing = () => turn({ idempotencyKey: 'r1-hint-1', contextId: 'c-old', threadAgentId: 'agent-a' });
+
+  it('moves the turn to a fresh conversation under a new messageId', async () => {
+    await connect('agent-a', 'a.test');
+    agentsAnswer({ 'a.test': [failedBare, storedTask('failed', BUSY), answers('A door opens.')] });
+    const diviner = await resolveDiviner(env);
+
+    const result = await diviner.speak(HINT, continuing());
+
+    expect(result.text).toBe('A door opens.');
+    const sends = calls.filter((call) => call.method === 'message/stream');
+    expect(sends.map((call) => [call.messageId, call.contextId])).toEqual([
+      ['taro-r1-hint-1', 'c-old'],
+      ['taro-r1-hint-1-1', undefined],
+    ]);
+    expect((await readDownAgents(env)).size).toBe(0);
+  });
+
+  it('is asked afresh only once', async () => {
+    await connect('agent-a', 'a.test');
+    agentsAnswer({ 'a.test': [failedWith(BUSY)] });
+    const diviner = await resolveDiviner(env);
+
+    await expect(diviner.speak(HINT, continuing())).rejects.toThrow(/active assistant turn/);
+    expect(calls.filter((call) => call.method === 'message/stream')).toHaveLength(2);
   });
 });
