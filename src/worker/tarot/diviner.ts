@@ -17,13 +17,23 @@
 
 import type { Locale } from '../../shared/tarot/deck';
 import type { DailyCardContext, SpreadId } from '../../shared/tarot/types';
-import { A2AError, consumeA2AStream, fetchA2ATask, safeErrorText, TASK_NOT_FOUND, type StreamSnapshot } from '../a2a';
+import {
+  A2AError,
+  consumeA2AStream,
+  fetchA2ATask,
+  safeErrorText,
+  TASK_NOT_FOUND,
+  TERMINAL_STATES,
+  terminalFailure,
+  type StreamSnapshot,
+} from '../a2a';
 import type { ConnectedAgent } from '../../shared/types';
 import { credentialFor, listConnectedAgents } from '../connect';
 import type { AgentCredential, Env } from '../types';
 import { demoFollowUp, demoGreeting, demoHint, demoReading } from './demo';
 import type { DrawnCard } from './draw';
 import { FailoverDiviner, HANDOFF_LIMITS, type AgentReader } from './failover';
+import { nextTurnAttempt } from './store';
 import {
   buildFollowUpPrompt,
   buildGreetingPrompt,
@@ -132,9 +142,12 @@ class TurnTrace {
   private state = '';
   private spoke = false;
   taskId: string | null = null;
+  /** True once the task was seen running: a refusal without it is one the agent already gave. */
+  progressed = false;
 
   observe(snap: { taskId: string | null; state: string; text: string }): void {
     this.taskId = snap.taskId ?? this.taskId;
+    if (snap.state && !TERMINAL_STATES.has(snap.state)) this.progressed = true;
     if (snap.state && snap.state !== this.state) {
       this.state = snap.state;
       this.push(snap.state);
@@ -221,8 +234,30 @@ class AgentDiviner implements AgentReader {
     return this.agent.agentId;
   }
 
-  run(request: DivinerRequest, options: TurnOptions, capped: boolean): Promise<TurnResult> {
-    return this.continueOrStartOver(request, options, capped);
+  /**
+   * One turn, asked again once when the refusal was not about this turn at all.
+   * A2A dedupes on the messageId, so asking again means asking under a new one.
+   *
+   *  - replayed: the agent answered with a refusal it gave this messageId before;
+   *  - busy: the conversation still has another turn running — one this site gave
+   *    up waiting for, still holding the agent's session. Every prompt carries the
+   *    whole reading, so a fresh conversation loses nothing.
+   *    Seen in production [2026-10-16]: a turn lost by the platform held a
+   *    reading's session for 30 minutes, and the next hint was refused at once.
+   */
+  async run(request: DivinerRequest, options: TurnOptions, capped: boolean): Promise<TurnResult> {
+    try {
+      return await this.continueOrStartOver(request, options, capped, 0);
+    } catch (error) {
+      if (!(error instanceof AgentRefusal) || !(error.replayed || error.busy)) throw error;
+      const attempt = await nextTurnAttempt(this.env, this.agentId, options.idempotencyKey);
+      if (error.busy) {
+        console.warn('tarot reader conversation is busy; starting a fresh one', request.kind, attempt);
+        return this.turn(request, { ...options, contextId: null, taskId: null }, capped, attempt);
+      }
+      console.warn('tarot reader replayed an old refusal; asking again', request.kind, attempt);
+      return this.continueOrStartOver(request, options, capped, attempt);
+    }
   }
 
   /**
@@ -240,20 +275,26 @@ class AgentDiviner implements AgentReader {
     request: DivinerRequest,
     options: TurnOptions,
     capped: boolean,
+    attempt: number,
   ): Promise<TurnResult> {
     const fresh = { ...options, contextId: null, taskId: null };
-    if (options.threadAgentId !== this.agentId) return this.turn(request, fresh, capped);
-    if (!options.contextId && !options.taskId) return this.turn(request, options, capped);
+    if (options.threadAgentId !== this.agentId) return this.turn(request, fresh, capped, attempt);
+    if (!options.contextId && !options.taskId) return this.turn(request, options, capped, attempt);
     try {
-      return await this.turn(request, options, capped);
+      return await this.turn(request, options, capped, attempt);
     } catch (error) {
       if (!(error instanceof A2AError) || error.rpcCode !== TASK_NOT_FOUND) throw error;
       console.warn('tarot reader lost the conversation; starting a fresh one', request.kind);
-      return this.turn(request, fresh, capped);
+      return this.turn(request, fresh, capped, attempt);
     }
   }
 
-  private async turn(request: DivinerRequest, options: TurnOptions, capped: boolean): Promise<TurnResult> {
+  private async turn(
+    request: DivinerRequest,
+    options: TurnOptions,
+    capped: boolean,
+    attempt: number,
+  ): Promise<TurnResult> {
     // Resolved per turn rather than cached: an expired or rotated authorization
     // must fail here, with a real message, instead of being used stale.
     const cred = await credentialFor(this.env, this.agentId);
@@ -277,7 +318,7 @@ class AgentDiviner implements AgentReader {
           message: {
             kind: 'message',
             role: 'user',
-            messageId: `taro-${options.idempotencyKey}`,
+            messageId: `taro-${options.idempotencyKey}${attempt ? `-${attempt}` : ''}`,
             ...(options.contextId ? { contextId: options.contextId } : {}),
             ...(options.taskId ? { taskId: options.taskId } : {}),
             parts: [{ kind: 'text', text: buildPrompt(request) }],
@@ -327,6 +368,9 @@ class AgentDiviner implements AgentReader {
         );
       });
 
+      const failure = terminalFailure(await recoverReason(cred, snapshot, trace), cred.label);
+      if (failure) throw new AgentRefusal(`${failure.message} ${trace}`, failure, !trace.progressed);
+
       const final = await recoverReply(cred, snapshot, trace);
       const raw = final.text;
       const text = cleanAgentText(raw) || cleanAgentTextGently(raw);
@@ -347,6 +391,53 @@ class AgentDiviner implements AgentReader {
       clearTimeout(ceiling);
       clearTimeout(watchdog);
     }
+  }
+}
+
+/**
+ * The agent ended the turn in a failure state (`a2a.ts` FAILURE_STATES). Its
+ * reason is in the message, for the operator; the visitor never sees it.
+ *
+ * `replayed` is a refusal the agent did not just make: the task was never seen
+ * running, which is what an A2A server answers when a messageId it already
+ * failed is sent again — the stored task, terminal from its first event.
+ *
+ * `busy` is a refusal of the conversation rather than of the turn: Manyfold's
+ * words for a session that already has a turn running, is held open in a
+ * terminal, or is still importing what one wrote.
+ */
+export class AgentRefusal extends A2AError {
+  readonly replayed: boolean;
+  readonly busy: boolean;
+
+  constructor(message: string, failure: A2AError, replayed: boolean) {
+    super(message, failure.retryable, failure.refreshCredential);
+    this.replayed = replayed;
+    this.busy = BUSY_CONVERSATION.test(failure.message);
+  }
+}
+
+const BUSY_CONVERSATION = /session has an active assistant turn|session is open in a terminal|still importing what its terminal wrote/i;
+
+/**
+ * A refusal that came without its reason may still have it on the task: an A2A
+ * server can end the stream with a bare `failed` and put the why only on the
+ * stored task. Reading a task runs no turn.
+ */
+async function recoverReason(
+  cred: AgentCredential,
+  snapshot: StreamSnapshot,
+  trace: TurnTrace,
+): Promise<StreamSnapshot> {
+  if (!terminalFailure(snapshot, cred.label) || snapshot.progressText.trim() || !snapshot.taskId) return snapshot;
+  try {
+    const task = await fetchA2ATask(cred, snapshot.taskId);
+    trace.note('tasks/get:reason');
+    return { ...snapshot, progressText: task.progressText };
+  } catch (error) {
+    trace.note('tasks/get:failed');
+    console.warn('tarot reader refusal read-back failed', safeErrorText(error instanceof Error ? error.message : error));
+    return snapshot;
   }
 }
 

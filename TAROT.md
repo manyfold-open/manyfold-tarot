@@ -96,7 +96,9 @@ POST /api/tarot/readings/:id/follow-ups      →  diviner.speak({kind: 'followup
 
 **Connecting one:** open `/settings`, give the admin password, connect an agent as usual. Every connected agent can be
 the reader: turns are shared out across them, and a turn whose agent fails goes to the next one, so a visitor only meets
-the reader's error once all of them have failed (an agent that failed waits at the back of the line for five minutes).
+the reader's error once all of them have failed (an agent that failed waits at the back of the line: five minutes after
+one failure, doubling with every failure in a row, up to an hour). A turn the agent ends `failed` is a failure like any
+other — what the agent platform says about it goes to `/settings` and the Discord alert, never to the visitor.
 To prefer one, pin it with `TAROT_AGENT_ID`: it is tried first while it is healthy.
 Set `TAROT_DEMO=1` to force the demo reader even when an agent is connected.
 

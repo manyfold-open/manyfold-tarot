@@ -87,4 +87,6 @@ export interface AlertsView {
   failing: boolean;
   failingSince: string | null;
   failures: { at: string; kind: string; reason: string }[];
+  /** Failed turns per UTC day, agent and kind, newest day first, for the last FAILURE_DAYS_SHOWN days. */
+  failureDays: { day: string; agentId: string; agent: string; kind: string; count: number }[];
 }

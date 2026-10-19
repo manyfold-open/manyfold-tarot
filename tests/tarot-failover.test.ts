@@ -8,7 +8,15 @@
  */
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { markAgentUp, orderAgents, readDownAgents, AGENT_COOLDOWN_MS } from '../src/worker/agent-health';
+import {
+  AGENT_COOLDOWN_MAX_MS,
+  AGENT_COOLDOWN_MS,
+  cooldownFor,
+  markAgentDown,
+  markAgentUp,
+  orderAgents,
+  readDownAgents,
+} from '../src/worker/agent-health';
 import { alertsView } from '../src/worker/alerts';
 import { disconnectAgent } from '../src/worker/connect';
 import { seal } from '../src/worker/crypto';
@@ -307,8 +315,8 @@ describe('recovery is announced only when nothing is still down', () => {
     await diviner.speak(HINT, turn());
     expect((await alertsView(env)).failing).toBe(true);
     // The cooldown passes and the operator's runner is back.
-    await env.DB.prepare("UPDATE settings SET value = ? WHERE key = 'agent:down:agent-a'")
-      .bind(String(Date.now() - AGENT_COOLDOWN_MS - 1))
+    await env.DB.prepare("UPDATE settings SET value = json_object('at', ?, 'streak', 1) WHERE key = 'agent:down:agent-a'")
+      .bind(Date.now() - AGENT_COOLDOWN_MS - 1)
       .run();
     const later = await readerPinnedTo('agent-a');
     await later.diviner.speak(HINT, turn({ idempotencyKey: 'r3-hint-0' }));
@@ -333,6 +341,22 @@ describe('connecting and disconnecting', () => {
   });
 });
 
+describe('an agent that keeps failing', () => {
+  it('counts its failures in a row, and a success starts the count over', async () => {
+    expect(await markAgentDown(env, 'agent-a', 1_000)).toBe(1);
+    expect(await markAgentDown(env, 'agent-a', 2_000)).toBe(2);
+    expect(await markAgentDown(env, 'agent-a', 3_000)).toBe(3);
+    expect((await readDownAgents(env)).get('agent-a')).toEqual({ at: 3_000, streak: 3 });
+    await markAgentUp(env, 'agent-a');
+    expect(await markAgentDown(env, 'agent-a', 4_000)).toBe(1);
+  });
+
+  it('rests longer with every failure in a row, up to an hour', () => {
+    expect([1, 2, 3, 4, 5, 9].map((streak) => cooldownFor(streak) / 60_000)).toEqual([5, 10, 20, 40, 60, 60]);
+    expect(cooldownFor(50)).toBe(AGENT_COOLDOWN_MAX_MS);
+  });
+});
+
 describe('orderAgents', () => {
   const agent = (agentId: string, verified = true) => ({ agentId, verified }) as ConnectedAgent;
   const ids = (list: ConnectedAgent[]) => list.map((entry) => entry.agentId);
@@ -347,10 +371,20 @@ describe('orderAgents', () => {
 
   it('puts an agent in its cooldown last, and restores it afterwards', () => {
     const agents = [agent('agent-a'), agent('agent-b')];
-    const failedAt = new Map([['agent-a', now - 1_000]]);
+    const failedAt = new Map([['agent-a', { at: now - 1_000, streak: 1 }]]);
     for (let i = 0; i < 8; i += 1) expect(ids(orderAgents(agents, failedAt, `k${i}`, now))).toEqual(['agent-b', 'agent-a']);
     const later = now + AGENT_COOLDOWN_MS;
     const heads = new Set(Array.from({ length: 16 }, (_, i) => ids(orderAgents(agents, failedAt, `k${i}`, later))[0]));
+    expect(heads.size).toBe(2);
+  });
+
+  it('keeps an agent that failed many turns in a row out for longer', () => {
+    const agents = [agent('agent-a'), agent('agent-b')];
+    const dead = new Map([['agent-a', { at: now, streak: 4 }]]);
+    // Forty minutes for a fourth failure in a row: five minutes on is still the back of the line.
+    for (let i = 0; i < 8; i += 1)
+      expect(ids(orderAgents(agents, dead, `k${i}`, now + AGENT_COOLDOWN_MS))).toEqual(['agent-b', 'agent-a']);
+    const heads = new Set(Array.from({ length: 16 }, (_, i) => ids(orderAgents(agents, dead, `k${i}`, now + 40 * 60_000))[0]));
     expect(heads.size).toBe(2);
   });
 
@@ -358,7 +392,9 @@ describe('orderAgents', () => {
     const agents = [agent('agent-a'), agent('agent-b')];
     for (let i = 0; i < 8; i += 1) {
       expect(ids(orderAgents(agents, new Map(), `k${i}`, now, 'agent-b'))[0]).toBe('agent-b');
-      expect(ids(orderAgents(agents, new Map([['agent-b', now - 1]]), `k${i}`, now, 'agent-b'))[0]).toBe('agent-a');
+      expect(ids(orderAgents(agents, new Map([['agent-b', { at: now - 1, streak: 1 }]]), `k${i}`, now, 'agent-b'))[0]).toBe(
+        'agent-a',
+      );
     }
   });
 });

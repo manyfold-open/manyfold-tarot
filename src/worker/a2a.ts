@@ -192,13 +192,27 @@ export const TERMINAL_STATES = new Set([
   'auth-required',
 ]);
 
+/**
+ * Terminal states in which the agent did not answer. What their status message
+ * says ("this agent's sandbox is not accepting commands", a quota line, a
+ * provider's 530) is the failure, never the reply.
+ *
+ * Seen in production [2026-09-05 → 2026-10-18]: read as the reply, it became the
+ * greeting, the hints and the reading of 1,803 tarot readings, and each of those
+ * turns counted as a success, so failover never moved off the broken agent.
+ */
+export const FAILURE_STATES = new Set(['failed', 'rejected', 'canceled', 'auth-required']);
+
 export interface StreamSnapshot {
   taskId: string | null;
   contextId: string | null;
   state: string;
-  /** Full reply text accumulated so far. */
+  /** Full reply text accumulated so far. Never a failure state's status message. */
   text: string;
-  /** Progress text from status.message, when it differs from the reply itself. */
+  /**
+   * Progress text from status.message, when it differs from the reply itself.
+   * In a failure state, this is the agent's reason.
+   */
   progressText: string;
   terminal: boolean;
 }
@@ -307,7 +321,8 @@ export function snapshotFrom(accumulator: StreamAccumulator): StreamSnapshot {
     .map((id) => accumulator.artifacts.get(id) ?? '')
     .filter(Boolean)
     .join('\n\n');
-  const text = artifactText || accumulator.directText || accumulator.statusText;
+  const failed = FAILURE_STATES.has(accumulator.state);
+  const text = artifactText || accumulator.directText || (failed ? '' : accumulator.statusText);
   return {
     taskId: accumulator.taskId,
     contextId: accumulator.contextId,
@@ -356,6 +371,21 @@ export async function fetchA2ATask(cred: AgentCredential, taskId: string): Promi
     if (reply) accumulator.directText = partsText((reply as Record<string, unknown>).parts) || accumulator.directText;
   }
   return snapshotFrom(accumulator);
+}
+
+/**
+ * The error a finished turn ended in, or null when the agent answered (or
+ * stopped to ask something). `failed` and `canceled` are worth asking again or
+ * asking another agent; `rejected` and `auth-required` are not.
+ */
+export function terminalFailure(snapshot: StreamSnapshot, label: string): A2AError | null {
+  if (!FAILURE_STATES.has(snapshot.state)) return null;
+  const reason = snapshot.progressText.trim() || 'no reason given';
+  return new A2AError(
+    `${label} ended the turn ${snapshot.state}: ${reason}`,
+    snapshot.state === 'failed' || snapshot.state === 'canceled',
+    snapshot.state === 'auth-required',
+  );
 }
 
 /** Test/dev helper: fold a sequence of JSON-RPC results into one snapshot. */

@@ -11,6 +11,19 @@ import { useEffect, useState } from 'react';
 import type { AlertsView } from '../../shared/types';
 import { api } from '../api';
 
+/** One line per day and agent: the total, then how it splits by turn kind. */
+function byDayAndAgent(rows: AlertsView['failureDays']) {
+  const lines = new Map<string, { day: string; agent: string; total: number; kinds: string[] }>();
+  for (const row of rows) {
+    const key = `${row.day} ${row.agentId}`;
+    const line = lines.get(key) ?? { day: row.day, agent: row.agent, total: 0, kinds: [] };
+    line.total += row.count;
+    line.kinds.push(`${row.kind} ${row.count}`);
+    lines.set(key, line);
+  }
+  return [...lines.entries()];
+}
+
 export default function AlertsPanel() {
   const [view, setView] = useState<AlertsView | null>(null);
   const [url, setUrl] = useState('');
@@ -118,9 +131,23 @@ export default function AlertsPanel() {
       {note && <div className="notice">{note}</div>}
       {error && <div className="notice error">{error}</div>}
 
+      {view && view.failureDays.length > 0 && (
+        <>
+          <p className="muted small">Failed turns by agent, last 7 days (UTC):</p>
+          <ul className="small">
+            {byDayAndAgent(view.failureDays).map(([key, line]) => (
+              <li key={key}>
+                <span className="muted">{line.day}</span> · {line.agent} · <strong>{line.total}</strong>{' '}
+                <span className="muted">({line.kinds.join(', ')})</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       {view && view.failures.length > 0 && (
         <>
-          <p className="muted small">Recent failures (newest first):</p>
+          <p className="muted small">Latest {view.failures.length} failures (newest first):</p>
           <ul className="small">
             {view.failures.map((failure, index) => (
               <li key={`${failure.at}-${index}`}>

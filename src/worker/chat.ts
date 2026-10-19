@@ -14,7 +14,7 @@
 
 import type { ChatEvent, ChatMessage, ConversationInfo } from '../shared/types';
 import type { Env } from './types';
-import { A2AError, consumeA2AStream, safeErrorText } from './a2a';
+import { A2AError, consumeA2AStream, safeErrorText, terminalFailure } from './a2a';
 import { credentialFor } from './connect';
 import { now } from './db';
 
@@ -214,6 +214,9 @@ export async function handleChatTurn(options: {
           }
         },
       });
+
+      const failure = terminalFailure(finalSnapshot, cred.label);
+      if (failure) throw failure;
 
       const state = finalSnapshot.state || 'completed';
       const text =
