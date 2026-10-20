@@ -66,17 +66,42 @@ const completed = (text: string) =>
     },
   });
 
+/** A turn the agent ran just now: seen working, then finished. */
+const freshCompleted = (text: string) => () =>
+  sse(
+    { jsonrpc: '2.0', id: 1, result: { kind: 'status-update', taskId: 't-2', contextId: 'c-1', status: { state: 'working' }, final: false } },
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        kind: 'status-update',
+        taskId: 't-2',
+        contextId: 'c-1',
+        status: { state: 'completed', message: { role: 'agent', parts: [{ kind: 'text', text }] } },
+        final: true,
+      },
+    },
+  );
+const freshBareCompleted = () =>
+  sse(
+    { jsonrpc: '2.0', id: 1, result: { kind: 'status-update', taskId: 't-2', contextId: 'c-1', status: { state: 'working' }, final: false } },
+    { jsonrpc: '2.0', id: 1, result: { kind: 'status-update', taskId: 't-2', contextId: 'c-1', status: { state: 'completed' }, final: true } },
+  );
+
 const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
 
 const task = (extra: Record<string, unknown>) =>
   json({ jsonrpc: '2.0', id: 1, result: { kind: 'task', id: 't-1', contextId: 'c-1', status: { state: 'completed' }, ...extra } });
 
-/** Every RPC method called, in order. */
+/** Every RPC method called, in order, and the messageId of every turn sent. */
 let calls: string[];
+let messageIds: string[];
 
 function agentAnswers(...responses: Array<() => Response>) {
   vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push((JSON.parse(String(init?.body)) as { method: string }).method);
+    const body = JSON.parse(String(init?.body)) as { method: string; params: { message?: { messageId: string } } };
+    calls.push(body.method);
+    if (body.params.message) messageIds.push(body.params.message.messageId);
     const next = responses.shift();
     if (!next) throw new Error('agent called more times than scripted');
     return next();
@@ -92,8 +117,10 @@ const turn = (): TurnOptions => ({
   threadAgentId: 'agent-1',
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   calls = [];
+  messageIds = [];
+  await env.DB.prepare('DELETE FROM tarot_turn_attempts').run();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -128,14 +155,27 @@ describe('a reply that reached us empty', () => {
     expect(calls).toEqual(['message/stream']);
   });
 
-  it('still fails, saying the read-back was tried, when the task is empty too', async () => {
-    agentAnswers(bareCompleted, () => task({}));
+  // Seen in production [2026-10-19]: a greeting task stored empty on 2026-10-03
+  // (the platform's empty-artifact race) came back empty on every return to it.
+  it('is asked again under a new messageId when the task is empty too', async () => {
+    agentAnswers(bareCompleted, () => task({}), freshCompleted('今天的牌很安静。'));
+    const diviner = await resolveDiviner(env);
+
+    expect((await diviner.speak(GREETING, turn())).text).toBe('今天的牌很安静。');
+    expect(calls).toEqual(['message/stream', 'tasks/get', 'message/stream']);
+    expect(messageIds).toEqual(['taro-r1-greeting', 'taro-r1-greeting-1']);
+  });
+
+  it('still fails, saying the read-back was tried, when the fresh ask is empty too', async () => {
+    agentAnswers(bareCompleted, () => task({}), freshBareCompleted, () => task({}));
     const diviner = await resolveDiviner(env);
     await expect(diviner.speak(GREETING, turn())).rejects.toThrow(/answered with nothing \(raw 0 chars\).*tasks\/get:empty/);
+    expect(messageIds).toHaveLength(2);
   });
 
   it('still fails when the read-back itself fails', async () => {
-    agentAnswers(bareCompleted, () => new Response('nope', { status: 500 }));
+    const nope = () => new Response('nope', { status: 500 });
+    agentAnswers(bareCompleted, nope, freshBareCompleted, nope);
     const diviner = await resolveDiviner(env);
     await expect(diviner.speak(GREETING, turn())).rejects.toThrow(/answered with nothing.*tasks\/get:failed/);
   });
