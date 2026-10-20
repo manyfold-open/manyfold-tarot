@@ -238,7 +238,8 @@ class AgentDiviner implements AgentReader {
    * One turn, asked again once when the refusal was not about this turn at all.
    * A2A dedupes on the messageId, so asking again means asking under a new one.
    *
-   *  - replayed: the agent answered with a refusal it gave this messageId before;
+   *  - replayed: the agent answered with a refusal, or an empty answer, it gave
+   *    this messageId before;
    *  - busy: the conversation still has another turn running — one this site gave
    *    up waiting for, still holding the agent's session. Every prompt carries the
    *    whole reading, so a fresh conversation loses nothing.
@@ -249,13 +250,15 @@ class AgentDiviner implements AgentReader {
     try {
       return await this.continueOrStartOver(request, options, capped, 0);
     } catch (error) {
-      if (!(error instanceof AgentRefusal) || !(error.replayed || error.busy)) throw error;
+      const replayed = (error instanceof AgentRefusal || error instanceof EmptyAnswer) && error.replayed;
+      const busy = error instanceof AgentRefusal && error.busy;
+      if (!replayed && !busy) throw error;
       const attempt = await nextTurnAttempt(this.env, this.agentId, options.idempotencyKey);
-      if (error.busy) {
+      if (busy) {
         console.warn('tarot reader conversation is busy; starting a fresh one', request.kind, attempt);
         return this.turn(request, { ...options, contextId: null, taskId: null }, capped, attempt);
       }
-      console.warn('tarot reader replayed an old refusal; asking again', request.kind, attempt);
+      console.warn('tarot reader replayed an old answer it never gave; asking again', request.kind, attempt);
       return this.continueOrStartOver(request, options, capped, attempt);
     }
   }
@@ -380,7 +383,7 @@ class AgentDiviner implements AgentReader {
         const detail = raw.trim()
           ? `raw ${raw.length} chars → 0 after cleaning: "${safeErrorText(raw).slice(0, RAW_PREVIEW_CHARS)}"`
           : 'raw 0 chars';
-        throw new A2AError(`${cred.label} answered with nothing (${detail}). ${trace}`, true);
+        throw new EmptyAnswer(`${cred.label} answered with nothing (${detail}). ${trace}`, !trace.progressed && !raw.trim());
       }
       return {
         text,
@@ -414,6 +417,26 @@ export class AgentRefusal extends A2AError {
     super(message, failure.retryable, failure.refreshCredential);
     this.replayed = replayed;
     this.busy = BUSY_CONVERSATION.test(failure.message);
+  }
+}
+
+/**
+ * The agent finished the turn without a word, even read back from the task.
+ * `replayed` is an empty finish the agent did not just make: the task was
+ * never seen running and holds no text at all, so it is the empty task stored
+ * the first time this messageId was sent, and asking under the same messageId
+ * returns it forever. Words that cleaning removed are not that: the agent
+ * spoke, and is not asked again.
+ * Seen in production [2026-10-19]: a reading whose greeting task had been
+ * stored empty on 2026-10-03 (the platform's empty-artifact race) was
+ * answered with nothing on every return to it.
+ */
+export class EmptyAnswer extends A2AError {
+  readonly replayed: boolean;
+
+  constructor(message: string, replayed: boolean) {
+    super(message, true);
+    this.replayed = replayed;
   }
 }
 
