@@ -478,10 +478,106 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
       const ev = makeInboundEvent({ chatType: 'dm', text });
       const dec = await routeEvent(ev, { roomId: ev.roomId, chatType: 'dm', members: [], recentHistory: [] }, TAROT_AGENT_SPEC);
       const reply = await tarotFastRespond(baseEnv, ev, dec, emptyMem);
+      expect(dec.reason).toBe('dm');
       expect(dec.detectedLang).toBe(expectedLang);
       expect(reply).not.toBeNull();
       expect(reply).toContain(expectedSubstring);
     }
+  });
+
+  it('strips Chinese/sibling @mentions before script detection and handles DM daily card', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const storedHantMem = {
+      userMemories: [
+        {
+          id: 'mem_hant',
+          scope: 'user' as const,
+          agentId: TAROT_AGENT_ID,
+          userId: '@alice:matrix.netmind.chat',
+          originChatType: 'group' as const,
+          kind: 'language' as const,
+          key: 'lang',
+          value: 'zh-Hant',
+          createdAt: '2026-11-19T00:00:00.000Z',
+          updatedAt: '2026-11-19T00:00:00.000Z',
+        },
+      ],
+      roomMemories: [],
+      promptSafeLines: [],
+    };
+    const groupCtx: RoomContext = {
+      roomId: '!grp1:matrix.netmind.chat',
+      chatType: 'group',
+      userLanguageHint: 'zh-Hant',
+      members: [
+        { matrixId: '@alice:matrix.netmind.chat', displayName: 'Alice', isAgent: false },
+        { matrixId: TAROT_DEFAULT_MATRIX_ID, displayName: 'AI Tarot', isAgent: true },
+      ],
+      recentHistory: [],
+    };
+
+    // 1. @塔羅大師 每日一牌 -> today's card in pure zh-Hant
+    const dailyMentionEv = makeInboundEvent({ text: '@塔羅大師 每日一牌' });
+    const dailyMentionDec = await routeEvent(dailyMentionEv, groupCtx, TAROT_AGENT_SPEC);
+    expect(dailyMentionDec.shouldReply).toBe(true);
+    const dailyMentionReply = await tarotFastRespond(baseEnv, dailyMentionEv, dailyMentionDec, emptyMem);
+    expect(dailyMentionReply).not.toBeNull();
+    expect(dailyMentionReply).toContain('今日一牌');
+    assertPureZhHant(dailyMentionReply!);
+
+    // 2. @塔羅大師 daily card with userHint: 'zh-Hant' and stored 'zh-Hant' -> pure English
+    const enMentionEv = makeInboundEvent({ text: '@塔羅大師 daily card' });
+    const enMentionDec = await routeEvent(enMentionEv, groupCtx, TAROT_AGENT_SPEC);
+    expect(enMentionDec.shouldReply).toBe(true);
+    expect(enMentionDec.detectedLang).toBe('en');
+    const enMentionReply = await tarotFastRespond(
+      baseEnv,
+      enMentionEv,
+      { ...enMentionDec, detectedLang: 'zh-Hant' },
+      storedHantMem,
+    );
+    expect(enMentionReply).not.toBeNull();
+    expect(enMentionReply).toContain("Today's card");
+    expect(enMentionReply).not.toMatch(/[\u4e00-\u9fff]/);
+
+    // 3. @塔羅大師 帮我抽三张牌 with userHint: 'zh-Hant' -> pure zh-Hans
+    const hansMentionEv = makeInboundEvent({ text: '@塔羅大師 帮我抽三张牌' });
+    const hansMentionDec = await routeEvent(hansMentionEv, groupCtx, TAROT_AGENT_SPEC);
+    expect(hansMentionDec.shouldReply).toBe(true);
+    expect(hansMentionDec.detectedLang).toBe('zh-Hans');
+    const hansMentionReply = await tarotFastRespond(
+      baseEnv,
+      hansMentionEv,
+      { ...hansMentionDec, detectedLang: 'zh-Hant' },
+      storedHantMem,
+    );
+    expect(hansMentionReply).not.toBeNull();
+    expect(hansMentionReply).toContain('牌阵：');
+    assertPureZhHans(hansMentionReply!);
+
+    // 4. DM bare 你好 (chatType: 'dm', decision.reason: 'dm') -> instant zh-Hant DM greeting
+    const dmHiEv = makeInboundEvent({ chatType: 'dm', text: '你好' });
+    const dmHiDec = await routeEvent(
+      dmHiEv,
+      { roomId: dmHiEv.roomId, chatType: 'dm', members: [], recentHistory: [] },
+      TAROT_AGENT_SPEC,
+    );
+    expect(dmHiDec.reason).toBe('dm');
+    const dmHiReply = await tarotFastRespond(baseEnv, dmHiEv, dmHiDec, emptyMem);
+    expect(dmHiReply).toContain('我是塔羅大師');
+    assertPureZhHant(dmHiReply!);
+
+    // 5. DM 每日一牌 (chatType: 'dm', decision.reason: 'dm') -> today's card in zh-Hant
+    const dmDailyEv = makeInboundEvent({ chatType: 'dm', text: '每日一牌' });
+    const dmDailyDec = await routeEvent(
+      dmDailyEv,
+      { roomId: dmDailyEv.roomId, chatType: 'dm', members: [], recentHistory: [] },
+      TAROT_AGENT_SPEC,
+    );
+    expect(dmDailyDec.reason).toBe('dm');
+    const dmDailyReply = await tarotFastRespond(baseEnv, dmDailyEv, dmDailyDec, emptyMem);
+    expect(dmDailyReply).toContain('今日一牌');
+    assertPureZhHant(dmDailyReply!);
   });
 
   it('executes local CSPRNG draw inside NarraRoomCoordinator DO and falls back to A2A for follow-ups', async () => {
