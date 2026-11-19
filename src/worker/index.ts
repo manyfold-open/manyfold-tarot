@@ -16,6 +16,7 @@
  *   GET    /api/alerts                      admin  failure alerts: webhook status + recent failures
  *   PUT    /api/alerts/discord              admin  store the Discord webhook (sealed) and ping it
  *   DELETE /api/alerts/discord              admin  forget it
+ *   GET    /api/gateway/status              admin  Narra Messenger gateway status (redacted)
  *   *      /api/tarot/*                     open   the tarot site (src/worker/tarot/routes.ts)
  *
  * "admin" routes require the x-admin-password header. This deployment is always
@@ -54,6 +55,15 @@ import { publicUrl, withMount } from './mount';
 import { tarot } from './tarot/routes';
 import { sharePreview, withSharePreview } from './tarot/sharemeta';
 import { loadShare } from './tarot/store';
+import {
+  BaseNarraMatrixSync,
+  BaseNarraRoomCoordinator,
+} from '@manyfold/narra-agent-kit/worker';
+import {
+  getTarotNarraGatewayStatus,
+  kickTarotNarraGateway,
+  narraGatewayConfig,
+} from './narra/gateway';
 
 const SERVICE = 'manyfold-tarot';
 
@@ -239,6 +249,8 @@ app.delete('/api/alerts/discord', async (c) => {
   return c.json({ alerts: await alertsView(c.env) });
 });
 
+app.get('/api/gateway/status', async (c) => c.json(await getTarotNarraGatewayStatus(c.env)));
+
 // The tarot site. Public by design — see isPublicPath above.
 app.route('/api/tarot', tarot);
 
@@ -275,5 +287,22 @@ app.get('/s/:token', async (c) => {
 
 app.all('*', async (c) => servePage(c, await c.env.ASSETS.fetch(c.req.raw)));
 
+export class NarraMatrixSync extends BaseNarraMatrixSync<Env> {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env, narraGatewayConfig);
+  }
+}
+
+export class NarraRoomCoordinator extends BaseNarraRoomCoordinator<Env> {
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env, narraGatewayConfig);
+  }
+}
+
 // Served at the root and, when BASE_PATH is set, under it too.
-export default { fetch: withMount<Env>(app.fetch) } satisfies ExportedHandler<Env>;
+export default {
+  fetch: withMount<Env>(app.fetch),
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(kickTarotNarraGateway(env));
+  },
+} satisfies ExportedHandler<Env>;

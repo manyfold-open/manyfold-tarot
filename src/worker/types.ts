@@ -59,6 +59,23 @@ export interface Env {
    * any kind is served. See src/worker/analytics.ts.
    */
   GA_MEASUREMENT_ID?: string;
+
+  /** Narra Messenger gateway runtime flags, bindings, and credentials (disabled by default). */
+  NARRA_GATEWAY_ENABLED?: string;
+  NARRA_SYNC?: string;
+  NARRA_AGENT_ID?: string;
+  NARRA_MATRIX_ID?: string;
+  NARRA_AGENT_TOKEN?: string;
+  NARRA_API_ENDPOINT?: string;
+  MATRIX_ACCESS_TOKEN?: string;
+  MATRIX_HOMESERVER_URL?: string;
+  MATRIX_USER_ID?: string;
+  NARRA_SYNC_DO?: DurableObjectNamespace;
+  NARRA_ROOM_DO?: DurableObjectNamespace;
+  MANYFOLD_A2A_URL?: string;
+  MANYFOLD_A2A_TOKEN?: string;
+  NARRA_BROADCAST_STAGGER?: string;
+  NARRA_AUTHORIZE_EVENTS?: string;
 }
 
 /** Everything needed to talk to one agent over A2A. */
