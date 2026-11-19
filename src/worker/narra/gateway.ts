@@ -8,6 +8,7 @@
 
 import {
   MemoryStore,
+  detectExplicitLangSwitch,
   detectLang,
   isNarraGatewayEnabled,
   stripAgentMentions,
@@ -280,9 +281,8 @@ export function resolveTarotLang(
   memories?: RecallTurnResult,
 ): LangCode {
   const clean = stripMentionsAndPunct(text);
-  if (/用繁體|繁體中文|正體中文/i.test(clean)) return 'zh-Hant';
-  if (/用简体|简体中文/i.test(clean)) return 'zh-Hans';
-  if (/\b(?:in\s+english|speak\s+english|english\s+please)\b/i.test(clean)) return 'en';
+  const explicitSwitch = detectExplicitLangSwitch(clean);
+  if (explicitSwitch) return explicitSwitch;
 
   const hasHant = HANT_SIGNAL_RE.test(clean);
   const hasHans = HANS_SIGNAL_RE.test(clean);
@@ -503,48 +503,25 @@ export async function tarotFastRespond(
   const stripped = stripMentionsAndPunct(event.text);
 
   // Explicit language switch persistence
-  if (/^(?:用繁體|請用繁體|請用繁體中文|用正體中文|繁體中文)$/i.test(stripped)) {
+  const explicitLangSwitch = detectExplicitLangSwitch(stripped);
+  if (explicitLangSwitch) {
     if (env.DB) {
       await new MemoryStore(env.DB, TAROT_AGENT_ID)
         .rememberUser({
           userId: event.senderId,
           key: 'lang',
-          value: 'zh-Hant',
+          value: explicitLangSwitch,
           kind: 'language',
           originChatType: event.chatType,
           originRoomId: event.roomId,
         })
         .catch(() => undefined);
     }
-    return '好的，接下來我會用繁體中文陪你看牌。想問什麼事，隨時告訴我。';
-  }
-  if (/^(?:用简体|请用简体|请用简体中文|简体中文)$/i.test(stripped)) {
-    if (env.DB) {
-      await new MemoryStore(env.DB, TAROT_AGENT_ID)
-        .rememberUser({
-          userId: event.senderId,
-          key: 'lang',
-          value: 'zh-Hans',
-          kind: 'language',
-          originChatType: event.chatType,
-          originRoomId: event.roomId,
-        })
-        .catch(() => undefined);
+    if (explicitLangSwitch === 'zh-Hant') {
+      return '好的，接下來我會用繁體中文陪你看牌。想問什麼事，隨時告訴我。';
     }
-    return '好的，接下来我会用简体中文陪你看牌。想问什么事，随时告诉我。';
-  }
-  if (/^(?:in\s+english|speak\s+english|english\s+please|english)$/i.test(stripped)) {
-    if (env.DB) {
-      await new MemoryStore(env.DB, TAROT_AGENT_ID)
-        .rememberUser({
-          userId: event.senderId,
-          key: 'lang',
-          value: 'en',
-          kind: 'language',
-          originChatType: event.chatType,
-          originRoomId: event.roomId,
-        })
-        .catch(() => undefined);
+    if (explicitLangSwitch === 'zh-Hans') {
+      return '好的，接下来我会用简体中文陪你看牌。想问什么事，随时告诉我。';
     }
     return 'Of course — I will reply in English from here. Tell me what is on your mind when you are ready.';
   }
