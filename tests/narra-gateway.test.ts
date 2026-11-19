@@ -18,6 +18,7 @@ import {
   fetchTarotUpdates,
   formatLocalTarotDraw,
   kickTarotNarraGateway,
+  resolveTarotLang,
   tarotFastRespond,
 } from '../src/worker/narra/gateway';
 import { toZhHant } from '../src/worker/narra/zh-hant';
@@ -993,5 +994,89 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     expect(updates[0].roomId).toBe('!tarot_weekly_room:matrix.netmind.chat');
     expect(updates[0].updateKey).toMatch(/^weekly:\d{4}-W\d{2}$/);
     assertPureZhHans(updates[0].text);
+  });
+
+  it('T11: handles cross-script explicit language switch commands and persists D1 lang preference', async () => {
+    expect(resolveTarotLang('請用簡體', 'zh-Hant')).toBe('zh-Hans');
+    expect(resolveTarotLang('请用繁体', 'zh-Hans')).toBe('zh-Hant');
+    expect(resolveTarotLang('用英文', 'zh-Hant')).toBe('en');
+    expect(resolveTarotLang('speak English', 'zh-Hant')).toBe('en');
+
+    const mem = new MemoryStore(d1.db, TAROT_AGENT_ID);
+    await mem.ensureSchema();
+    const senderId = '@tarot_lang_switch:matrix.netmind.chat';
+    const roomId = '!grp_tarot_lang:matrix.netmind.chat';
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const makeSwitchDecision = (detectedLang: 'zh-Hant' | 'zh-Hans' | 'en') => ({
+      shouldReply: true,
+      tier: 0 as const,
+      reason: 'explicit_mention',
+      confidence: 1,
+      detectedLang,
+      shouldQuote: false,
+    });
+
+    // Traditional request asking to switch to Simplified ("@AI Tarot 請用簡體")
+    const toHansReply = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ roomId, senderId, chatType: 'group', text: '@AI Tarot 請用簡體' }),
+      makeSwitchDecision('zh-Hant'),
+      emptyMem,
+    );
+    expect(toHansReply).toContain('简体中文');
+    assertPureZhHans(toHansReply!);
+    expect(await mem.getPreferredLang(senderId, 'group')).toBe('zh-Hans');
+
+    // Subsequent script-neutral query uses persisted zh-Hans
+    const recalledHans = await mem.recallForTurn({ roomId, userId: senderId, chatType: 'group' });
+    const dailyHans = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ roomId, senderId, chatType: 'group', text: '@AI Tarot 每日一牌' }),
+      makeSwitchDecision('zh-Hant'),
+      recalledHans,
+    );
+    expect(dailyHans).toContain('今日一牌');
+    assertPureZhHans(dailyHans!);
+
+    // Traditional request asking for Traditional ("@AI Tarot 請用繁體")
+    const toHantFromTrad = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ roomId, senderId, chatType: 'group', text: '@AI Tarot 請用繁體' }),
+      makeSwitchDecision('zh-Hans'),
+      recalledHans,
+    );
+    expect(toHantFromTrad).toContain('繁體中文');
+    assertPureZhHant(toHantFromTrad!);
+    expect(await mem.getPreferredLang(senderId, 'group')).toBe('zh-Hant');
+
+    // Switch back to Simplified, then Simplified request asking for Traditional ("@AI Tarot 请用繁体")
+    await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ roomId, senderId, chatType: 'group', text: '@AI Tarot 請用簡體' }),
+      makeSwitchDecision('zh-Hant'),
+      emptyMem,
+    );
+    expect(await mem.getPreferredLang(senderId, 'group')).toBe('zh-Hans');
+
+    const toHantFromSimp = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ roomId, senderId, chatType: 'group', text: '@AI Tarot 请用繁体' }),
+      makeSwitchDecision('zh-Hans'),
+      emptyMem,
+    );
+    expect(toHantFromSimp).toContain('繁體中文');
+    assertPureZhHant(toHantFromSimp!);
+    expect(await mem.getPreferredLang(senderId, 'group')).toBe('zh-Hant');
+
+    // Chinese request asking for English ("@AI Tarot 用英文")
+    const toEnReply = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ roomId, senderId, chatType: 'group', text: '@AI Tarot 用英文' }),
+      makeSwitchDecision('zh-Hant'),
+      emptyMem,
+    );
+    expect(toEnReply).toContain('English');
+    expect(toEnReply).not.toMatch(/[\u4e00-\u9fff]/);
+    expect(await mem.getPreferredLang(senderId, 'group')).toBe('en');
   });
 });
