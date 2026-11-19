@@ -227,6 +227,12 @@ const OPT_OUT_WEEKLY_RE =
   /^(?:取消每週|取消每周|關閉每週|关闭每周|停止每週|停止每周|退訂每週|退订每周|opt[- ]?out\s+weekly|unsubscribe\s+weekly)\b/i;
 const DM_GREETING_RE =
   /^(?:hi|hello|hey|yo|morning|good\s+(?:morning|afternoon|evening)|你好|您好|哈囉|哈啰|嗨|安安|早安|午安|晚安|在嗎|在吗|有人嗎|有人吗)$/i;
+const CASUAL_SMALL_TALK_PHRASE_RE =
+  /天氣|天气|下雨|下雪|晴天|陰天|阴天|出太陽|出太阳|刮風|刮风|降溫|降温|回暖|好冷|好熱|好热|早點休息|早点休息|早點睡|早点睡|去睡覺|去睡觉|睡覺了|睡觉了|想睡了|先休息|休息了|去休息|先去忙|去忙一下|先忙了|去忙了|晚點聊|晚点聊|晚點見|晚点见|下次聊|改天聊|回頭聊|回头聊|先這樣|先这样|先走了|先走囉|掰掰|拜拜|晚安|沒事了|没事了|不用了|先不用|下線了|下线了|(?:好[喔哦啊呀]?[，,\s]*)?(?:謝謝|谢谢|感謝|感谢|多謝|多谢)(?:你|您)?(?:啦|喔|哦|呀)?(?:[!！。.~～\s]*$|[，,\s]*(?:我先|先去|沒事|没事|先這樣|先这样|早點|早点|晚點|晚点|掰掰|拜拜|大家|各位|了))|\b(?:nice\s+weather|good\s+weather|bad\s+weather|weather\s+(?:is|today)|going\s+to\s+(?:bed|sleep)|go\s+to\s+(?:bed|sleep)|get\s+some\s+rest|heading\s+out|got\s+to\s+go|gotta\s+go|gtg|g2g|brb|ttyl|see\s+(?:you|ya)|bye(?:\s+bye)?|goodbye|good\s*night|goodnight|never\s*mind|nvm|talk\s+later)\b|\b(?:thanks?(?:\s+(?:a\s+lot|so\s+much))?|thank\s+you(?:\s+(?:so\s+much|very\s+much))?|thx|tysm|ty|cheers)\b(?:\s*[!！.。~～]*$|\s*,?\s*(?:i(?:'m|\s+am)?\s+(?:going|heading|off)|got\s+to\s+go|gotta\s+go|gtg|g2g|brb|ttyl|bye|see\s+(?:you|ya)|talk\s+later|good\s*night|goodnight))/i;
+const BARE_GREETING_OR_THANKS_RE =
+  /^(?:(?:(?:hi|hello|hey|yo|gm|gn|morning|afternoon|evening|good\s+(?:morning|afternoon|evening|night)|goodnight|你好|您好|哈囉|哈啰|嗨|安安|早安|午安|晚安|早啊?|大家好|各位好|各位早|大家早|在嗎|在吗|有人嗎|有人吗|打擾了|打扰了)(?:[\s,，!！.。~～]*(?:各位|大家|all|everyone|there))?)(?:[,，\s]+)?|(?:(?:(?:hi|hello|hey|你好|您好|嗨|早安|午安|晚安)[,，\s]+|(?:好[喔哦啊呀]?|好的|嗯嗯?)[,，\s]*|(?:ok(?:ay)?|got\s+it|alright|sure|cool)[,，\s]+)?(?:(?:非常|真的|太|很)?(?:謝謝(?:你|您|大家)?|谢谢(?:你|您|大家)?|謝啦|谢啦|感謝(?:你|您|大家)?|感谢(?:你|您|大家)?|多謝|多谢|辛苦了|麻煩你?了|麻烦你?了)(?:的幫忙|的帮助)?|thanks?(?:\s+(?:you|a\s+lot|so\s+much))?|thank\s+you(?:\s+(?:so\s+much|very\s+much))?|thx|tysm|ty|cheers|appreciated)(?:\s+for\s+(?:your\s+help|the\s+help|helping|everything))?)|好[喔哦]|嗯嗯|了解|收到|好累[喔哦啊呀]?|累死了|好睏|好困|哈哈+|呵呵+|笑死|lol|lmao)[!！.。~～?？\s]*$/i;
+const TAROT_FOLLOWUP_CUE_RE =
+  /(?:抽|牌|占卜|正位|逆位|大阿爾|大阿尔|小阿爾|小阿尔|解讀|解读|解釋|解释|怎麼解|怎么解|第\s*[0-9一二三四五六七八九十兩两]+\s*[張张位]|[這那][張张組组]|再來[一三]?[張张]|再来[一三]?[张张]|最後一[張张]|最后一[张张]|深問|深问|\b(?:tarot|cards?|spread|draw|pull|reading|upright|reversed|arcana|interpret(?:ation)?|explain|meaning)\b)/i;
 
 const USER_REFLECTION_QUESTION: Record<SpreadId, Record<LangCode, string>> = {
   current: {
@@ -430,18 +436,41 @@ function isoWeekKey(date: Date): string {
   return `${utc.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const CJK_CHAR_RE = /[\u3400-\u9FFF\uF900-\uFAFF]/;
+
+function matchSpecKeyword(text: string, lowerText: string, kw: string | RegExp): boolean {
+  if (kw instanceof RegExp) return kw.test(text);
+  const needle = kw.trim().toLowerCase();
+  if (!needle) return false;
+  if (CJK_CHAR_RE.test(needle)) return lowerText.includes(needle);
+  return new RegExp(`(?<![a-z0-9])${escapeRegex(needle)}(?![a-z0-9])`, 'i').test(text);
+}
+
 function hasAnyDomainKeyword(text: string): boolean {
   const lower = text.toLowerCase();
-  return (TAROT_AGENT_SPEC.domainKeywords ?? []).some((kw) =>
-    typeof kw === 'string' ? lower.includes(kw.toLowerCase()) : kw.test(text),
-  );
+  return (TAROT_AGENT_SPEC.domainKeywords ?? []).some((kw) => matchSpecKeyword(text, lower, kw));
 }
 
 function hasAnyAntiKeyword(text: string): boolean {
   const lower = text.toLowerCase();
-  return (TAROT_AGENT_SPEC.antiKeywords ?? []).some((kw) =>
-    typeof kw === 'string' ? lower.includes(kw.toLowerCase()) : kw.test(text),
+  return (TAROT_AGENT_SPEC.antiKeywords ?? []).some((kw) => matchSpecKeyword(text, lower, kw));
+}
+
+function hasTarotFollowUpCue(text: string): boolean {
+  return (
+    hasAnyDomainKeyword(text) ||
+    BARE_DRAW_TRIGGER_RE.test(text) ||
+    SESSION_CONFIRM_RE.test(text) ||
+    DAILY_CARD_TRIGGER_RE.test(text) ||
+    EXPLICIT_DRAW_PHRASE_RE.test(text) ||
+    TAROT_FOLLOWUP_CUE_RE.test(text)
   );
+}
+
+function isCasualActiveSessionChatter(text: string): boolean {
+  if (!text || hasTarotFollowUpCue(text)) return false;
+  return CASUAL_SMALL_TALK_PHRASE_RE.test(text) || BARE_GREETING_OR_THANKS_RE.test(text);
 }
 
 /**
@@ -547,17 +576,25 @@ export async function tarotFastRespond(
     return 'Got it — weekly tarot review reminders are turned off for this room.';
   }
 
-  // Keep group active sessions silent on unrelated side chatter
-  if (
-    decision.reason === 'active_session' &&
+  const isUnmentionedGroup =
     event.chatType === 'group' &&
-    !BARE_DRAW_TRIGGER_RE.test(stripped) &&
-    !SESSION_CONFIRM_RE.test(stripped) &&
-    !DAILY_CARD_TRIGGER_RE.test(stripped) &&
-    hasAnyAntiKeyword(stripped) &&
-    !hasAnyDomainKeyword(stripped)
-  ) {
-    return '[NO_REPLY]';
+    decision.reason !== 'explicit_mention' &&
+    decision.reason !== 'reply_to_self';
+
+  // Keep unmentioned group turns silent on off-topic anti-keywords and casual active-session chatter
+  if (isUnmentionedGroup) {
+    if (
+      !BARE_DRAW_TRIGGER_RE.test(stripped) &&
+      !SESSION_CONFIRM_RE.test(stripped) &&
+      !DAILY_CARD_TRIGGER_RE.test(stripped) &&
+      hasAnyAntiKeyword(stripped) &&
+      !hasAnyDomainKeyword(stripped)
+    ) {
+      return '[NO_REPLY]';
+    }
+    if (decision.reason === 'active_session' && isCasualActiveSessionChatter(stripped)) {
+      return '[NO_REPLY]';
+    }
   }
 
   if (
