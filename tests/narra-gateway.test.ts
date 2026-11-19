@@ -383,6 +383,29 @@ describe('AgentSpec routing, 3-min active session & antiKeywords', () => {
     const drawEn = await routeEvent(makeInboundEvent({ text: 'draw', timestampMs: nowMs }), activeCtx, TAROT_AGENT_SPEC, { nowMs });
     expect(drawEn.shouldReply).toBe(true);
     expect(drawEn.reason).toBe('active_session');
+
+    const followUp = await routeEvent(
+      makeInboundEvent({ text: '那第二張牌呢？', timestampMs: nowMs }),
+      activeCtx,
+      TAROT_AGENT_SPEC,
+      { nowMs },
+    );
+    expect(followUp.shouldReply).toBe(true);
+    expect(followUp.reason).toBe('active_session');
+
+    for (const chatter of [
+      '今天天氣真不錯，晚上想早點休息',
+      '好喔謝謝，我先去忙一下',
+      'Any good ramen restaurant in Soho?',
+    ]) {
+      const dec = await routeEvent(
+        makeInboundEvent({ text: chatter, timestampMs: nowMs }),
+        activeCtx,
+        TAROT_AGENT_SPEC,
+        { nowMs },
+      );
+      expect(dec.shouldReply, chatter).toBe(false);
+    }
   });
 
   it('disambiguates multi-@ prompts containing daily card and tarot draw phrases', async () => {
@@ -717,10 +740,158 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
       expect(posted).toHaveLength(2);
       expect(posted[1]).toContain('牌陣：');
       assertPureZhHant(posted[1]);
+
+      // 3. Valid active-session follow-up without @ falls back to A2A cleanly
+      nowMs += 20_000;
+      vi.setSystemTime(nowMs);
+      await roomDo.fetch(
+        new Request('https://narra-room/events', {
+          method: 'POST',
+          body: JSON.stringify({
+            roomId,
+            events: [
+              {
+                event_id: '$t3',
+                sender: '@alice:matrix.netmind.chat',
+                type: 'm.room.message',
+                origin_server_ts: nowMs,
+                content: { msgtype: 'm.text', body: '那第二張牌呢？' },
+              },
+            ],
+          }),
+        }),
+      );
+      vi.setSystemTime(nowMs + 2_000);
+      await roomDo.alarm();
+      expect(a2aCalled).toBe(2);
+      expect(posted).toHaveLength(3);
+
+      // 4. Unmentioned casual chatter in active session stays silent (no A2A, no Matrix send)
+      nowMs += 20_000;
+      vi.setSystemTime(nowMs);
+      await roomDo.fetch(
+        new Request('https://narra-room/events', {
+          method: 'POST',
+          body: JSON.stringify({
+            roomId,
+            events: [
+              {
+                event_id: '$t4',
+                sender: '@alice:matrix.netmind.chat',
+                type: 'm.room.message',
+                origin_server_ts: nowMs,
+                content: { msgtype: 'm.text', body: '今天天氣真不錯，晚上想早點休息' },
+              },
+            ],
+          }),
+        }),
+      );
+      vi.setSystemTime(nowMs + 2_000);
+      await roomDo.alarm();
+      expect(a2aCalled).toBe(2);
+      expect(posted).toHaveLength(3);
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();
     }
+  });
+
+  it('silences unmentioned group off-topic and casual active_session chatter while keeping follow-ups intact', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const makeDecision = (reason: string, detectedLang: 'zh-Hant' | 'zh-Hans' | 'en' = 'zh-Hant') => ({
+      shouldReply: true,
+      tier: 0 as const,
+      reason,
+      confidence: 0.9,
+      detectedLang,
+      shouldQuote: false,
+    });
+
+    // Any unmentioned group turn with antiKeywords and no domainKeywords -> [NO_REPLY]
+    for (const reason of ['active_session', 'domain_match', 'multi_mention_domain_match']) {
+      for (const offTopic of [
+        '抽空去吃拉麵嗎',
+        '倫敦中國城有什麼好吃的餐廳？',
+        'Latest OpenAI AI news today',
+        '幫我求籤問一籤',
+      ]) {
+        const reply = await tarotFastRespond(
+          baseEnv,
+          makeInboundEvent({ chatType: 'group', text: offTopic }),
+          makeDecision(reason),
+          emptyMem,
+        );
+        expect(reply, `${reason}: ${offTopic}`).toBe('[NO_REPLY]');
+      }
+    }
+
+    // Active-session casual greeting/closing/weather/thanks without card/reading cue -> [NO_REPLY]
+    for (const [text, lang] of [
+      ['今天天氣真不錯，晚上想早點休息', 'zh-Hant'],
+      ['好喔謝謝，我先去忙一下', 'zh-Hant'],
+      ['你好', 'zh-Hant'],
+      ['嗨', 'zh-Hant'],
+      ['早安', 'zh-Hant'],
+      ['晚安', 'zh-Hant'],
+      ['謝謝', 'zh-Hant'],
+      ['好的，謝謝！', 'zh-Hant'],
+      ['感謝', 'zh-Hant'],
+      ['拜拜', 'zh-Hant'],
+      ['hello', 'en'],
+      ['thanks', 'en'],
+      ['ok thanks', 'en'],
+      ['goodnight, going to bed', 'en'],
+    ] as const) {
+      const reply = await tarotFastRespond(
+        baseEnv,
+        makeInboundEvent({ chatType: 'group', text }),
+        makeDecision('active_session', lang),
+        emptyMem,
+      );
+      expect(reply, `active_session casual: ${text}`).toBe('[NO_REPLY]');
+    }
+
+    // Valid active-session follow-ups without @ MUST keep working
+    const drawReply = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ chatType: 'group', text: '抽' }),
+      makeDecision('active_session', 'zh-Hant'),
+      emptyMem,
+    );
+    expect(drawReply).toContain('牌陣：');
+
+    const dailyReply = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ chatType: 'group', text: '每日一牌' }),
+      makeDecision('active_session', 'zh-Hant'),
+      emptyMem,
+    );
+    expect(dailyReply).toContain('今日一牌');
+
+    for (const [followUp, lang] of [
+      ['那第二張牌呢？', 'zh-Hant'],
+      ['謝謝，那第二張牌呢？', 'zh-Hant'],
+      ['這張逆位牌是什麼意思？', 'zh-Hant'],
+      ['Thanks! What does the second card mean?', 'en'],
+      ['What does The Tower card mean for my career?', 'en'],
+    ] as const) {
+      const reply = await tarotFastRespond(
+        baseEnv,
+        makeInboundEvent({ chatType: 'group', text: followUp }),
+        makeDecision('active_session', lang),
+        emptyMem,
+      );
+      expect(reply, `valid follow-up: ${followUp}`).toBeNull();
+    }
+
+    // Explicit @ mention greeting in group still replies
+    const explicitGreeting = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ chatType: 'group', text: '@AI Tarot 你好' }),
+      makeDecision('explicit_mention', 'zh-Hant'),
+      emptyMem,
+    );
+    expect(explicitGreeting).toContain('我是塔羅大師');
   });
 
   it('fetchTarotUpdates returns [] by default and emits weekly items only for opted-in rooms', async () => {
