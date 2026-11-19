@@ -183,7 +183,7 @@ const execCtx = {
 } as unknown as ExecutionContext;
 
 describe('wrangler.jsonc & fail-closed safety invariants', () => {
-  it('keeps database_id, service binding, routes, BASE_PATH intact and defaults gateway flags OFF', () => {
+  it('keeps database_id, service binding, routes, BASE_PATH intact and enables bound Narra gateway', () => {
     const raw = new TextDecoder().decode(
       readFileSync(fileURLToPath(new URL('../wrangler.jsonc', import.meta.url))),
     );
@@ -206,10 +206,10 @@ describe('wrangler.jsonc & fail-closed safety invariants', () => {
       'app.manyfold.ai/tarot/*',
     ]);
     expect(parsed.vars.BASE_PATH).toBe('/tarot');
-    expect(parsed.vars.NARRA_GATEWAY_ENABLED).toBe('off');
-    expect(parsed.vars.NARRA_SYNC).toBe('off');
+    expect(parsed.vars.NARRA_GATEWAY_ENABLED).toBe('on');
+    expect(parsed.vars.NARRA_SYNC).toBe('on');
     expect(parsed.vars.NARRA_AGENT_ID).toBe('agt_agqvtek2554apclfoq3uc7yweq');
-    expect(parsed.vars.NARRA_MATRIX_ID).toBe('@agent-1aac6abd:matrix.netmind.chat');
+    expect(parsed.vars.NARRA_MATRIX_ID).toBe('@agent-852feddf:matrix.netmind.chat');
     expect(parsed.triggers.crons).toEqual(['*/5 * * * *']);
     expect(parsed.durable_objects.bindings).toEqual([
       { name: 'NARRA_SYNC_DO', class_name: 'NarraMatrixSync' },

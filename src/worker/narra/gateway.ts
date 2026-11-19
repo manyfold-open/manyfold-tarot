@@ -37,14 +37,14 @@ import { toZhHant } from './zh-hant';
 
 export const TAROT_AGENT_ID = 'tarot-master-2';
 export const TAROT_DEFAULT_AGENT_RECORD_ID = 'agt_agqvtek2554apclfoq3uc7yweq';
-export const TAROT_DEFAULT_MATRIX_ID = '@agent-1aac6abd:matrix.netmind.chat';
+export const TAROT_DEFAULT_MATRIX_ID = '@agent-852feddf:matrix.netmind.chat';
 export const TAROT_SITE_URL = 'https://app.manyfold.ai/tarot/';
 
 export const TAROT_AGENT_SPEC: AgentSpec = {
   id: TAROT_AGENT_ID,
   matrixId: TAROT_DEFAULT_MATRIX_ID,
   name: 'AI Tarot',
-  aliases: ['tarot-master-2', 'Tarot Master', '塔羅師', '塔罗师'],
+  aliases: ['tarot-master-2', 'Tarot Master', '塔羅大師', '塔罗大师', '塔羅師', '塔罗师'],
   domainDescription:
     'Three-card AI tarot readings, card meanings, spreads, and reflective follow-ups in zh-Hant, zh-Hans, and en.',
   domainKeywords: [
