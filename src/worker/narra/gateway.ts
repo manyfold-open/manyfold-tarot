@@ -217,7 +217,9 @@ const ALL_KNOWN_MENTION_NAMES = [
 const BARE_DRAW_TRIGGER_RE =
   /^(?:抽|抽牌|抽吧|抽卡|抽三張|抽三张|抽塔羅|抽塔罗|來抽牌|来抽牌|開抽|开抽|開始抽|开始抽|再抽一次|draw|draw\s+cards?|draw\s+tarot|draw\s+(?:a\s+)?spread|pull\s+cards?)$/i;
 const SESSION_CONFIRM_RE = /^(?:ok|okay|go|ready|yes|好|好的|可以|來吧|来吧|開始|开始|請|请)$/i;
-const DAILY_CARD_TRIGGER_RE = /^(?:每日一牌|今日一牌|今天的一牌|daily\s*card|today'?s?\s*card)$/i;
+const DAILY_CARD_PHRASE_RE =
+  /(?:每日一牌|今日一牌|今天的一牌|每天一牌|\bdaily\s*card\b|\btoday'?s?\s*card\b|\bone[- ]card\b)/i;
+const MULTI_CARD_OR_SPREAD_RE = /三張|三张|three[- ]?cards?|牌陣|牌阵|spread/i;
 const EXPLICIT_DRAW_PHRASE_RE =
   /(?:抽三張|抽三张|抽塔羅|抽塔罗|抽牌|幫我抽|帮我抽|來抽|来抽|draw\s+(?:three|3)\s+cards?|draw\s+(?:a\s+)?(?:tarot|spread|cards?)|pull\s+(?:three|3)\s+cards?)/i;
 
@@ -457,12 +459,17 @@ function hasAnyAntiKeyword(text: string): boolean {
   return (TAROT_AGENT_SPEC.antiKeywords ?? []).some((kw) => matchSpecKeyword(text, lower, kw));
 }
 
+/** Checks whether `text` asks for a single daily card rather than a three-card spread. */
+export function isDailyCardRequest(text: string): boolean {
+  return DAILY_CARD_PHRASE_RE.test(text) && !MULTI_CARD_OR_SPREAD_RE.test(text);
+}
+
 function hasTarotFollowUpCue(text: string): boolean {
   return (
     hasAnyDomainKeyword(text) ||
     BARE_DRAW_TRIGGER_RE.test(text) ||
     SESSION_CONFIRM_RE.test(text) ||
-    DAILY_CARD_TRIGGER_RE.test(text) ||
+    isDailyCardRequest(text) ||
     EXPLICIT_DRAW_PHRASE_RE.test(text) ||
     TAROT_FOLLOWUP_CUE_RE.test(text)
   );
@@ -586,7 +593,7 @@ export async function tarotFastRespond(
     if (
       !BARE_DRAW_TRIGGER_RE.test(stripped) &&
       !SESSION_CONFIRM_RE.test(stripped) &&
-      !DAILY_CARD_TRIGGER_RE.test(stripped) &&
+      !isDailyCardRequest(stripped) &&
       hasAnyAntiKeyword(stripped) &&
       !hasAnyDomainKeyword(stripped)
     ) {
@@ -610,7 +617,7 @@ export async function tarotFastRespond(
     return 'Hi! I am Tarot Master 🔮 Ready whenever you are — say "draw 3 cards", "daily card", or tell me what is on your mind.';
   }
 
-  if (DAILY_CARD_TRIGGER_RE.test(stripped)) {
+  if (isDailyCardRequest(stripped)) {
     return formatDailyCardReply(lang, new Date(event.timestampMs || Date.now()), event.isVoice === true);
   }
 
