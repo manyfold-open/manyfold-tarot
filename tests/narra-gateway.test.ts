@@ -384,6 +384,38 @@ describe('AgentSpec routing, 3-min active session & antiKeywords', () => {
     expect(drawEn.shouldReply).toBe(true);
     expect(drawEn.reason).toBe('active_session');
   });
+
+  it('disambiguates multi-@ prompts containing daily card and tarot draw phrases', async () => {
+    const multiAgentContext: RoomContext = {
+      roomId: '!grp_tarot_multi:matrix.netmind.chat',
+      chatType: 'group',
+      members: [
+        { matrixId: '@alice:matrix.netmind.chat', displayName: 'Alice', isAgent: false },
+        { matrixId: '@agent-b9908957:matrix.netmind.chat', displayName: 'Spotted London', isAgent: true },
+        { matrixId: TAROT_DEFAULT_MATRIX_ID, displayName: 'AI Tarot', isAgent: true },
+      ],
+      recentHistory: [],
+    };
+
+    for (const text of [
+      '@Spotted London @AI Tarot 幫我抽三張牌',
+      '@Spotted London @AI Tarot 帮我抽三张牌',
+      '@Spotted London @AI Tarot 抽一牌',
+      '@Spotted London @AI Tarot 今天的一牌',
+      "@Spotted London @AI Tarot today's card",
+    ]) {
+      const dec = await routeEvent(
+        makeInboundEvent({
+          text,
+          mentions: ['@agent-b9908957:matrix.netmind.chat', TAROT_DEFAULT_MATRIX_ID],
+        }),
+        multiAgentContext,
+        TAROT_AGENT_SPEC,
+      );
+      expect(dec.shouldReply, text).toBe(true);
+      expect(dec.reason, text).toBe('multi_mention_domain_match');
+    }
+  });
 });
 
 describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () => {
