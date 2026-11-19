@@ -95,11 +95,11 @@
     // limit; hourly meters still apply). A hash, so it is safe in a public repo —
     // see src/worker/tarot/tester.ts. Empty it and deploy to revoke every tester.
     "TAROT_TEST_TOKEN_SHA256": "8ce64659ce27461c12d4e03025fefe7864fbf5fa52af0cccb33d8172b52db473",
-    // Narra Messenger gateway flags (fail-closed OFF until secrets are provisioned).
-    "NARRA_GATEWAY_ENABLED": "off",
-    "NARRA_SYNC": "off",
+    // Narra Messenger gateway flags (enabled with bound Direct Matrix identity).
+    "NARRA_GATEWAY_ENABLED": "on",
+    "NARRA_SYNC": "on",
     "NARRA_AGENT_ID": "agt_agqvtek2554apclfoq3uc7yweq",
-    "NARRA_MATRIX_ID": "@agent-1aac6abd:matrix.netmind.chat"
+    "NARRA_MATRIX_ID": "@agent-852feddf:matrix.netmind.chat"
   }
   // Two secrets, set with `npx wrangler secret put <NAME>` or in the dashboard:
   //   ADMIN_PASSWORD          the operator password for /settings, and the only one.
