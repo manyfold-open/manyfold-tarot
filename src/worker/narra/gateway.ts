@@ -186,6 +186,31 @@ const OPT_IN_WEEKLY_RE =
   /^(?:訂閱每週|订阅每周|開啟每週|开启每周|打開每週|打开每周|opt[- ]?in\s+weekly|subscribe\s+weekly)\b/i;
 const OPT_OUT_WEEKLY_RE =
   /^(?:取消每週|取消每周|關閉每週|关闭每周|停止每週|停止每周|退訂每週|退订每周|opt[- ]?out\s+weekly|unsubscribe\s+weekly)\b/i;
+const DM_GREETING_RE =
+  /^(?:hi|hello|hey|yo|morning|good\s+(?:morning|afternoon|evening)|你好|您好|哈囉|哈啰|嗨|安安|早安|午安|晚安|在嗎|在吗|有人嗎|有人吗)$/i;
+
+const USER_REFLECTION_QUESTION: Record<SpreadId, Record<LangCode, string>> = {
+  current: {
+    'zh-Hant': '這三張牌裡，哪一張最貼近你此刻心裡的感受？',
+    'zh-Hans': '这三张牌里，哪一张最贴近你此刻心里的感受？',
+    en: 'Which of these three cards feels closest to where you are right now?',
+  },
+  decision: {
+    'zh-Hant': '這三張牌裡，哪一張最提醒你現在真正該衡量的是什麼？',
+    'zh-Hans': '这三张牌里，哪一张最提醒你现在真正该衡量的是什么？',
+    en: 'Which of these cards points most clearly to what you really need to weigh?',
+  },
+  'next-step': {
+    'zh-Hant': '如果今天只有十分鐘，哪一個最小的一步是你現在願意先走出去的？',
+    'zh-Hans': '如果今天只有十分钟，哪一个最小的一步是你现在愿意先走出去的？',
+    en: 'If you only had ten minutes today, what is the smallest first step you are willing to take?',
+  },
+  'weekly-review': {
+    'zh-Hant': '回看這一週，哪一個瞬間最值得你記住，又有什麼可以放心放下？',
+    'zh-Hans': '回看这一周，哪一个瞬间最值得你记住，又有什么可以放心放下？',
+    en: 'Looking back at this week, which moment is worth keeping, and what can you set down?',
+  },
+};
 
 function stripMentionsAndPunct(text: string): string {
   return (text ?? '')
@@ -293,15 +318,17 @@ export function formatLocalTarotDraw(
     return `${idx + 1}. ${slotTitle}：${label}（${kw}）`;
   });
 
+  const reflectionQuestion = USER_REFLECTION_QUESTION[spreadId][lang];
+
   if (options.isVoice) {
     const spreadTitle = loc(spread.title);
     if (lang === 'zh-Hant') {
-      return `這是為你抽出的「${spreadTitle}」三張牌。${cardLines.join(' ')} ${loc(spread.guidance.reflection)} 如果想針對其中一張牌深問，直接告訴我。`;
+      return `這是為你抽出的「${spreadTitle}」三張牌。${cardLines.join(' ')} ${reflectionQuestion} 如果想針對其中一張牌深問，直接告訴我。`;
     }
     if (lang === 'zh-Hans') {
-      return `这是为你抽出的「${spreadTitle}」三张牌。${cardLines.join(' ')} ${spread.guidance.reflection} 如果想针对其中一张牌深问，直接告诉我。`;
+      return `这是为你抽出的「${spreadTitle}」三张牌。${cardLines.join(' ')} ${reflectionQuestion} 如果想针对其中一张牌深问，直接告诉我。`;
     }
-    return `Here is your three-card "${spreadTitle}" draw. ${cardLines.join(' ')} ${spread.guidance.reflection} Tell me if you want to explore any of these cards further.`;
+    return `Here is your three-card "${spreadTitle}" draw. ${cardLines.join(' ')} ${reflectionQuestion} Tell me if you want to explore any of these cards further.`;
   }
 
   const spreadTitle = loc(spread.title);
@@ -309,8 +336,8 @@ export function formatLocalTarotDraw(
     return [
       `牌陣：${spreadTitle}`,
       ...cardLines,
-      `方向提醒：${loc(spread.instruction)}`,
-      `留給你的問題：${loc(spread.guidance.reflection)}`,
+      `方向提醒：${loc(spread.description)}`,
+      `留給你的問題：${reflectionQuestion}`,
       `若想繼續深問這組牌（不用重新抽），直接接著問即可。線上牌桌：${TAROT_SITE_URL}`,
     ].join('\n');
   }
@@ -318,16 +345,16 @@ export function formatLocalTarotDraw(
     return [
       `牌阵：${spreadTitle}`,
       ...cardLines,
-      `方向提醒：${spread.instruction}`,
-      `留给你的问题：${spread.guidance.reflection}`,
+      `方向提醒：${spread.description}`,
+      `留给你的问题：${reflectionQuestion}`,
       `如果想继续深问这组牌（不用重新抽），直接接着问即可。在线牌桌：${TAROT_SITE_URL}`,
     ].join('\n');
   }
   return [
     `Spread: ${spreadTitle}`,
     ...cardLines,
-    `Focus: ${spread.instruction}`,
-    `Question to sit with: ${spread.guidance.reflection}`,
+    `Focus: ${spread.description}`,
+    `Question to sit with: ${reflectionQuestion}`,
     `Ask a follow-up about these three cards anytime, or open the table at ${TAROT_SITE_URL}`,
   ].join('\n');
 }
@@ -492,6 +519,16 @@ export async function tarotFastRespond(
     !hasAnyDomainKeyword(stripped)
   ) {
     return '[NO_REPLY]';
+  }
+
+  if ((event.chatType === 'dm' || decision.reason === 'explicit_mention') && DM_GREETING_RE.test(stripped)) {
+    if (lang === 'zh-Hant') {
+      return '嗨！我是塔羅大師 🔮 想看哪方面的指引？直接跟我說「幫我抽三張牌看這週運勢」、「每日一牌」，或把心裡猶豫的事告訴我就可以開始。';
+    }
+    if (lang === 'zh-Hans') {
+      return '嗨！我是塔罗大师 🔮 想看哪方面的指引？直接跟我说“帮我抽三张牌看这周运势”、“每日一牌”，或把心里犹豫的事告诉我就可以开始。';
+    }
+    return 'Hi! I am Tarot Master 🔮 Ready whenever you are — say "draw 3 cards", "daily card", or tell me what is on your mind.';
   }
 
   if (DAILY_CARD_TRIGGER_RE.test(stripped)) {

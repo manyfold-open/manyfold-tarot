@@ -433,6 +433,28 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
       assertPureZhHant(toZhHant(jsonHans));
     }
 
+    const forbiddenInternalPromptPhrases = [
+      '來訪者',
+      '来访者',
+      '請協助',
+      '请协助',
+      'Help the visitor',
+      'One question that',
+    ];
+    for (const spreadId of ['current', 'decision', 'next-step', 'weekly-review'] as const) {
+      const zhHant = formatLocalTarotDraw('zh-Hant', spreadId);
+      assertPureZhHant(zhHant);
+      const zhHans = formatLocalTarotDraw('zh-Hans', spreadId);
+      assertPureZhHans(zhHans);
+      const en = formatLocalTarotDraw('en', spreadId);
+      expect(en).not.toMatch(/[\u4e00-\u9fff]/);
+      for (const sample of [zhHant, zhHans, en]) {
+        for (const phrase of forbiddenInternalPromptPhrases) {
+          expect(sample).not.toContain(phrase);
+        }
+      }
+    }
+
     const hantOut = formatLocalTarotDraw('zh-Hant', 'decision');
     assertPureZhHant(hantOut);
     expect(hantOut).toContain('牌陣：做一個決定');
@@ -444,6 +466,22 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     const enOut = formatLocalTarotDraw('en', 'weekly-review');
     expect(enOut).toContain('Spread: Weekly review');
     expect(enOut).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  it('replies immediately to DM and explicit-mention greetings without calling A2A', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    for (const [text, expectedLang, expectedSubstring] of [
+      ['你好', 'zh-Hant', '幫我抽三張牌'],
+      ['嗨', 'zh-Hant', '每日一牌'],
+      ['hello', 'en', 'Tarot Master'],
+    ] as const) {
+      const ev = makeInboundEvent({ chatType: 'dm', text });
+      const dec = await routeEvent(ev, { roomId: ev.roomId, chatType: 'dm', members: [], recentHistory: [] }, TAROT_AGENT_SPEC);
+      const reply = await tarotFastRespond(baseEnv, ev, dec, emptyMem);
+      expect(dec.detectedLang).toBe(expectedLang);
+      expect(reply).not.toBeNull();
+      expect(reply).toContain(expectedSubstring);
+    }
   });
 
   it('executes local CSPRNG draw inside NarraRoomCoordinator DO and falls back to A2A for follow-ups', async () => {
