@@ -635,6 +635,75 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     assertPureZhHant(dmDailyReply!);
   });
 
+  it('returns today\'s daily card in pure zh-Hans for "帮我抽一张每日一牌看看今天塔罗" while keeping 3-card draws', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const groupCtx: RoomContext = {
+      roomId: '!grp1:matrix.netmind.chat',
+      chatType: 'group',
+      userLanguageHint: 'zh-Hant',
+      members: [
+        { matrixId: '@alice:matrix.netmind.chat', displayName: 'Alice', isAgent: false },
+        { matrixId: TAROT_DEFAULT_MATRIX_ID, displayName: 'AI Tarot', isAgent: true },
+      ],
+      recentHistory: [],
+    };
+
+    for (const [chatType, text] of [
+      ['group', '帮我抽一张每日一牌看看今天塔罗'],
+      ['group', '@AI Tarot 帮我抽一张每日一牌看看今天塔罗'],
+      ['dm', '帮我抽一张每日一牌看看今天塔罗'],
+      ['dm', '给我看看每天一牌'],
+    ] as const) {
+      const ev = makeInboundEvent({ chatType, text });
+      const ctx: RoomContext =
+        chatType === 'dm'
+          ? { roomId: ev.roomId, chatType: 'dm', members: [], recentHistory: [] }
+          : groupCtx;
+      const dec = await routeEvent(ev, ctx, TAROT_AGENT_SPEC);
+      expect(dec.shouldReply, text).toBe(true);
+      expect(dec.detectedLang, text).toBe('zh-Hans');
+      const reply = await tarotFastRespond(baseEnv, ev, dec, emptyMem);
+      expect(reply, text).not.toBeNull();
+      expect(reply, text).toContain('今日一牌');
+      expect(reply, text).not.toContain('牌阵：');
+      expect(reply, text).not.toContain('牌陣：');
+      assertPureZhHans(reply!);
+    }
+
+    const enOneCardEv = makeInboundEvent({ chatType: 'dm', text: 'draw a one-card reading please' });
+    const enOneCardDec = await routeEvent(
+      enOneCardEv,
+      { roomId: enOneCardEv.roomId, chatType: 'dm', members: [], recentHistory: [] },
+      TAROT_AGENT_SPEC,
+    );
+    const enOneCardReply = await tarotFastRespond(baseEnv, enOneCardEv, enOneCardDec, emptyMem);
+    expect(enOneCardReply).toContain("Today's card");
+    expect(enOneCardReply).not.toContain('Spread:');
+
+    for (const [text, expectedLang, expectedHeader] of [
+      ['帮我抽三张牌看看今天塔罗', 'zh-Hans', '牌阵：'],
+      ['帮我抽三张每日一牌', 'zh-Hans', '牌阵：'],
+      ['幫我抽三張牌看看這週運勢', 'zh-Hant', '牌陣：'],
+      ['draw 3 cards', 'en', 'Spread:'],
+      ['draw a spread', 'en', 'Spread:'],
+    ] as const) {
+      const ev = makeInboundEvent({ chatType: 'dm', text });
+      const dec = await routeEvent(
+        ev,
+        { roomId: ev.roomId, chatType: 'dm', members: [], recentHistory: [] },
+        TAROT_AGENT_SPEC,
+      );
+      expect(dec.detectedLang, text).toBe(expectedLang);
+      const reply = await tarotFastRespond(baseEnv, ev, dec, emptyMem);
+      expect(reply, text).not.toBeNull();
+      expect(reply, text).toContain(expectedHeader);
+      expect(reply, text).not.toContain('今日一牌');
+      expect(reply, text).not.toContain("Today's card");
+      if (expectedLang === 'zh-Hans') assertPureZhHans(reply!);
+      if (expectedLang === 'zh-Hant') assertPureZhHant(reply!);
+    }
+  });
+
   it('executes local CSPRNG draw inside NarraRoomCoordinator DO and falls back to A2A for follow-ups', async () => {
     let nowMs = 1_760_500_000_000;
     vi.useFakeTimers();
