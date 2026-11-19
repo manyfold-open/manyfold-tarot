@@ -48,7 +48,7 @@ export const TAROT_AGENT_SPEC: AgentSpec = {
   name: 'AI Tarot',
   aliases: ['tarot-master-2', 'Tarot Master', '塔羅大師', '塔罗大师', '塔羅師', '塔罗师'],
   domainDescription:
-    'Three-card AI tarot readings, card meanings, spreads, and reflective follow-ups in zh-Hant, zh-Hans, and en.',
+    'Three-card AI tarot readings, daily card draws, tarot spreads, upright/reversed card meanings, and reflective guidance for life, career, and relationship decisions in zh-Hant, zh-Hans, and en.',
   domainKeywords: [
     'tarot',
     'tarot reading',

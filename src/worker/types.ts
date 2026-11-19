@@ -3,11 +3,15 @@
  * if you add a binding there, add it here too.
  */
 
-export interface Env {
+import type { NarraGatewayEnv } from '@manyfold/narra-agent-kit/worker';
+
+export interface Env extends NarraGatewayEnv {
   /** Static build output in dist/client. Non-/api/ requests are served from here. */
   ASSETS: Fetcher;
   /** D1 database. The starter uses five tables; the rest is yours. */
   DB: D1Database;
+  /** Cloudflare Workers AI binding used by Narra Messenger group-chat triage. */
+  AI?: Ai;
 
   /** Manyfold API base, e.g. https://api.manyfold.ai */
   MANYFOLD_API_BASE_URL?: string;
