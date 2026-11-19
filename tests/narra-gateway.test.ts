@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   MemoryStore,
+  createWorkersAiTriageModel,
   isNarraGatewayEnabled,
   routeEvent,
   type InboundEvent,
@@ -190,6 +191,7 @@ describe('wrangler.jsonc & fail-closed safety invariants', () => {
     );
     const stripped = raw.replace(/^\s*\/\/.*$/gm, '');
     const parsed = JSON.parse(stripped) as {
+      ai?: { binding: string };
       routes: Array<{ pattern: string }>;
       services: Array<{ binding: string; service: string }>;
       d1_databases: Array<{ binding: string; database_id: string }>;
@@ -199,6 +201,7 @@ describe('wrangler.jsonc & fail-closed safety invariants', () => {
       vars: Record<string, string>;
     };
 
+    expect(parsed.ai).toEqual({ binding: 'AI' });
     expect(parsed.d1_databases[0].database_id).toBe('f05ec677-9cd9-4cba-85ac-864c1a4f5891');
     expect(parsed.services).toEqual([{ binding: 'STICK', service: 'manyfold-fortune-stick' }]);
     expect(parsed.routes.map((r) => r.pattern)).toEqual([
@@ -1078,5 +1081,136 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     expect(toEnReply).toContain('English');
     expect(toEnReply).not.toMatch(/[\u4e00-\u9fff]/);
     expect(await mem.getPreferredLang(senderId, 'group')).toBe('en');
+  });
+
+  it('uses env.AI Workers AI triage with refined domainDescription for ambiguous group turns and stays silent on anecdotes', async () => {
+    const aiPrompts: string[] = [];
+    const aiMock = {
+      run: vi.fn(async (_model: string, input: { messages: Array<{ role: string; content: string }> }) => {
+        aiPrompts.push(input.messages.map((m) => m.content).join('\n'));
+        const userMsg = input.messages.find((m) => m.role === 'user')?.content ?? '';
+        if (userMsg.includes('換工作')) {
+          return { response: JSON.stringify({ score: 0.86, reason: 'tarot_decision_guidance' }) };
+        }
+        return { response: JSON.stringify({ score: 0.1, reason: 'peer_or_noise' }) };
+      }),
+    };
+
+    const peerCtx: RoomContext = {
+      roomId: '!grp_ai_triage:matrix.netmind.chat',
+      chatType: 'group',
+      members: [
+        { matrixId: '@alice:matrix.netmind.chat', displayName: 'Alice', isAgent: false },
+        { matrixId: TAROT_DEFAULT_MATRIX_ID, displayName: 'AI Tarot', isAgent: true },
+        { matrixId: '@agent-bc3282c7:matrix.netmind.chat', displayName: 'AI Fortune Stick', isAgent: true },
+      ],
+      recentHistory: [],
+    };
+    const triageModel = createWorkersAiTriageModel(aiMock);
+
+    const decisionYes = await routeEvent(
+      makeInboundEvent({ text: '最近在猶豫要不要換工作，不知道怎麼選比較好？' }),
+      peerCtx,
+      TAROT_AGENT_SPEC,
+      { triageModel },
+    );
+    expect(decisionYes.shouldReply).toBe(true);
+    expect(decisionYes.triageSource).toBe('model');
+    expect(aiMock.run).toHaveBeenCalledTimes(1);
+    expect(aiPrompts[0]).toContain(TAROT_AGENT_SPEC.domainDescription);
+    expect(aiPrompts[0]).toContain('AI Fortune Stick');
+
+    // Past-tense anecdote is filtered deterministically without invoking Workers AI
+    const anecdoteDec = await routeEvent(
+      makeInboundEvent({ text: '我朋友昨天去算塔羅超準，抽完就去吃飯了' }),
+      peerCtx,
+      TAROT_AGENT_SPEC,
+      { triageModel },
+    );
+    expect(anecdoteDec.shouldReply).toBe(false);
+    expect(aiMock.run).toHaveBeenCalledTimes(1);
+
+    // End-to-end inside NarraRoomCoordinator with env.AI binding
+    let nowMs = 1_760_600_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(nowMs);
+    const posted: string[] = [];
+    let a2aCalled = 0;
+
+    try {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+          if (url.endsWith('/api/agent-runtime/chat/send')) {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { text: string };
+            posted.push(body.text);
+            return Response.json({ status: 'ok', data: { event_id: `$sent_ai_${posted.length}` } });
+          }
+          if (url === 'https://a2a.tarot.test/rpc') {
+            a2aCalled++;
+            return new Response(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: '1',
+                result: {
+                  kind: 'message',
+                  role: 'agent',
+                  parts: [{ kind: 'text', text: '如果你想透過三張牌釐清換工作的考量，回覆「抽」即可。' }],
+                },
+              }),
+              { status: 200, headers: { 'content-type': 'application/json' } },
+            );
+          }
+          return new Response('not found', { status: 404 });
+        }),
+      );
+
+      const gwEnv = {
+        ...baseEnv,
+        AI: aiMock as unknown as Ai,
+        NARRA_GATEWAY_ENABLED: 'on',
+        NARRA_SYNC: 'off',
+        NARRA_AGENT_TOKEN: 'narra_tarot_ai_tok',
+        MANYFOLD_A2A_URL: 'https://a2a.tarot.test/rpc',
+        MANYFOLD_A2A_TOKEN: 'a2a_tarot_ai_tok',
+      } as Env;
+
+      const roomDo = new NarraRoomCoordinator(makeFakeDOState(), gwEnv);
+      await roomDo.fetch(
+        new Request('https://narra-room/events', {
+          method: 'POST',
+          body: JSON.stringify({
+            roomId: '!grp_do_ai:matrix.netmind.chat',
+            chatType: 'group',
+            members: [
+              { matrixId: '@alice:matrix.netmind.chat', displayName: 'Alice', isAgent: false },
+              { matrixId: TAROT_DEFAULT_MATRIX_ID, displayName: 'AI Tarot', isAgent: true },
+            ],
+            events: [
+              {
+                event_id: '$ai_t1',
+                sender: '@alice:matrix.netmind.chat',
+                type: 'm.room.message',
+                origin_server_ts: nowMs,
+                content: {
+                  msgtype: 'm.text',
+                  body: '最近在猶豫要不要換工作，不知道怎麼選比較好？',
+                },
+              },
+            ],
+          }),
+        }),
+      );
+      vi.setSystemTime(nowMs + 2_000);
+      await roomDo.alarm();
+
+      expect(aiMock.run).toHaveBeenCalledTimes(2);
+      expect(a2aCalled).toBe(1);
+      expect(posted).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 });

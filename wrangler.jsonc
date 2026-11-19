@@ -56,6 +56,9 @@
       "database_id": "f05ec677-9cd9-4cba-85ac-864c1a4f5891"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "triggers": {
     "crons": ["*/5 * * * *"]
   },
