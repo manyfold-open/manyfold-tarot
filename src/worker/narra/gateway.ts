@@ -10,6 +10,7 @@ import {
   MemoryStore,
   detectLang,
   isNarraGatewayEnabled,
+  stripAgentMentions,
   type AgentSpec,
   type AgentUpdateItem,
   type InboundEvent,
@@ -172,8 +173,39 @@ const EN_CRISIS_RE =
 const ZH_CRISIS_RE =
   /(?:想死|不想活|活不下去了|活不下去|自殺|自杀|輕生|轻生|尋死|寻死|結束生命|结束生命|了結生命|了结生命|割腕|跳樓|跳楼|上吊|服毒|自殘|自残|傷害自己|伤害自己|傷害別人|伤害别人|殺了別人|杀了别人|遇到危險|遇到危险)/;
 
-const BARE_MENTION_RE =
-  /\[@[^\]\n]{1,80}\]\(@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9.-]+(?::\d{1,5})?\)|@[A-Za-z0-9._=\-/+]+(?::[A-Za-z0-9.-]+(?::\d{1,5})?)?/g;
+const ALL_KNOWN_MENTION_NAMES = [
+  'AI Tarot',
+  'Tarot Master',
+  'tarot-master-2',
+  '塔羅大師',
+  '塔罗大师',
+  '塔羅師',
+  '塔罗师',
+  'AI Fortune Stick',
+  'fortune-stick',
+  'wenyiqian',
+  '問一籤',
+  '问一签',
+  '解籤師',
+  '解签师',
+  'AI in 5',
+  'AI5',
+  'ai5-chat',
+  'AI新聞',
+  'AI新闻',
+  'Spotted London',
+  'spotted-guide',
+  'London Chinese Food',
+  'lcf-guide',
+  'Manyfold Data',
+  'mfd-guide',
+  'Penny',
+  'penny',
+  '記帳狗',
+  'Quidpaw',
+  'QuidPaw',
+  '省錢小幫手',
+];
 
 const BARE_DRAW_TRIGGER_RE =
   /^(?:抽|抽牌|抽吧|抽卡|抽三張|抽三张|抽塔羅|抽塔罗|來抽牌|来抽牌|開抽|开抽|開始抽|开始抽|再抽一次|draw|draw\s+cards?|draw\s+tarot|draw\s+(?:a\s+)?spread|pull\s+cards?)$/i;
@@ -213,8 +245,7 @@ const USER_REFLECTION_QUESTION: Record<SpreadId, Record<LangCode, string>> = {
 };
 
 function stripMentionsAndPunct(text: string): string {
-  return (text ?? '')
-    .replace(BARE_MENTION_RE, ' ')
+  return stripAgentMentions(text ?? '', ALL_KNOWN_MENTION_NAMES)
     .replace(/^[\s,，.。!！?？:：;；"'「」『』()（）]+|[\s,，.。!！?？:：;；"'「」『』()（）]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -233,7 +264,7 @@ export function resolveTarotLang(
   decisionLang: LangCode,
   memories?: RecallTurnResult,
 ): LangCode {
-  const clean = (text ?? '').trim();
+  const clean = stripMentionsAndPunct(text);
   if (/用繁體|繁體中文|正體中文/i.test(clean)) return 'zh-Hant';
   if (/用简体|简体中文/i.test(clean)) return 'zh-Hans';
   if (/\b(?:in\s+english|speak\s+english|english\s+please)\b/i.test(clean)) return 'en';
@@ -244,10 +275,11 @@ export function resolveTarotLang(
   if (hasHans && !hasHant) return 'zh-Hans';
 
   const stored = memories?.userMemories.find((m) => m.key === 'lang')?.value;
-  if (stored === 'zh-Hant' || stored === 'zh-Hans' || stored === 'en') {
-    return detectLang(clean, stored, stored);
-  }
-  return decisionLang;
+  const storedOrDecision: LangCode =
+    stored === 'zh-Hant' || stored === 'zh-Hans' || stored === 'en' ? stored : decisionLang;
+  return detectLang(clean, storedOrDecision, storedOrDecision, {
+    extraMentionNames: ALL_KNOWN_MENTION_NAMES,
+  });
 }
 
 export function crisisReply(lang: LangCode): string {
@@ -521,7 +553,10 @@ export async function tarotFastRespond(
     return '[NO_REPLY]';
   }
 
-  if ((event.chatType === 'dm' || decision.reason === 'explicit_mention') && DM_GREETING_RE.test(stripped)) {
+  if (
+    (event.chatType === 'dm' || decision.reason === 'dm' || decision.reason === 'explicit_mention') &&
+    DM_GREETING_RE.test(stripped)
+  ) {
     if (lang === 'zh-Hant') {
       return '嗨！我是塔羅大師 🔮 想看哪方面的指引？直接跟我說「幫我抽三張牌看這週運勢」、「每日一牌」，或把心裡猶豫的事告訴我就可以開始。';
     }
