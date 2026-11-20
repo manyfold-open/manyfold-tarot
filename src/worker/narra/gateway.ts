@@ -17,6 +17,7 @@ import {
   type InboundEvent,
   type LangCode,
   type RecallTurnResult,
+  type RoomContext,
   type TriageDecision,
 } from '@manyfold/narra-agent-kit';
 import {
@@ -781,11 +782,70 @@ export async function resolveTarotA2ACredential(
   }
 }
 
+const TAROT_DRAW_CONTEXT_RE =
+  /(?:正位|逆位|今日一牌|牌陣|牌阵|單張抽牌|单张抽牌|\bupright\b|\breversed\b|\bdaily\s*card\b|\btoday'?s\s*card\b|\bsingle[- ]card\s+draw\b|\bspread:)/i;
+const MAX_EXTRA_FIELD_CHARS = 1000;
+
+function truncateEnvelopeSnippet(text: string, maxChars = MAX_EXTRA_FIELD_CHARS): string {
+  const clean = text.trim();
+  if (clean.length <= maxChars) return clean;
+  return `${clean.slice(0, maxChars - 1)}…`;
+}
+
+/** Progress status text shown if a directly addressed A2A tarot turn exceeds `thinkingDelayMs`. */
+export function tarotThinkingMessage(lang: LangCode): string {
+  if (lang === 'zh-Hant') return '🔮 正在結合你的牌面與處境深入解讀中，稍等一下…';
+  if (lang === 'zh-Hans') return '🔮 正在结合你的牌面与处境深入解读中，稍等一下…';
+  return '🔮 Reflecting on your drawn cards and question, one moment…';
+}
+
+/**
+ * Extracts the latest self-posted tarot draw from `replyToTarget` or `recentHistory`
+ * so Manyfold A2A follow-ups have the exact drawn spread in envelope context.
+ */
+export async function buildTarotExtraEnvelopeFields(
+  env: Env,
+  _event: InboundEvent,
+  _decision: TriageDecision,
+  _memories: RecallTurnResult,
+  context: RoomContext,
+): Promise<Record<string, string> | null> {
+  const selfIds = new Set<string>([TAROT_DEFAULT_MATRIX_ID]);
+  const configuredId = (env.NARRA_MATRIX_ID ?? env.MATRIX_USER_ID ?? '').trim();
+  if (configuredId) selfIds.add(configuredId);
+
+  const replyTarget = context.replyToTarget;
+  if (
+    replyTarget &&
+    (replyTarget.isSelf || selfIds.has(replyTarget.senderId)) &&
+    TAROT_DRAW_CONTEXT_RE.test(replyTarget.text)
+  ) {
+    return {
+      last_drawn_tarot_cards: truncateEnvelopeSnippet(replyTarget.text),
+    };
+  }
+
+  const history = context.recentHistory ?? [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i];
+    if (!(turn.isSelf || selfIds.has(turn.senderId))) continue;
+    if (!TAROT_DRAW_CONTEXT_RE.test(turn.text)) continue;
+    return {
+      last_drawn_tarot_cards: truncateEnvelopeSnippet(turn.text),
+    };
+  }
+
+  return null;
+}
+
 export const narraGatewayConfig: NarraGatewayConfig<Env> = {
   spec: TAROT_AGENT_SPEC,
   fastRespond: tarotFastRespond,
   fetchUpdates: fetchTarotUpdates,
   resolveA2ACredential: resolveTarotA2ACredential,
+  enableA2AFailureReply: true,
+  thinkingMessage: (lang) => tarotThinkingMessage(lang),
+  buildExtraEnvelopeFields: buildTarotExtraEnvelopeFields,
 };
 
 export function kickTarotNarraGateway(env: Env): Promise<NarraGatewayKickResult> {

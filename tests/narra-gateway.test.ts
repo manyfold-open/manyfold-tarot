@@ -17,12 +17,15 @@ import {
   TAROT_AGENT_SPEC,
   TAROT_DEFAULT_MATRIX_ID,
   TAROT_SITE_URL,
+  buildTarotExtraEnvelopeFields,
   fetchTarotUpdates,
   formatLocalTarotDraw,
   formatSingleCardLocalDraw,
   kickTarotNarraGateway,
+  narraGatewayConfig,
   resolveTarotLang,
   tarotFastRespond,
+  tarotThinkingMessage,
 } from '../src/worker/narra/gateway';
 import { toZhHant } from '../src/worker/narra/zh-hant';
 import type { Env } from '../src/worker/types';
@@ -1466,5 +1469,289 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
       emptyMem,
     );
     expect(unmentionedGroupThanks).toBe('[NO_REPLY]');
+  });
+});
+
+describe('Phase 1-4 UX & A2A context pre-fetch (thinkingMessage, enableA2AFailureReply, buildExtraEnvelopeFields)', () => {
+  const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+  const makeDecision = (detectedLang: 'zh-Hant' | 'zh-Hans' | 'en' = 'zh-Hant') => ({
+    shouldReply: true,
+    tier: 0 as const,
+    reason: 'explicit_mention',
+    confidence: 1,
+    detectedLang,
+    shouldQuote: false,
+  });
+
+  it('wires enableA2AFailureReply, thinkingMessage, and buildExtraEnvelopeFields in narraGatewayConfig', () => {
+    expect(narraGatewayConfig.enableA2AFailureReply).toBe(true);
+    expect(typeof narraGatewayConfig.thinkingMessage).toBe('function');
+    expect(typeof narraGatewayConfig.buildExtraEnvelopeFields).toBe('function');
+
+    const ev = makeInboundEvent({ text: '那這張寶劍五對我換專案代表什麼？' });
+    const hantMsg = narraGatewayConfig.thinkingMessage!('zh-Hant', ev, makeDecision('zh-Hant'));
+    const hansMsg = narraGatewayConfig.thinkingMessage!('zh-Hans', ev, makeDecision('zh-Hans'));
+    const enMsg = narraGatewayConfig.thinkingMessage!('en', ev, makeDecision('en'));
+
+    expect(hantMsg).toBe('🔮 正在結合你的牌面與處境深入解讀中，稍等一下…');
+    expect(hansMsg).toBe('🔮 正在结合你的牌面与处境深入解读中，稍等一下…');
+    expect(enMsg).toBe('🔮 Reflecting on your drawn cards and question, one moment…');
+    expect(tarotThinkingMessage('zh-Hant')).toBe(hantMsg);
+    expect(tarotThinkingMessage('zh-Hans')).toBe(hansMsg);
+    expect(tarotThinkingMessage('en')).toBe(enMsg);
+    assertPureZhHant(hantMsg);
+    assertPureZhHans(hansMsg);
+    expect(enMsg).not.toMatch(/[\u4e00-\u9fff]/);
+  });
+
+  it('extracts last_drawn_tarot_cards from replyToTarget (isSelf) or latest self turn in recentHistory and truncates <= 1000 chars', async () => {
+    const ev = makeInboundEvent({ text: '那這張寶劍五對我換專案代表什麼？' });
+    const decision = makeDecision('zh-Hant');
+
+    const olderDraw = '牌陣：當下狀態\n1. 現況：愚者（正位）\n2. 阻礙：高塔（逆位）\n3. 方向：星星（正位）';
+    const newerDraw = '牌陣：做一個決定\n1. 選項一：寶劍五（正位）\n2. 選項二：權杖二（逆位）\n3. 提醒：女祭司（正位）';
+    const replyDraw = '今日一牌（2026-11-20）：隱者（逆位）（內省、放慢腳步）';
+
+    // 1. Prefers self replyToTarget when it is a tarot draw
+    const fromReply = await buildTarotExtraEnvelopeFields(baseEnv, ev, decision, emptyMem, {
+      roomId: ev.roomId,
+      chatType: 'group',
+      members: [],
+      replyToTarget: {
+        eventId: '$reply_draw',
+        senderId: TAROT_DEFAULT_MATRIX_ID,
+        isSelf: true,
+        isAgent: true,
+        text: replyDraw,
+      },
+      recentHistory: [
+        {
+          eventId: '$h1',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isSelf: true,
+          isAgent: true,
+          text: newerDraw,
+          timestampMs: 1_000,
+        },
+      ],
+    });
+    expect(fromReply).toEqual({ last_drawn_tarot_cards: replyDraw });
+
+    // 2. Falls back to latest self draw in recentHistory when replyToTarget is human or non-draw self text
+    const fromHistory = await buildTarotExtraEnvelopeFields(baseEnv, ev, decision, emptyMem, {
+      roomId: ev.roomId,
+      chatType: 'group',
+      members: [],
+      replyToTarget: {
+        eventId: '$reply_human',
+        senderId: '@alice:matrix.netmind.chat',
+        isSelf: false,
+        isAgent: false,
+        text: '我剛剛抽到正位寶劍五',
+      },
+      recentHistory: [
+        {
+          eventId: '$h1',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isSelf: true,
+          isAgent: true,
+          text: olderDraw,
+          timestampMs: 1_000,
+        },
+        {
+          eventId: '$h2',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isAgent: true,
+          text: newerDraw,
+          timestampMs: 2_000,
+        },
+        {
+          eventId: '$h3',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isSelf: true,
+          isAgent: true,
+          text: '嗨！有什麼想問的可以直接告訴我。',
+          timestampMs: 3_000,
+        },
+      ],
+    });
+    expect(fromHistory).toEqual({ last_drawn_tarot_cards: newerDraw });
+
+    // 3. Matches English Daily Card / upright / reversed draws
+    const enDraw = 'Daily Card: The Hermit (upright) - quiet reflection and inner clarity.';
+    const fromEn = await buildTarotExtraEnvelopeFields(baseEnv, ev, makeDecision('en'), emptyMem, {
+      roomId: ev.roomId,
+      chatType: 'dm',
+      members: [],
+      recentHistory: [
+        {
+          eventId: '$en1',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isSelf: true,
+          isAgent: true,
+          text: enDraw,
+          timestampMs: 1_000,
+        },
+      ],
+    });
+    expect(fromEn).toEqual({ last_drawn_tarot_cards: enDraw });
+
+    // 4. Truncates oversized draw snippets to <= 1000 chars
+    const longDraw = `牌陣：做一個決定\n1. 現況：寶劍五（正位）\n${'解讀補充'.repeat(350)}`;
+    const truncated = await buildTarotExtraEnvelopeFields(baseEnv, ev, decision, emptyMem, {
+      roomId: ev.roomId,
+      chatType: 'dm',
+      members: [],
+      recentHistory: [
+        {
+          eventId: '$long1',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isSelf: true,
+          isAgent: true,
+          text: longDraw,
+          timestampMs: 1_000,
+        },
+      ],
+    });
+    expect(truncated).not.toBeNull();
+    expect(truncated!.last_drawn_tarot_cards.length).toBeLessThanOrEqual(1000);
+    expect(truncated!.last_drawn_tarot_cards.endsWith('…')).toBe(true);
+
+    // 5. Returns null when no self tarot draw exists
+    const none = await buildTarotExtraEnvelopeFields(baseEnv, ev, decision, emptyMem, {
+      roomId: ev.roomId,
+      chatType: 'group',
+      members: [],
+      recentHistory: [
+        {
+          eventId: '$u1',
+          senderId: '@alice:matrix.netmind.chat',
+          isSelf: false,
+          isAgent: false,
+          text: '寶劍五正位是什麼意思？',
+          timestampMs: 1_000,
+        },
+        {
+          eventId: '$s1',
+          senderId: TAROT_DEFAULT_MATRIX_ID,
+          isSelf: true,
+          isAgent: true,
+          text: '嗨！準備好抽牌就跟我說。',
+          timestampMs: 2_000,
+        },
+      ],
+    });
+    expect(none).toBeNull();
+  });
+
+  it('injects last_drawn_tarot_cards into the A2A envelope on follow-up inside NarraRoomCoordinator DO', async () => {
+    let nowMs = 1_760_800_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(nowMs);
+    const posted: string[] = [];
+    const a2aEnvelopes: string[] = [];
+
+    try {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+          if (url.endsWith('/api/agent-runtime/chat/send')) {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { text: string };
+            posted.push(body.text);
+            return Response.json({ status: 'ok', data: { event_id: `$tarot_ctx_${posted.length}` } });
+          }
+          if (url === 'https://a2a.tarot.test/rpc') {
+            const rpc = JSON.parse(String(init?.body ?? '{}')) as {
+              params?: { message?: { parts?: Array<{ text?: string }> } };
+            };
+            const text = rpc.params?.message?.parts?.map((p) => p.text ?? '').join('\n') ?? '';
+            a2aEnvelopes.push(text);
+            return new Response(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: '1',
+                result: {
+                  kind: 'message',
+                  role: 'agent',
+                  parts: [{ kind: 'text', text: '結合剛剛抽到的三張牌，換專案前先釐清你最在意的邊界。' }],
+                },
+              }),
+              { status: 200, headers: { 'content-type': 'application/json' } },
+            );
+          }
+          return new Response('not found', { status: 404 });
+        }),
+      );
+
+      const gwEnv = {
+        ...baseEnv,
+        NARRA_GATEWAY_ENABLED: 'on',
+        NARRA_SYNC: 'off',
+        NARRA_AGENT_TOKEN: 'narra_tarot_ctx_tok',
+        MANYFOLD_A2A_URL: 'https://a2a.tarot.test/rpc',
+        MANYFOLD_A2A_TOKEN: 'a2a_tarot_ctx_tok',
+      } as Env;
+
+      const roomDo = new NarraRoomCoordinator(makeFakeDOState(), gwEnv);
+      const roomId = '!dm_tarot_ctx:matrix.netmind.chat';
+
+      // Step 1: Local 3-card draw
+      await roomDo.fetch(
+        new Request('https://narra-room/events', {
+          method: 'POST',
+          body: JSON.stringify({
+            roomId,
+            chatType: 'dm',
+            events: [
+              {
+                event_id: '$draw_1',
+                sender: '@alice:matrix.netmind.chat',
+                type: 'm.room.message',
+                origin_server_ts: nowMs,
+                content: { msgtype: 'm.text', body: '幫我抽三張牌看換專案' },
+              },
+            ],
+          }),
+        }),
+      );
+      vi.setSystemTime(nowMs + 2_000);
+      await roomDo.alarm();
+      expect(posted).toHaveLength(1);
+      expect(posted[0]).toContain('牌陣：');
+      expect(a2aEnvelopes).toHaveLength(0);
+
+      // Step 2: Follow-up question -> A2A receives last_drawn_tarot_cards
+      nowMs += 15_000;
+      vi.setSystemTime(nowMs);
+      await roomDo.fetch(
+        new Request('https://narra-room/events', {
+          method: 'POST',
+          body: JSON.stringify({
+            roomId,
+            chatType: 'dm',
+            events: [
+              {
+                event_id: '$followup_1',
+                sender: '@alice:matrix.netmind.chat',
+                type: 'm.room.message',
+                origin_server_ts: nowMs,
+                content: { msgtype: 'm.text', body: '那第二張牌對我換專案代表什麼？' },
+              },
+            ],
+          }),
+        }),
+      );
+      vi.setSystemTime(nowMs + 2_000);
+      await roomDo.alarm();
+
+      expect(a2aEnvelopes).toHaveLength(1);
+      expect(a2aEnvelopes[0]).toContain('last_drawn_tarot_cards:');
+      expect(a2aEnvelopes[0]).toContain('牌陣：');
+      expect(posted).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
   });
 });
