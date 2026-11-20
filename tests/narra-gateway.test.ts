@@ -1449,6 +1449,59 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     assertPureZhHans(burstHansReply!);
   });
 
+  it('treats short single-card phrasing ("抽张塔罗牌" without 一) as a 1-card draw in pure zh-Hans (not a 3-card spread)', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const dmCtx: RoomContext = {
+      roomId: '!dm_tarot_short_single:matrix.netmind.chat',
+      chatType: 'dm',
+      members: [],
+      recentHistory: [],
+    };
+
+    const shortHansEv = makeInboundEvent({
+      roomId: dmCtx.roomId,
+      chatType: 'dm',
+      text: '有点纠结要不要接这个新项目，帮我抽张塔罗牌看看',
+    });
+    const shortHansDec = await routeEvent(shortHansEv, dmCtx, TAROT_AGENT_SPEC);
+    expect(shortHansDec.shouldReply).toBe(true);
+    expect(shortHansDec.detectedLang).toBe('zh-Hans');
+
+    const shortHansReply = await tarotFastRespond(baseEnv, shortHansEv, shortHansDec, emptyMem);
+    expect(shortHansReply).not.toBeNull();
+    expect(shortHansReply).toContain('单张抽牌：');
+    expect(shortHansReply).toMatch(/（正位）|（逆位）/);
+    expect(shortHansReply).toContain(TAROT_SITE_URL);
+    expect(shortHansReply).not.toContain('牌阵：');
+    expect(shortHansReply).not.toContain('三张');
+    assertPureZhHans(shortHansReply!);
+
+    // Traditional variant ("幫我抽張塔羅牌看看") also draws 1 card in pure zh-Hant
+    const shortHantEv = makeInboundEvent({
+      roomId: dmCtx.roomId,
+      chatType: 'dm',
+      text: '有點猶豫要不要接這個新專案，幫我抽張塔羅牌看看',
+    });
+    const shortHantDec = await routeEvent(shortHantEv, dmCtx, TAROT_AGENT_SPEC);
+    expect(shortHantDec.detectedLang).toBe('zh-Hant');
+    const shortHantReply = await tarotFastRespond(baseEnv, shortHantEv, shortHantDec, emptyMem);
+    expect(shortHantReply).toContain('單張抽牌：');
+    expect(shortHantReply).not.toContain('牌陣：');
+    assertPureZhHant(shortHantReply!);
+
+    // Explicit 3-card phrasing still draws a 3-card spread
+    const threeHansEv = makeInboundEvent({
+      roomId: dmCtx.roomId,
+      chatType: 'dm',
+      text: '帮我抽三张塔罗牌看看',
+    });
+    const threeHansDec = await routeEvent(threeHansEv, dmCtx, TAROT_AGENT_SPEC);
+    const threeHansReply = await tarotFastRespond(baseEnv, threeHansEv, threeHansDec, emptyMem);
+    expect(threeHansReply).toContain('牌阵：');
+    expect(threeHansReply).not.toContain('单张抽牌：');
+    assertPureZhHans(threeHansReply!);
+  });
+
   it('handles 1v1 DM gratitude and capability intros locally while keeping unmentioned group active_session silent', async () => {
     const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
     const dmCtx = (roomId: string): RoomContext => ({
