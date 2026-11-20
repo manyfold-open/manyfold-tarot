@@ -1378,6 +1378,45 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     expect(bareReplyEn).toContain('Hi! I am Tarot Master');
   });
 
+  it('handles burst-coalesced single-card draw with newlines as a single-card draw (not a 3-card spread)', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const dmCtx: RoomContext = {
+      roomId: '!dm_tarot_burst_single:matrix.netmind.chat',
+      chatType: 'dm',
+      members: [],
+      recentHistory: [],
+    };
+
+    const burstEvent = makeInboundEvent({
+      roomId: dmCtx.roomId,
+      chatType: 'dm',
+      text: '幫我抽\n一張牌\n看今天心情',
+    });
+    const burstDecision = await routeEvent(burstEvent, dmCtx, TAROT_AGENT_SPEC);
+    expect(burstDecision.shouldReply).toBe(true);
+    expect(burstDecision.detectedLang).toBe('zh-Hant');
+
+    const burstReply = await tarotFastRespond(baseEnv, burstEvent, burstDecision, emptyMem);
+    expect(burstReply).not.toBeNull();
+    expect(burstReply).toContain('單張抽牌：');
+    expect(burstReply).toMatch(/（正位）|（逆位）/);
+    expect(burstReply).not.toContain('牌陣：');
+    expect(burstReply).not.toContain('三張');
+    assertPureZhHant(burstReply!);
+
+    const burstHansEvent = makeInboundEvent({
+      roomId: dmCtx.roomId,
+      chatType: 'dm',
+      text: '帮我抽\n一张牌\n看今天心情',
+    });
+    const burstHansDecision = await routeEvent(burstHansEvent, dmCtx, TAROT_AGENT_SPEC);
+    const burstHansReply = await tarotFastRespond(baseEnv, burstHansEvent, burstHansDecision, emptyMem);
+    expect(burstHansReply).not.toBeNull();
+    expect(burstHansReply).toContain('单张抽牌：');
+    expect(burstHansReply).not.toContain('牌阵：');
+    assertPureZhHans(burstHansReply!);
+  });
+
   it('handles 1v1 DM gratitude and capability intros locally while keeping unmentioned group active_session silent', async () => {
     const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
     const dmCtx = (roomId: string): RoomContext => ({
