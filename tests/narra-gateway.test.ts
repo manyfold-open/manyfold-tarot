@@ -448,6 +448,38 @@ describe('AgentSpec routing, 3-min active session & antiKeywords', () => {
       expect(dec.reason, text).toBe('multi_mention_domain_match');
     }
   });
+
+  it('suppresses fortune-stick requests like 幫我求一支籤吧 and 帮我抽一支签 in unmentioned group chat', async () => {
+    const fortuneStickPeersContext: RoomContext = {
+      ...baseContext,
+      members: [
+        ...baseContext.members,
+        {
+          matrixId: '@agent-bc3282c7:matrix.netmind.chat',
+          displayName: 'AI Fortune Stick',
+          isAgent: true,
+        },
+      ],
+    };
+    const fallbackTriage = createWorkersAiTriageModel(null);
+
+    for (const text of ['幫我求一支籤吧', '幫我抽一支籤', '帮我抽一支签']) {
+      const heuristicDec = await routeEvent(
+        makeInboundEvent({ text }),
+        fortuneStickPeersContext,
+        TAROT_AGENT_SPEC,
+      );
+      expect(heuristicDec.shouldReply, `heuristic:${text}`).toBe(false);
+
+      const modelDec = await routeEvent(
+        makeInboundEvent({ text }),
+        fortuneStickPeersContext,
+        TAROT_AGENT_SPEC,
+        { triageModel: fallbackTriage },
+      );
+      expect(modelDec.shouldReply, `triage:${text}`).toBe(false);
+    }
+  });
 });
 
 describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () => {
