@@ -1374,4 +1374,97 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     );
     expect(bareReplyEn).toContain('Hi! I am Tarot Master');
   });
+
+  it('handles 1v1 DM gratitude and capability intros locally while keeping unmentioned group active_session silent', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const dmCtx = (roomId: string): RoomContext => ({
+      roomId,
+      chatType: 'dm',
+      members: [],
+      recentHistory: [],
+    });
+
+    // 1. DM gratitude / closing messages -> warm localized reply (NOT null)
+    for (const [text, expectedLang, expectedSub, checkFn] of [
+      ['剛才那張牌聽起來不錯，謝謝你', 'zh-Hant', '不客氣 🔮', assertPureZhHant],
+      ['謝謝', 'zh-Hant', '不客氣 🔮', assertPureZhHant],
+      ['感謝', 'zh-Hant', '不客氣 🔮', assertPureZhHant],
+      ['刚抽的那张牌听起来不错，谢谢你', 'zh-Hans', '不客气 🔮', assertPureZhHans],
+      ['thanks', 'en', "You're very welcome 🔮", (s: string) => expect(s).not.toMatch(/[\u4e00-\u9fff]/)],
+      ['that was helpful, thanks', 'en', "You're very welcome 🔮", (s: string) => expect(s).not.toMatch(/[\u4e00-\u9fff]/)],
+    ] as const) {
+      const ev = makeInboundEvent({ chatType: 'dm', roomId: '!dm_tarot_thanks:matrix.netmind.chat', text });
+      const dec = await routeEvent(ev, dmCtx(ev.roomId), TAROT_AGENT_SPEC);
+      expect(dec.shouldReply, text).toBe(true);
+      expect(dec.reason, text).toBe('dm');
+      expect(dec.detectedLang, text).toBe(expectedLang);
+
+      const reply = await tarotFastRespond(baseEnv, ev, dec, emptyMem);
+      expect(reply, text).not.toBeNull();
+      expect(reply, text).toContain(expectedSub);
+      checkFn(reply!);
+    }
+
+    // Gratitude combined with a draw request or ending in a question MUST NOT return thanks
+    const thanksPlusDrawEv = makeInboundEvent({
+      chatType: 'dm',
+      roomId: '!dm_tarot_thanks_draw:matrix.netmind.chat',
+      text: '謝謝，幫我抽三張牌',
+    });
+    const thanksPlusDrawDec = await routeEvent(thanksPlusDrawEv, dmCtx(thanksPlusDrawEv.roomId), TAROT_AGENT_SPEC);
+    const thanksPlusDrawReply = await tarotFastRespond(baseEnv, thanksPlusDrawEv, thanksPlusDrawDec, emptyMem);
+    expect(thanksPlusDrawReply).toContain('牌陣：');
+    expect(thanksPlusDrawReply).not.toContain('不客氣');
+
+    const thanksPlusQuestionEv = makeInboundEvent({
+      chatType: 'dm',
+      roomId: '!dm_tarot_thanks_q:matrix.netmind.chat',
+      text: 'Thanks! What does the second card mean?',
+    });
+    const thanksPlusQuestionDec = await routeEvent(
+      thanksPlusQuestionEv,
+      dmCtx(thanksPlusQuestionEv.roomId),
+      TAROT_AGENT_SPEC,
+    );
+    const thanksPlusQuestionReply = await tarotFastRespond(
+      baseEnv,
+      thanksPlusQuestionEv,
+      thanksPlusQuestionDec,
+      emptyMem,
+    );
+    expect(thanksPlusQuestionReply).toBeNull();
+
+    // 2. DM capability questions -> local intro
+    for (const [text, expectedLang, expectedSub, checkFn] of [
+      ['你能幫我做什麼？', 'zh-Hant', '我是塔羅大師', assertPureZhHant],
+      ['你能帮我做什么？', 'zh-Hans', '我是塔罗大师', assertPureZhHans],
+      ['what can you do?', 'en', 'Hi! I am Tarot Master', (s: string) => expect(s).not.toMatch(/[\u4e00-\u9fff]/)],
+    ] as const) {
+      const ev = makeInboundEvent({ chatType: 'dm', roomId: '!dm_tarot_cap:matrix.netmind.chat', text });
+      const dec = await routeEvent(ev, dmCtx(ev.roomId), TAROT_AGENT_SPEC);
+      expect(dec.shouldReply, text).toBe(true);
+      expect(dec.detectedLang, text).toBe(expectedLang);
+
+      const reply = await tarotFastRespond(baseEnv, ev, dec, emptyMem);
+      expect(reply, text).not.toBeNull();
+      expect(reply, text).toContain(expectedSub);
+      checkFn(reply!);
+    }
+
+    // 3. Unmentioned group active_session "謝謝" STILL returns '[NO_REPLY]'
+    const unmentionedGroupThanks = await tarotFastRespond(
+      baseEnv,
+      makeInboundEvent({ chatType: 'group', text: '謝謝' }),
+      {
+        shouldReply: true,
+        tier: 0,
+        reason: 'active_session',
+        confidence: 0.9,
+        detectedLang: 'zh-Hant',
+        shouldQuote: false,
+      },
+      emptyMem,
+    );
+    expect(unmentionedGroupThanks).toBe('[NO_REPLY]');
+  });
 });
