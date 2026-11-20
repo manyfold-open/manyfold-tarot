@@ -68,6 +68,10 @@ export const TAROT_AGENT_SPEC: AgentSpec = {
     '塔罗牌',
     '抽牌',
     '抽一牌',
+    '抽一張',
+    '抽一张',
+    '抽一張牌',
+    '抽一张牌',
     '抽三張',
     '抽三张',
     '抽三張牌',
@@ -220,6 +224,8 @@ const BARE_DRAW_TRIGGER_RE =
 const SESSION_CONFIRM_RE = /^(?:ok|okay|go|ready|yes|好|好的|可以|來吧|来吧|開始|开始|請|请)$/i;
 const DAILY_CARD_PHRASE_RE =
   /(?:每日一牌|今日一牌|今天的一牌|每天一牌|\bdaily\s*card\b|\btoday'?s?\s*card\b|\bone[- ]card\b)/i;
+const SINGLE_CARD_DRAW_RE =
+  /(?:抽[一1]張牌?|抽[一1]张牌?|抽[一1]牌|抽個牌|抽个牌|\b(?:draw|pull)\s+(?:one|a|1)\s+(?:tarot\s+)?card\b|\bsingle[- ]?card\s+(?:draw|reading)\b)/i;
 const MULTI_CARD_OR_SPREAD_RE = /三張|三张|three[- ]?cards?|牌陣|牌阵|spread/i;
 const EXPLICIT_DRAW_PHRASE_RE =
   /(?:抽三張|抽三张|抽塔羅|抽塔罗|抽牌|幫我抽|帮我抽|來抽|来抽|draw\s+(?:three|3)\s+cards?|draw\s+(?:a\s+)?(?:tarot|spread|cards?)|pull\s+(?:three|3)\s+cards?)/i;
@@ -429,6 +435,58 @@ export function formatDailyCardReply(lang: LangCode, date = new Date(), isVoice 
     : `Today's card (${daily.day}): ${label} (${kw})\nWhat small thing deserves a little more of your attention today? ${TAROT_SITE_URL}`;
 }
 
+/** Formats a crisp single-card CSPRNG tarot draw in pure `zh-Hant` / `zh-Hans` / `en`. */
+export function formatSingleCardLocalDraw(
+  lang: LangCode,
+  options: { isVoice?: boolean; random?: RandomSource } = {},
+): string {
+  const deckLocale: Locale = lang === 'en' ? 'en' : 'zh';
+  const drawn = drawReading(options.random);
+  const first = drawn[0];
+  const card = first ? cardById(first.cardId) : null;
+  if (!card || !first) return '';
+
+  const label = localizedSpreadText(cardLabel(card, first.reversed, deckLocale), lang);
+  const kw = localizedSpreadText(cardKeywords(card, first.reversed, deckLocale), lang);
+
+  if (lang === 'zh-Hant') {
+    const reflection = first.reversed
+      ? '此刻有什麼地方可以先停下來多看一眼？'
+      : '眼前最值得先確認或跨出的一小步是什麼？';
+    return options.isVoice
+      ? `為你抽出一張牌：${label}，關鍵是${kw}。${reflection} 如果想就這張牌深問，直接告訴我。`
+      : [
+          `單張抽牌：${label}（${kw}）`,
+          `留給你的問題：${reflection}`,
+          `若想繼續深問這張牌，直接接著問即可。線上牌桌：${TAROT_SITE_URL}`,
+        ].join('\n');
+  }
+
+  if (lang === 'zh-Hans') {
+    const reflection = first.reversed
+      ? '此刻有什么地方可以先停下来多看一眼？'
+      : '眼前最值得先确认或跨出的一小步是什么？';
+    return options.isVoice
+      ? `为你抽出一张牌：${label}，关键是${kw}。${reflection} 如果想就这张牌深问，直接告诉我。`
+      : [
+          `单张抽牌：${label}（${kw}）`,
+          `留给你的问题：${reflection}`,
+          `如果想继续深问这张牌，直接接着问即可。在线牌桌：${TAROT_SITE_URL}`,
+        ].join('\n');
+  }
+
+  const reflection = first.reversed
+    ? 'What here might need a closer look or a pause before you move?'
+    : 'What small step in front of you feels clearest to confirm or take next?';
+  return options.isVoice
+    ? `I drew one card for you: ${label}, pointing to ${kw}. ${reflection} Tell me if you want to explore this card further.`
+    : [
+        `Single-card draw: ${label} (${kw})`,
+        `Question to sit with: ${reflection}`,
+        `Ask a follow-up about this card anytime, or open the table at ${TAROT_SITE_URL}`,
+      ].join('\n');
+}
+
 function isoWeekKey(date: Date): string {
   const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = utc.getUTCDay() || 7;
@@ -583,7 +641,7 @@ export async function tarotFastRespond(
 
   if (
     (event.chatType === 'dm' || decision.reason === 'dm' || decision.reason === 'explicit_mention') &&
-    DM_GREETING_RE.test(stripped)
+    (!stripped || DM_GREETING_RE.test(stripped))
   ) {
     if (lang === 'zh-Hant') {
       return '嗨！我是塔羅大師 🔮 想看哪方面的指引？直接跟我說「幫我抽三張牌看這週運勢」、「每日一牌」，或把心裡猶豫的事告訴我就可以開始。';
@@ -596,6 +654,10 @@ export async function tarotFastRespond(
 
   if (isDailyCardRequest(stripped)) {
     return formatDailyCardReply(lang, new Date(event.timestampMs || Date.now()), event.isVoice === true);
+  }
+
+  if (SINGLE_CARD_DRAW_RE.test(stripped) && !MULTI_CARD_OR_SPREAD_RE.test(stripped)) {
+    return formatSingleCardLocalDraw(lang, { isVoice: event.isVoice === true });
   }
 
   const isDirectDraw =

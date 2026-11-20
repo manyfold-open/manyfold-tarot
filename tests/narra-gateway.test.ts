@@ -16,8 +16,10 @@ import {
   TAROT_AGENT_ID,
   TAROT_AGENT_SPEC,
   TAROT_DEFAULT_MATRIX_ID,
+  TAROT_SITE_URL,
   fetchTarotUpdates,
   formatLocalTarotDraw,
+  formatSingleCardLocalDraw,
   kickTarotNarraGateway,
   resolveTarotLang,
   tarotFastRespond,
@@ -1212,5 +1214,164 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
       vi.useRealTimers();
       vi.unstubAllGlobals();
     }
+  });
+
+  it('I1a: handles single-card CSPRNG draws locally in pure zh-Hant/zh-Hans/en without 3-card or A2A fallback, plus bare @AI Tarot', async () => {
+    const emptyMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+    const groupCtx: RoomContext = {
+      roomId: '!grp_tarot_i1a:matrix.netmind.chat',
+      chatType: 'group',
+      userLanguageHint: 'zh-Hant',
+      members: [
+        { matrixId: '@alice:matrix.netmind.chat', displayName: 'Alice', isAgent: false },
+        { matrixId: TAROT_DEFAULT_MATRIX_ID, displayName: 'AI Tarot', isAgent: true },
+      ],
+      recentHistory: [],
+    };
+
+    // 1. I1a: @AI Tarot 今天適合部署上線嗎？抽一張牌就好 -> 1-card CSPRNG draw in zh-Hant
+    const i1aEvent = makeInboundEvent({
+      roomId: groupCtx.roomId,
+      chatType: 'group',
+      text: '@AI Tarot 今天適合部署上線嗎？抽一張牌就好',
+      mentions: [TAROT_DEFAULT_MATRIX_ID],
+    });
+    const i1aDecision = await routeEvent(i1aEvent, groupCtx, TAROT_AGENT_SPEC);
+    expect(i1aDecision.shouldReply).toBe(true);
+    expect(i1aDecision.reason).toBe('explicit_mention');
+    expect(i1aDecision.detectedLang).toBe('zh-Hant');
+
+    const i1aReply = await tarotFastRespond(baseEnv, i1aEvent, i1aDecision, emptyMem);
+    expect(i1aReply).not.toBeNull();
+    expect(i1aReply).toContain('單張抽牌：');
+    expect(i1aReply).toMatch(/（正位）|（逆位）/);
+    expect(i1aReply).toContain(TAROT_SITE_URL);
+    expect(i1aReply).not.toContain('牌陣：');
+    expect(i1aReply).not.toContain('今日一牌');
+    expect(i1aReply).not.toContain('三張');
+    assertPureZhHant(i1aReply!);
+
+    // Also matches unmentioned domainKeywords for single-card draw
+    expect(TAROT_AGENT_SPEC.domainKeywords).toEqual(
+      expect.arrayContaining(['抽一張', '抽一张', '抽一張牌', '抽一张牌']),
+    );
+    const unmentionedSingleDec = await routeEvent(
+      makeInboundEvent({ text: '今天適合部署上線嗎？抽一張牌就好' }),
+      groupCtx,
+      TAROT_AGENT_SPEC,
+    );
+    expect(unmentionedSingleDec.shouldReply).toBe(true);
+
+    // 2. zh-Hans, en, and voice single-card variants
+    const hansEvent = makeInboundEvent({
+      roomId: groupCtx.roomId,
+      chatType: 'group',
+      text: '@AI Tarot 今天适合部署上线吗？抽一张牌就好',
+      mentions: [TAROT_DEFAULT_MATRIX_ID],
+    });
+    const hansDecision = await routeEvent(hansEvent, groupCtx, TAROT_AGENT_SPEC);
+    expect(hansDecision.detectedLang).toBe('zh-Hans');
+    const hansReply = await tarotFastRespond(baseEnv, hansEvent, hansDecision, emptyMem);
+    expect(hansReply).not.toBeNull();
+    expect(hansReply).toContain('单张抽牌：');
+    expect(hansReply).toMatch(/（正位）|（逆位）/);
+    expect(hansReply).toContain(TAROT_SITE_URL);
+    expect(hansReply).not.toContain('牌阵：');
+    assertPureZhHans(hansReply!);
+
+    const enEvent = makeInboundEvent({
+      roomId: groupCtx.roomId,
+      chatType: 'group',
+      text: '@AI Tarot should I deploy today? Draw a card please',
+      mentions: [TAROT_DEFAULT_MATRIX_ID],
+    });
+    const enDecision = await routeEvent(enEvent, groupCtx, TAROT_AGENT_SPEC);
+    expect(enDecision.detectedLang).toBe('en');
+    const enReply = await tarotFastRespond(baseEnv, enEvent, enDecision, emptyMem);
+    expect(enReply).not.toBeNull();
+    expect(enReply).toContain('Single-card draw:');
+    expect(enReply).toMatch(/\(upright\)|\(reversed\)/);
+    expect(enReply).toContain(TAROT_SITE_URL);
+    expect(enReply).not.toContain('Spread:');
+    expect(enReply).not.toMatch(/[\u4e00-\u9fff]/);
+
+    const voiceEvent = makeInboundEvent({
+      roomId: groupCtx.roomId,
+      chatType: 'group',
+      text: '@AI Tarot 抽一張牌',
+      mentions: [TAROT_DEFAULT_MATRIX_ID],
+      isVoice: true,
+    });
+    const voiceDecision = await routeEvent(voiceEvent, groupCtx, TAROT_AGENT_SPEC);
+    const voiceReply = await tarotFastRespond(baseEnv, voiceEvent, voiceDecision, emptyMem);
+    expect(voiceReply).not.toBeNull();
+    expect(voiceReply).toContain('為你抽出一張牌：');
+    expect(voiceReply).not.toContain('https://');
+    assertPureZhHant(voiceReply!);
+
+    // Multi-card phrase with 抽一張 still yields 3 cards if 三張/牌陣 is present
+    const threeCardEvent = makeInboundEvent({
+      chatType: 'dm',
+      text: '幫我抽三張牌看看',
+    });
+    const threeCardDec = await routeEvent(
+      threeCardEvent,
+      { roomId: threeCardEvent.roomId, chatType: 'dm', members: [], recentHistory: [] },
+      TAROT_AGENT_SPEC,
+    );
+    const threeCardReply = await tarotFastRespond(baseEnv, threeCardEvent, threeCardDec, emptyMem);
+    expect(threeCardReply).toContain('牌陣：');
+    expect(threeCardReply).not.toContain('單張抽牌：');
+
+    // 3. Exhaustively validate formatSingleCardLocalDraw across all 78 cards (upright & reversed)
+    for (let cardIdx = 0; cardIdx < DECK.length; cardIdx++) {
+      for (const reversedBit of [0, 1]) {
+        let calls = 0;
+        const detRandom = (max: number) => {
+          calls += 1;
+          if (calls === 1 && max === DECK.length) return cardIdx;
+          if (calls === 2 && max === 2) return reversedBit;
+          return 0;
+        };
+        const outHant = formatSingleCardLocalDraw('zh-Hant', { random: detRandom });
+        assertPureZhHant(outHant);
+        expect(outHant).toContain(TAROT_SITE_URL);
+
+        calls = 0;
+        const outHans = formatSingleCardLocalDraw('zh-Hans', { random: detRandom });
+        assertPureZhHans(outHans);
+        expect(outHans).toContain(TAROT_SITE_URL);
+
+        calls = 0;
+        const outEn = formatSingleCardLocalDraw('en', { random: detRandom });
+        expect(outEn).not.toMatch(/[\u4e00-\u9fff]/);
+        expect(outEn).toContain(TAROT_SITE_URL);
+      }
+    }
+
+    // 4. Bare @AI Tarot in group explicit_mention responds locally instead of returning null
+    const bareMentionEv = makeInboundEvent({
+      roomId: groupCtx.roomId,
+      chatType: 'group',
+      text: '@AI Tarot',
+      mentions: [TAROT_DEFAULT_MATRIX_ID],
+    });
+    const bareMentionDec = await routeEvent(bareMentionEv, groupCtx, TAROT_AGENT_SPEC);
+    expect(bareMentionDec.shouldReply).toBe(true);
+    expect(bareMentionDec.reason).toBe('explicit_mention');
+    expect(bareMentionDec.detectedLang).toBe('zh-Hant');
+
+    const bareReplyHant = await tarotFastRespond(baseEnv, bareMentionEv, bareMentionDec, emptyMem);
+    expect(bareReplyHant).not.toBeNull();
+    expect(bareReplyHant).toContain('我是塔羅大師');
+    assertPureZhHant(bareReplyHant!);
+
+    const bareReplyEn = await tarotFastRespond(
+      baseEnv,
+      bareMentionEv,
+      { ...bareMentionDec, detectedLang: 'en' },
+      emptyMem,
+    );
+    expect(bareReplyEn).toContain('Hi! I am Tarot Master');
   });
 });
