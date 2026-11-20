@@ -226,7 +226,7 @@ const SESSION_CONFIRM_RE = /^(?:ok|okay|go|ready|yes|好|好的|可以|來吧|�
 const DAILY_CARD_PHRASE_RE =
   /(?:每日一牌|今日一牌|今天的一牌|每天一牌|\bdaily\s*card\b|\btoday'?s?\s*card\b|\bone[- ]card\b)/i;
 const SINGLE_CARD_DRAW_RE =
-  /(?:抽[一1]張牌?|抽[一1]张牌?|抽[一1]牌|抽個牌|抽个牌|\b(?:draw|pull)\s+(?:one|a|1)\s+(?:tarot\s+)?card\b|\bsingle[- ]?card\s+(?:draw|reading)\b)/i;
+  /(?:抽\s*[一1]\s*[張张]牌?|抽\s*[一1]\s*牌|抽\s*[個个]\s*牌|\b(?:draw|pull)\s+(?:one|a|1)\s+(?:tarot\s+)?card\b|\bsingle[- ]?card\s+(?:draw|reading)\b)/i;
 const MULTI_CARD_OR_SPREAD_RE = /三張|三张|three[- ]?cards?|牌陣|牌阵|spread/i;
 const EXPLICIT_DRAW_PHRASE_RE =
   /(?:抽三張|抽三张|抽塔羅|抽塔罗|抽牌|幫我抽|帮我抽|來抽|来抽|draw\s+(?:three|3)\s+cards?|draw\s+(?:a\s+)?(?:tarot|spread|cards?)|pull\s+(?:three|3)\s+cards?)/i;
