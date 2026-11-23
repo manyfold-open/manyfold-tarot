@@ -1879,3 +1879,16 @@ describe('Phase 1-4 UX & A2A context pre-fetch (thinkingMessage, enableA2AFailur
     }
   });
 });
+
+
+it('routes a Tarot request that explicitly sets aside fortune sticks', async () => {
+  const nowMs = Date.now();
+  const event = makeInboundEvent({
+    text: '抽籤先不用，我想換個角度，幫我抽一張塔羅看看換工作的方向。',
+    timestampMs: nowMs, chatType: 'group', mentions: [],
+  });
+  const context = { roomId: event.roomId, chatType: 'group' as const, members: [], recentHistory: [] };
+  expect((await routeEvent(event, context, TAROT_AGENT_SPEC, { nowMs })).shouldReply).toBe(true);
+  const stickRequest = { ...event, text: '最近一直在想換工作。先不用塔羅，幫我抽一支籤看看方向就好。' };
+  expect((await routeEvent(stickRequest, context, TAROT_AGENT_SPEC, { nowMs })).shouldReply).toBe(false);
+});
