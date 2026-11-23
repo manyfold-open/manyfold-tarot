@@ -93,23 +93,13 @@ export const TAROT_AGENT_SPEC: AgentSpec = {
     'fortune stick',
     'fortune sticks',
     'wenyiqian',
-    '求籤',
-    '求签',
+    /(?<!不用\s*|不要\s*|不必\s*|[別别]\s*)(?:[抽求搖摇]一?[支根個个]?|一支)[籤签](?!\s*(?:先)?(?:不用|不要|免了|晚點|晚点))/,
     '問一籤',
     '问一签',
-    '抽籤',
-    '抽签',
     '解籤',
     '解签',
     '籤詩',
     '签诗',
-    '搖籤',
-    '摇签',
-    /求一?[支根個个]?[籤签]/,
-    /抽一?[支根個个]?[籤签]/,
-    /搖一?[支根個个]?[籤签]/,
-    '一支籤',
-    '一支签',
     '這支籤',
     '这支签',
     'restaurant',
@@ -637,6 +627,9 @@ export async function tarotFastRespond(
 
   // Keep unmentioned group turns silent on off-topic anti-keywords and casual active-session chatter
   if (isUnmentionedGroup) {
+    if (/(?:不用|不要|不必|[別别])\s*(?:抽)?塔[羅罗](?:牌)?|塔[羅罗](?:牌)?\s*(?:先)?(?:不用|不要|免了)/i.test(stripped)) {
+      return '[NO_REPLY]';
+    }
     if (
       !BARE_DRAW_TRIGGER_RE.test(stripped) &&
       !SESSION_CONFIRM_RE.test(stripped) &&
