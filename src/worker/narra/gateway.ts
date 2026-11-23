@@ -77,8 +77,7 @@ export const TAROT_AGENT_SPEC: AgentSpec = {
     '抽三张',
     '抽三張牌',
     '抽三张牌',
-    '幫我抽',
-    '帮我抽',
+    /[幫帮]我抽(?!\s*(?:一)?[支根個个]?[籤签])/,
     '占卜',
     '牌陣',
     '牌阵',
@@ -226,7 +225,7 @@ const SINGLE_CARD_DRAW_RE =
   /(?:抽\s*[一1]?\s*[張张]\s*(?:塔羅|塔罗)?牌?|抽\s*[一1]\s*牌|抽\s*[個个]\s*牌|\b(?:draw|pull)\s+(?:one|a|1)\s+(?:tarot\s+)?card\b|\bsingle[- ]?card\s+(?:draw|reading)\b)/i;
 const MULTI_CARD_OR_SPREAD_RE = /三張|三张|three[- ]?cards?|牌陣|牌阵|spread/i;
 const EXPLICIT_DRAW_PHRASE_RE =
-  /(?:抽三張|抽三张|抽塔羅|抽塔罗|抽牌|幫我抽|帮我抽|來抽|来抽|draw\s+(?:three|3)\s+cards?|draw\s+(?:a\s+)?(?:tarot|spread|cards?)|pull\s+(?:three|3)\s+cards?)/i;
+  /(?:抽三張|抽三张|抽塔羅|抽塔罗|抽牌|(?:[幫帮]我抽|[來来]抽)(?!\s*(?:一)?[支根個个]?[籤签])|draw\s+(?:three|3)\s+cards?|draw\s+(?:a\s+)?(?:tarot|spread|cards?)|pull\s+(?:three|3)\s+cards?)/i;
 
 const OPT_IN_WEEKLY_RE =
   /^(?:訂閱每週|订阅每周|開啟每週|开启每周|打開每週|打开每周|opt[- ]?in\s+weekly|subscribe\s+weekly)\b/i;
