@@ -1915,4 +1915,12 @@ it('routes a Tarot request that explicitly sets aside fortune sticks', async () 
     { userMemories: [], roomMemories: [], promptSafeLines: [] },
   )).toBe('[NO_REPLY]');
 
+  const billSplit = { ...event, text: '塔羅先放著。假設晚餐 £54，三個人平分，一人多少？只算，不用記帳。' };
+  expect(await tarotFastRespond(
+    {} as Parameters<typeof tarotFastRespond>[0],
+    billSplit,
+    { shouldReply: true, reason: 'active_session', tier: 0, confidence: 0.9, detectedLang: 'zh-Hant', shouldQuote: false },
+    { userMemories: [], roomMemories: [], promptSafeLines: [] },
+  )).toBe('[NO_REPLY]');
+
 });
