@@ -626,7 +626,7 @@ export async function tarotFastRespond(
 
   // Keep unmentioned group turns silent on off-topic anti-keywords and casual active-session chatter
   if (isUnmentionedGroup) {
-    if (/(?:(?:不用|不要|不必|[別别])\s*(?:抽|看)?|不(?:看|抽))\s*塔[羅罗](?:牌)?|塔[羅罗](?:牌)?\s*(?:先)?(?:不用|不要|免了)/i.test(stripped)) {
+    if (/(?:(?:不用|不要|不必|[別别])\s*(?:抽|看)?|不(?:看|抽))\s*塔[羅罗](?:牌)?|塔[羅罗](?:牌)?\s*(?:先)?(?:不用|不要|免了|放[著着]|放一[邊边])/i.test(stripped)) {
       return '[NO_REPLY]';
     }
     if (
