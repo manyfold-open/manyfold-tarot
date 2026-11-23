@@ -1906,4 +1906,13 @@ it('routes a Tarot request that explicitly sets aside fortune sticks', async () 
     { userMemories: [], roomMemories: [], promptSafeLines: [] },
   );
   expect(declined).toBe('[NO_REPLY]');
+  const directStick = { ...event, text: '朋友回覆了，那幫我抽一支籤，當作明天面試的提醒。' };
+  expect((await routeEvent(directStick, context, TAROT_AGENT_SPEC, { nowMs })).shouldReply).toBe(false);
+  expect(await tarotFastRespond(
+    {} as Parameters<typeof tarotFastRespond>[0],
+    directStick,
+    { shouldReply: true, reason: 'active_session', tier: 0, confidence: 0.9, detectedLang: 'zh-Hant', shouldQuote: false },
+    { userMemories: [], roomMemories: [], promptSafeLines: [] },
+  )).toBe('[NO_REPLY]');
+
 });
