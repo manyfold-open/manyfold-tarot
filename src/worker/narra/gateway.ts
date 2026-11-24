@@ -787,6 +787,8 @@ export async function resolveTarotA2ACredential(
 
 const TAROT_DRAW_CONTEXT_RE =
   /(?:正位|逆位|今日一牌|牌陣|牌阵|單張抽牌|单张抽牌|\bupright\b|\breversed\b|\bdaily\s*card\b|\btoday'?s\s*card\b|\bsingle[- ]card\s+draw\b|\bspread:)/i;
+const SINGLE_ACTION_REQUEST_RE =
+  /(?:只(?:要|需)|[給给]我|哪|做|選|选|提[供出])\s*(?:一|1)\s*[個个件步項项]?\s*(?:(?:具體|具体|可[執执]行|小)\s*)*(?:動作|动作|行[動动]|步[驟骤]|[準准][備备]|建議|建议)|\b(?:just|only|give me|suggest|choose|what(?:'s| is))\s+(?:one|1)\s+(?:(?:small|specific|concrete|practical|actionable)\s+)*(?:step|action|preparation|suggestion|thing to do)\b/i;
 const MAX_EXTRA_FIELD_CHARS = 1000;
 
 function truncateEnvelopeSnippet(text: string, maxChars = MAX_EXTRA_FIELD_CHARS): string {
@@ -808,7 +810,7 @@ export function tarotThinkingMessage(lang: LangCode): string {
  */
 export async function buildTarotExtraEnvelopeFields(
   env: Env,
-  _event: InboundEvent,
+  event: InboundEvent,
   _decision: TriageDecision,
   _memories: RecallTurnResult,
   context: RoomContext,
@@ -817,15 +819,20 @@ export async function buildTarotExtraEnvelopeFields(
   const configuredId = (env.NARRA_MATRIX_ID ?? env.MATRIX_USER_ID ?? '').trim();
   if (configuredId) selfIds.add(configuredId);
 
+  const drawFields = (text: string): Record<string, string> => ({
+    last_drawn_tarot_cards: truncateEnvelopeSnippet(text),
+    ...(SINGLE_ACTION_REQUEST_RE.test(event.text) ? {
+      response_format: 'Use the same card and orientation already drawn. Give exactly one concrete action the user can take. A short tie to the card is fine. End after that action, without a second suggestion, checklist, follow-up question, or another draw.',
+    } : {}),
+  });
+
   const replyTarget = context.replyToTarget;
   if (
     replyTarget &&
     (replyTarget.isSelf || selfIds.has(replyTarget.senderId)) &&
     TAROT_DRAW_CONTEXT_RE.test(replyTarget.text)
   ) {
-    return {
-      last_drawn_tarot_cards: truncateEnvelopeSnippet(replyTarget.text),
-    };
+    return drawFields(replyTarget.text);
   }
 
   const history = context.recentHistory ?? [];
@@ -833,9 +840,7 @@ export async function buildTarotExtraEnvelopeFields(
     const turn = history[i];
     if (!(turn.isSelf || selfIds.has(turn.senderId))) continue;
     if (!TAROT_DRAW_CONTEXT_RE.test(turn.text)) continue;
-    return {
-      last_drawn_tarot_cards: truncateEnvelopeSnippet(turn.text),
-    };
+    return drawFields(turn.text);
   }
 
   return null;

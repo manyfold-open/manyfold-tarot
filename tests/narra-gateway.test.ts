@@ -1876,7 +1876,7 @@ describe('Phase 1-4 UX & A2A context pre-fetch (thinkingMessage, enableA2AFailur
                 sender: '@alice:matrix.netmind.chat',
                 type: 'm.room.message',
                 origin_server_ts: nowMs,
-                content: { msgtype: 'm.text', body: '那第二張牌對我換專案代表什麼？' },
+                content: { msgtype: 'm.text', body: '就沿用剛才那張，不用重抽。面試前可以做哪一個小準備？' },
               },
             ],
           }),
@@ -1887,6 +1887,7 @@ describe('Phase 1-4 UX & A2A context pre-fetch (thinkingMessage, enableA2AFailur
 
       expect(a2aEnvelopes).toHaveLength(1);
       expect(a2aEnvelopes[0]).toContain('last_drawn_tarot_cards:');
+      expect(a2aEnvelopes[0]).toContain('Give exactly one concrete action');
       expect(a2aEnvelopes[0]).toContain('牌陣：');
       expect(posted).toHaveLength(2);
     } finally {
