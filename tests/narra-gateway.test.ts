@@ -1286,6 +1286,22 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     expect(i1aReply).not.toContain('三張');
     assertPureZhHant(i1aReply!);
 
+    const nameOnly = makeInboundEvent({
+      roomId: groupCtx.roomId, chatType: 'group',
+      text: '明天面試有點緊張，幫我抽一張塔羅，只要牌名和正逆位，先不用解牌。',
+    });
+    const nameDecision = await routeEvent(nameOnly, groupCtx, TAROT_AGENT_SPEC);
+    expect(nameDecision.shouldReply).toBe(true);
+    const bareCard = await tarotFastRespond(baseEnv, nameOnly, nameDecision, emptyMem);
+    expect(bareCard).toMatch(/^[^\n：]+（(?:正|逆)位）$/);
+    const fields = await buildTarotExtraEnvelopeFields(baseEnv, nameOnly, nameDecision, emptyMem, {
+      ...groupCtx, recentHistory: [{
+        eventId: '$name-only', senderId: TAROT_DEFAULT_MATRIX_ID,
+        timestampMs: nameOnly.timestampMs, isSelf: true, isAgent: true, text: bareCard!,
+      }],
+    });
+    expect(fields?.last_drawn_tarot_cards).toBe(bareCard);
+
     // Also matches unmentioned domainKeywords for single-card draw
     expect(TAROT_AGENT_SPEC.domainKeywords).toEqual(
       expect.arrayContaining(['抽一張', '抽一张', '抽一張牌', '抽一张牌']),
