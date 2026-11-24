@@ -58,6 +58,7 @@ import { loadShare } from './tarot/store';
 import {
   BaseNarraMatrixSync,
   BaseNarraRoomCoordinator,
+  handleNarraPushRequest,
 } from '@manyfold/narra-agent-kit/worker';
 import {
   getTarotNarraGatewayStatus,
@@ -300,8 +301,11 @@ export class NarraRoomCoordinator extends BaseNarraRoomCoordinator<Env> {
 }
 
 // Served at the root and, when BASE_PATH is set, under it too.
+const mounted = withMount<Env>(app.fetch);
+
 export default {
-  fetch: withMount<Env>(app.fetch),
+  // Synapse wakes the Narra sync Durable Object at /_matrix/push/v1/notify (push mode).
+  fetch: async (request, env, ctx) => (await handleNarraPushRequest(request, env)) ?? mounted(request, env, ctx),
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(kickTarotNarraGateway(env));
   },
