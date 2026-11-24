@@ -221,6 +221,9 @@ const BARE_DRAW_TRIGGER_RE =
 const SESSION_CONFIRM_RE = /^(?:ok|okay|go|ready|yes|好|好的|可以|來吧|来吧|開始|开始|請|请)$/i;
 const DAILY_CARD_PHRASE_RE =
   /(?:每日一牌|今日一牌|今天的一牌|每天一牌|\bdaily\s*card\b|\btoday'?s?\s*card\b|\bone[- ]card\b)/i;
+const CARD_NAME_ONLY_RE =
+  /(?:只(?:要|說|说|給|给|報|报|顯示|显示)(?:我)?\s*牌名|(?:先\s*)?(?:不(?:用|要|必)|別|别)\s*(?:解牌|解[讀读]))|\b(?:just|only)\s+(?:the\s+)?(?:card name|name of the card)\b|\b(?:no|skip the|without)\s+(?:reading|interpretation|explanation)\b/i;
+
 const SINGLE_CARD_DRAW_RE =
   /(?:抽\s*[一1]?\s*[張张]\s*(?:塔羅|塔罗)?牌?|抽\s*[一1]\s*牌|抽\s*[個个]\s*牌|\b(?:draw|pull)\s+(?:one|a|1)\s+(?:tarot\s+)?card\b|\bsingle[- ]?card\s+(?:draw|reading)\b)/i;
 const MULTI_CARD_OR_SPREAD_RE = /三張|三张|three[- ]?cards?|牌陣|牌阵|spread/i;
@@ -439,7 +442,7 @@ export function formatDailyCardReply(lang: LangCode, date = new Date(), isVoice 
 /** Formats a crisp single-card CSPRNG tarot draw in pure `zh-Hant` / `zh-Hans` / `en`. */
 export function formatSingleCardLocalDraw(
   lang: LangCode,
-  options: { isVoice?: boolean; random?: RandomSource } = {},
+  options: { isVoice?: boolean; random?: RandomSource; nameOnly?: boolean } = {},
 ): string {
   const deckLocale: Locale = lang === 'en' ? 'en' : 'zh';
   const drawn = drawReading(options.random);
@@ -448,6 +451,7 @@ export function formatSingleCardLocalDraw(
   if (!card || !first) return '';
 
   const label = localizedSpreadText(cardLabel(card, first.reversed, deckLocale), lang);
+  if (options.nameOnly) return label;
   const kw = localizedSpreadText(cardKeywords(card, first.reversed, deckLocale), lang);
 
   if (lang === 'zh-Hant') {
@@ -682,7 +686,7 @@ export async function tarotFastRespond(
   }
 
   if (SINGLE_CARD_DRAW_RE.test(stripped) && !MULTI_CARD_OR_SPREAD_RE.test(stripped)) {
-    return formatSingleCardLocalDraw(lang, { isVoice: event.isVoice === true });
+    return formatSingleCardLocalDraw(lang, { isVoice: event.isVoice === true, nameOnly: CARD_NAME_ONLY_RE.test(stripped) });
   }
 
   const isDirectDraw =
