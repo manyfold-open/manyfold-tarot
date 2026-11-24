@@ -43,7 +43,7 @@
     // are not in this list and never wake the Worker — except under BASE_PATH,
     // where everything does, because the prefix has to come off before the
     // assets runtime can find anything (src/worker/mount.ts).
-    "run_worker_first": ["/api/*", "/", "/s/*", "/privacy", "/journal", "/daily", "/tarot", "/tarot/*"]
+    "run_worker_first": ["/api/*", "/_matrix/*", "/", "/s/*", "/privacy", "/journal", "/daily", "/tarot", "/tarot/*"]
   },
   // Tarot asks the Fortune Stick Worker whether a reward code is real before it
   // grants the extra reading (src/worker/tarot/bridge.ts). A service binding:
@@ -101,6 +101,13 @@
     // Narra Messenger gateway flags (enabled with bound Direct Matrix identity).
     "NARRA_GATEWAY_ENABLED": "on",
     "NARRA_SYNC": "on",
+    // Push mode: Synapse wakes the sync Durable Object for each new event instead of it
+    // long-polling /sync around the clock (billed as DO duration). Synapse only accepts a
+    // pusher at exactly /_matrix/push/v1/notify, so this must be a hostname whose root this
+    // Worker serves. Needs the NARRA_PUSH_SECRET secret (>= 16 chars, e.g. `openssl rand -hex 24`
+    // | npx wrangler secret put NARRA_PUSH_SECRET); without it the kit keeps long-polling.
+    "NARRA_SYNC_MODE": "push",
+    "NARRA_PUSH_URL": "https://tarot.manyfold.ai",
     "NARRA_AGENT_ID": "agt_agqvtek2554apclfoq3uc7yweq",
     "NARRA_MATRIX_ID": "@agent-852feddf:matrix.netmind.chat"
   }
