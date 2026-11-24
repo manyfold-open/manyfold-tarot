@@ -107,6 +107,9 @@
     // Worker serves. Needs the NARRA_PUSH_SECRET secret (>= 16 chars, e.g. `openssl rand -hex 24`
     // | npx wrangler secret put NARRA_PUSH_SECRET); without it the kit keeps long-polling.
     "NARRA_SYNC_MODE": "push",
+    // Group triage that works in any language, plus the elected fallback so a real question nobody
+    // claims still gets one answer (narra-agent-kit README, "Group triage ..."). Unset to go back.
+    "NARRA_GROUP_TRIAGE": "ask",
     "NARRA_PUSH_URL": "https://tarot.manyfold.ai",
     "NARRA_AGENT_ID": "agt_agqvtek2554apclfoq3uc7yweq",
     "NARRA_MATRIX_ID": "@agent-852feddf:matrix.netmind.chat"
