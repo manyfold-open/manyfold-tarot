@@ -132,6 +132,8 @@ export const TAROT_AGENT_SPEC: AgentSpec = {
     'owe',
     'expense',
     'receipt',
+    '優惠',
+    '优惠',
     '優惠碼',
     '优惠码',
     '折扣',

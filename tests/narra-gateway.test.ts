@@ -363,6 +363,7 @@ describe('AgentSpec routing, 3-min active session & antiKeywords', () => {
       'draw a quick diagram of the API',
       'Any good ramen restaurant in Soho?',
       'Has anyone got a Boots voucher code or discount?',
+      'Boots 有什么非学生也能用的护肤优惠？',
       'Latest OpenAI AI news headline today',
       'Weekend pop-up exhibition near Chinatown',
       '我想去求籤問一籤',
@@ -920,6 +921,7 @@ describe('fastRespond crisis safety, CSPRNG draw & pure zh-Hant/zh-Hans/en', () 
     // Any unmentioned group turn with antiKeywords and no domainKeywords -> [NO_REPLY]
     for (const reason of ['active_session', 'domain_match', 'multi_mention_domain_match']) {
       for (const offTopic of [
+        'Boots 有什么非学生也能用的护肤优惠？',
         '抽空去吃拉麵嗎',
         '倫敦中國城有什麼好吃的餐廳？',
         'Latest OpenAI AI news today',
