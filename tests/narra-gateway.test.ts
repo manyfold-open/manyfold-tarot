@@ -25,6 +25,9 @@ import {
   narraGatewayConfig,
   resolveTarotLang,
   tarotFastRespond,
+  tarotSafetyReply,
+  buildTarotEnvelopeFields,
+  buildTarotLocalDrawFields,
   tarotThinkingMessage,
 } from '../src/worker/narra/gateway';
 import { toZhHant } from '../src/worker/narra/zh-hant';
@@ -1942,4 +1945,56 @@ it('routes a Tarot request that explicitly sets aside fortune sticks', async () 
     { userMemories: [], roomMemories: [], promptSafeLines: [] },
   )).toBe('[NO_REPLY]');
 
+});
+
+describe('v2 (chat-native) safetyReply and local draw', () => {
+  const ZACK_TEST = '!ttLCzSZsdFiPSEPDyO:matrix.netmind.chat';
+  const v2Ctx = (roomId: string): RoomContext => ({ roomId, chatType: 'group', members: [], recentHistory: [] });
+  const noMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
+
+  it('answers crisis messages deterministically in the speaker script, and nothing else', async () => {
+    const hant = await tarotSafetyReply(baseEnv, makeInboundEvent({ text: '我真的不想活了，幫我抽牌' }), v2Ctx(ZACK_TEST));
+    expect(hant).toContain('116 123');
+    assertPureZhHant(hant!);
+    const en = await tarotSafetyReply(baseEnv, makeInboundEvent({ text: 'I want to kill myself' }), v2Ctx(ZACK_TEST));
+    expect(en).toContain('988');
+    for (const text of ['幫我抽三張牌看看這週', 'Draw a card for me', '每日一牌']) {
+      expect(await tarotSafetyReply(baseEnv, makeInboundEvent({ text }), v2Ctx(ZACK_TEST)), text).toBeNull();
+    }
+  });
+
+  it('weekly opt-in/opt-out still changes the room setting', async () => {
+    const roomId = '!tarot_v2_weekly:matrix.netmind.chat';
+    const enabledEnv = { ...baseEnv, NARRA_GATEWAY_ENABLED: 'on', NARRA_AGENT_TOKEN: 'narra_v2_tok' } as Env;
+    const optedIn = async () => (await fetchTarotUpdates(enabledEnv, new Date().toISOString())).some((u) => u.roomId === roomId);
+
+    const on = await tarotSafetyReply(baseEnv, makeInboundEvent({ roomId, text: 'subscribe weekly' }), v2Ctx(roomId));
+    expect(on).toContain('enabled');
+    expect(await optedIn()).toBe(true);
+
+    const off = await tarotSafetyReply(baseEnv, makeInboundEvent({ roomId, text: '取消每週' }), v2Ctx(roomId));
+    expect(off).toContain('已關閉');
+    expect(await optedIn()).toBe(false);
+  });
+
+  it('hands the brain a fresh draw and the daily card only in v2 rooms', async () => {
+    const v2Env = { ...baseEnv, NARRA_PIPELINE: 'v2', NARRA_PIPELINE_ROOMS: ZACK_TEST } as Env;
+    const ev = makeInboundEvent({ roomId: ZACK_TEST, text: '幫我抽三張牌看看工作' });
+    const fields = await buildTarotEnvelopeFields(v2Env, ev, {} as never, noMem, v2Ctx(ZACK_TEST));
+    expect(fields?.local_draw).toMatch(/1\. .+\n2\. .+\n3\. /);
+    expect(fields?.daily_card).toContain(TAROT_SITE_URL);
+    assertPureZhHant(fields!.local_draw);
+
+    const other = '!other:matrix.netmind.chat';
+    const v1Fields = await buildTarotEnvelopeFields(v2Env, makeInboundEvent({ roomId: other, text: '幫我抽牌' }), {} as never, noMem, v2Ctx(other));
+    expect(v1Fields?.local_draw).toBeUndefined();
+  });
+
+  it('draws are real chance: different random sources give different cards', () => {
+    let n = 0;
+    const a = buildTarotLocalDrawFields('en', new Date(), (max) => (n++ * 7) % max).local_draw;
+    const b = buildTarotLocalDrawFields('en', new Date(), () => 0).local_draw;
+    expect(a).not.toBe(b);
+    expect(b).toContain('Positions by spread');
+  });
 });
