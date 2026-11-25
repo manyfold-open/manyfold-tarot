@@ -11,6 +11,8 @@ import {
   detectExplicitLangSwitch,
   detectLang,
   isNarraGatewayEnabled,
+  pipelineForRoom,
+  replyLanguageFor,
   stripAgentMentions,
   type AgentSpec,
   type AgentUpdateItem,
@@ -30,7 +32,7 @@ import {
 } from '@manyfold/narra-agent-kit/worker';
 import { dailyCardFor, dailyCardKeywords, utcDay } from '../../shared/tarot/daily';
 import { cardById, cardKeywords, cardLabel, type Locale } from '../../shared/tarot/deck';
-import { spreadFor } from '../../shared/tarot/spreads';
+import { allSpreads, spreadFor } from '../../shared/tarot/spreads';
 import type { SpreadId } from '../../shared/tarot/types';
 import { credentialFor, listConnectedAgents } from '../connect';
 import { ensureSchema } from '../db';
@@ -232,10 +234,11 @@ const MULTI_CARD_OR_SPREAD_RE = /三張|三张|three[- ]?cards?|牌陣|牌阵|sp
 const EXPLICIT_DRAW_PHRASE_RE =
   /(?:抽三張|抽三张|抽塔羅|抽塔罗|抽牌|(?:[幫帮]我抽|[來来]抽)(?!\s*(?:一)?[支根個个]?[籤签])|draw\s+(?:three|3)\s+cards?|draw\s+(?:a\s+)?(?:tarot|spread|cards?)|pull\s+(?:three|3)\s+cards?)/i;
 
+// `\b` never matches after a CJK character, so the Chinese commands end on 週/周 instead.
 const OPT_IN_WEEKLY_RE =
-  /^(?:訂閱每週|订阅每周|開啟每週|开启每周|打開每週|打开每周|opt[- ]?in\s+weekly|subscribe\s+weekly)\b/i;
+  /^(?:訂閱每週|订阅每周|開啟每週|开启每周|打開每週|打开每周|opt[- ]?in\s+weekly|subscribe\s+weekly)(?:\b|(?<=[週周]))/i;
 const OPT_OUT_WEEKLY_RE =
-  /^(?:取消每週|取消每周|關閉每週|关闭每周|停止每週|停止每周|退訂每週|退订每周|opt[- ]?out\s+weekly|unsubscribe\s+weekly)\b/i;
+  /^(?:取消每週|取消每周|關閉每週|关闭每周|停止每週|停止每周|退訂每週|退订每周|opt[- ]?out\s+weekly|unsubscribe\s+weekly)(?:\b|(?<=[週周]))/i;
 const DM_GREETING_RE =
   /^(?:hi|hello|hey|yo|morning|good\s+(?:morning|afternoon|evening)|你好|您好|哈囉|哈啰|嗨|安安|早安|午安|晚安|在嗎|在吗|有人嗎|有人吗)$/i;
 const DM_THANKS_RE =
@@ -546,27 +549,16 @@ function isCasualActiveSessionChatter(text: string): boolean {
 }
 
 /**
- * `fastRespond` handler for `tarot-master-2`:
- * 1. Crisis safety net (always runs first, never draws cards).
- * 2. Explicit weekly opt-in/opt-out & language switch memory commands.
- * 3. Active-session off-topic chatter silence guard.
- * 4. Local CSPRNG three-card / daily card draw in pure `zh-Hant` / `zh-Hans` / `en`.
- * 5. Returns `null` for nuanced readings/follow-ups so Manyfold A2A answers.
+ * Exact commands that change stored state: an explicit language switch (remembered per user) and
+ * the room's weekly-review opt-in/opt-out. Performs the write and returns the confirmation, or
+ * `null` when `stripped` is not one of these commands. Shared by v1 `fastRespond` and v2 `safetyReply`.
  */
-export async function tarotFastRespond(
+async function tarotCommandReply(
   env: Env,
   event: InboundEvent,
-  decision: TriageDecision,
-  memories: RecallTurnResult,
+  stripped: string,
+  lang: LangCode,
 ): Promise<string | null> {
-  const lang = resolveTarotLang(event.text, decision.detectedLang, memories);
-
-  if (isCrisisMessage(event.text)) {
-    return crisisReply(lang);
-  }
-
-  const stripped = stripMentionsAndPunct(event.text);
-
   // Explicit language switch persistence
   const explicitLangSwitch = detectExplicitLangSwitch(stripped);
   if (explicitLangSwitch) {
@@ -624,6 +616,34 @@ export async function tarotFastRespond(
     if (lang === 'zh-Hans') return '好的，已关闭这个房间的每周塔罗提醒。';
     return 'Got it — weekly tarot review reminders are turned off for this room.';
   }
+
+  return null;
+}
+
+/**
+ * `fastRespond` handler for `tarot-master-2`:
+ * 1. Crisis safety net (always runs first, never draws cards).
+ * 2. Explicit weekly opt-in/opt-out & language switch memory commands.
+ * 3. Active-session off-topic chatter silence guard.
+ * 4. Local CSPRNG three-card / daily card draw in pure `zh-Hant` / `zh-Hans` / `en`.
+ * 5. Returns `null` for nuanced readings/follow-ups so Manyfold A2A answers.
+ */
+export async function tarotFastRespond(
+  env: Env,
+  event: InboundEvent,
+  decision: TriageDecision,
+  memories: RecallTurnResult,
+): Promise<string | null> {
+  const lang = resolveTarotLang(event.text, decision.detectedLang, memories);
+
+  if (isCrisisMessage(event.text)) {
+    return crisisReply(lang);
+  }
+
+  const stripped = stripMentionsAndPunct(event.text);
+
+  const command = await tarotCommandReply(env, event, stripped, lang);
+  if (command) return command;
 
   const isUnmentionedGroup =
     event.chatType === 'group' &&
@@ -848,6 +868,96 @@ export async function buildTarotExtraEnvelopeFields(
   return null;
 }
 
+/** Reply language for a v2 turn, by the kit's rule: zh-Hant, zh-Hans or English; anything else English. */
+function v2ReplyLang(event: InboundEvent, context?: RoomContext): LangCode {
+  return replyLanguageFor(event.text ?? '', {
+    mentionNames: ALL_KNOWN_MENTION_NAMES,
+    ...(context?.userLanguageHint ? { userHint: context.userLanguageHint } : {}),
+    ...(context?.roomLanguageHint ? { roomHint: context.roomLanguageHint } : {}),
+  });
+}
+
+/**
+ * v2 `safetyReply`: replies that must not depend on the Manyfold brain. Crisis messages get the
+ * fixed crisis-resources reply (never a draw); exact state-changing commands (language switch,
+ * weekly-review opt-in/opt-out) do the same write v1 `fastRespond` did and return its confirmation.
+ * Everything else returns `null` and goes to the brain.
+ */
+export async function tarotSafetyReply(
+  env: Env,
+  event: InboundEvent,
+  context?: RoomContext,
+): Promise<string | null> {
+  const lang = v2ReplyLang(event, context);
+  if (isCrisisMessage(event.text)) return crisisReply(lang);
+  return tarotCommandReply(env, event, stripMentionsAndPunct(event.text), lang);
+}
+
+/**
+ * A fresh CSPRNG three-card draw plus today's daily card, as envelope fields for the v2 brain, so a
+ * draw it gives is real chance and the daily card matches the site. The brain picks the spread and
+ * whether a draw is wanted at all; no intent detection happens here.
+ */
+export function buildTarotLocalDrawFields(
+  lang: LangCode,
+  date = new Date(),
+  random?: RandomSource,
+): Record<string, string> {
+  const deckLocale: Locale = lang === 'en' ? 'en' : 'zh';
+  const loc = (t: string) => localizedSpreadText(t, lang);
+  const sep = lang === 'en' ? ': ' : '：';
+  const cards = drawReading(random).map((item, idx) => {
+    const card = cardById(item.cardId);
+    if (!card) return '';
+    return `${idx + 1}. ${loc(cardLabel(card, item.reversed, deckLocale))} (${loc(cardKeywords(card, item.reversed, deckLocale))})`;
+  });
+  const positions = allSpreads(deckLocale).map(
+    (sp) =>
+      `${sp.id} "${loc(sp.title)}"${sep}${[sp.slots.situation, sp.slots.hidden, sp.slots.guidance]
+        .map((slot, i) => `${i + 1}=${loc(slot.title)}`)
+        .join(', ')}`,
+  );
+  const fields: Record<string, string> = {
+    local_draw: truncateEnvelopeSnippet(
+      [
+        'Fresh random draw from the real 78-card deck (CSPRNG), made for this message. Use it if the person asks for a draw: these cards, in this order and orientation; do not run another draw or invent cards. For one card use card 1 only. Ignore it otherwise, and for follow-ups about cards already drawn.',
+        'Cards:',
+        ...cards,
+        'Positions by spread (card 1, 2, 3):',
+        ...positions,
+      ].join('\n'),
+      1500,
+    ),
+  };
+  const daily = dailyCardFor(utcDay(date));
+  const dailyCard = cardById(daily.cardId);
+  if (dailyCard) {
+    fields.daily_card = `Today's card (${daily.day}, the same for everyone and on the site; use it when asked for the daily card / 每日一牌 / 今日一牌): ${loc(
+      cardLabel(dailyCard, daily.reversed, deckLocale),
+    )} (${loc(dailyCardKeywords(daily, deckLocale))}). Site: ${TAROT_SITE_URL}`;
+  }
+  return fields;
+}
+
+/**
+ * Envelope fields for Manyfold: the last draw this agent posted (for follow-ups), and in v2 rooms a
+ * fresh local draw plus the daily card, since v2 never calls `fastRespond`.
+ */
+export async function buildTarotEnvelopeFields(
+  env: Env,
+  event: InboundEvent,
+  decision: TriageDecision,
+  memories: RecallTurnResult,
+  context: RoomContext,
+): Promise<Record<string, string> | null> {
+  const lastDraw = await buildTarotExtraEnvelopeFields(env, event, decision, memories, context);
+  if (pipelineForRoom(env, event.roomId) !== 'v2') return lastDraw;
+  return {
+    ...buildTarotLocalDrawFields(v2ReplyLang(event, context), new Date(event.timestampMs || Date.now())),
+    ...(lastDraw ?? {}),
+  };
+}
+
 export const narraGatewayConfig: NarraGatewayConfig<Env> = {
   spec: TAROT_AGENT_SPEC,
   fastRespond: tarotFastRespond,
@@ -855,7 +965,26 @@ export const narraGatewayConfig: NarraGatewayConfig<Env> = {
   resolveA2ACredential: resolveTarotA2ACredential,
   enableA2AFailureReply: true,
   thinkingMessage: (lang) => tarotThinkingMessage(lang),
-  buildExtraEnvelopeFields: buildTarotExtraEnvelopeFields,
+  buildExtraEnvelopeFields: buildTarotEnvelopeFields,
+  // Chat-native pipeline, used only in rooms NARRA_PIPELINE / NARRA_PIPELINE_ROOMS put on v2.
+  // fastRespond is not called there: safetyReply keeps the deterministic replies, and
+  // buildTarotEnvelopeFields hands the brain a real draw.
+  v2: {
+    wakeExamples: [
+      '幫我抽三張塔羅牌，看看這週運勢',
+      '今天運勢如何？抽一張牌給我',
+      '我該不該換工作？想用塔羅看看',
+      '帮我抽一张牌看看感情',
+      '今日一牌是什么？',
+      '最近和男朋友关系有点僵，塔罗能给点方向吗',
+      'Can you do a tarot reading for me?',
+      'Draw a card for me',
+      'What does the Tower reversed mean?',
+      'Should I take the new job offer? Pull three cards',
+      'Daily card please',
+    ],
+    safetyReply: tarotSafetyReply,
+  },
 };
 
 export function kickTarotNarraGateway(env: Env): Promise<NarraGatewayKickResult> {
