@@ -878,19 +878,30 @@ function v2ReplyLang(event: InboundEvent, context?: RoomContext): LangCode {
 }
 
 /**
- * v2 `safetyReply`: replies that must not depend on the Manyfold brain. Crisis messages get the
- * fixed crisis-resources reply (never a draw); exact state-changing commands (language switch,
- * weekly-review opt-in/opt-out) do the same write v1 `fastRespond` did and return its confirmation.
- * Everything else returns `null` and goes to the brain.
+ * v2 `crisisReply`: runs on every human message before the wake gate, so an unaddressed crisis
+ * message in a group still gets the fixed crisis-resources reply (never a draw). `null` otherwise.
+ */
+export function tarotCrisisReply(
+  _env: Env,
+  event: InboundEvent,
+  _context: RoomContext,
+  info: { replyLang: LangCode },
+): string | null {
+  return isCrisisMessage(event.text) ? crisisReply(info.replyLang) : null;
+}
+
+/**
+ * v2 `safetyReply`: exact state-changing commands (language switch, weekly-review opt-in/opt-out)
+ * do the same write v1 `fastRespond` did and return its confirmation. Everything else returns
+ * `null` and goes to the brain.
  */
 export async function tarotSafetyReply(
   env: Env,
   event: InboundEvent,
-  context?: RoomContext,
+  _context: RoomContext,
+  info: { replyLang: LangCode },
 ): Promise<string | null> {
-  const lang = v2ReplyLang(event, context);
-  if (isCrisisMessage(event.text)) return crisisReply(lang);
-  return tarotCommandReply(env, event, stripMentionsAndPunct(event.text), lang);
+  return tarotCommandReply(env, event, stripMentionsAndPunct(event.text), info.replyLang);
 }
 
 /**
@@ -967,7 +978,7 @@ export const narraGatewayConfig: NarraGatewayConfig<Env> = {
   thinkingMessage: (lang) => tarotThinkingMessage(lang),
   buildExtraEnvelopeFields: buildTarotEnvelopeFields,
   // Chat-native pipeline, used only in rooms NARRA_PIPELINE / NARRA_PIPELINE_ROOMS put on v2.
-  // fastRespond is not called there: safetyReply keeps the deterministic replies, and
+  // fastRespond is not called there: crisisReply and safetyReply keep the deterministic replies, and
   // buildTarotEnvelopeFields hands the brain a real draw.
   v2: {
     wakeExamples: [
@@ -983,6 +994,7 @@ export const narraGatewayConfig: NarraGatewayConfig<Env> = {
       'Should I take the new job offer? Pull three cards',
       'Daily card please',
     ],
+    crisisReply: tarotCrisisReply,
     safetyReply: tarotSafetyReply,
   },
 };
