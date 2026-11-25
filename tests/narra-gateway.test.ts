@@ -26,6 +26,7 @@ import {
   resolveTarotLang,
   tarotFastRespond,
   tarotSafetyReply,
+  tarotCrisisReply,
   buildTarotEnvelopeFields,
   buildTarotLocalDrawFields,
   tarotThinkingMessage,
@@ -1952,14 +1953,20 @@ describe('v2 (chat-native) safetyReply and local draw', () => {
   const v2Ctx = (roomId: string): RoomContext => ({ roomId, chatType: 'group', members: [], recentHistory: [] });
   const noMem = { userMemories: [], roomMemories: [], promptSafeLines: [] };
 
-  it('answers crisis messages deterministically in the speaker script, and nothing else', async () => {
-    const hant = await tarotSafetyReply(baseEnv, makeInboundEvent({ text: '我真的不想活了，幫我抽牌' }), v2Ctx(ZACK_TEST));
+  it('crisisReply answers crisis messages deterministically in the reply language, and nothing else', async () => {
+    const hant = tarotCrisisReply(baseEnv, makeInboundEvent({ text: '我真的不想活了，幫我抽牌' }), v2Ctx(ZACK_TEST), { replyLang: 'zh-Hant' });
     expect(hant).toContain('116 123');
     assertPureZhHant(hant!);
-    const en = await tarotSafetyReply(baseEnv, makeInboundEvent({ text: 'I want to kill myself' }), v2Ctx(ZACK_TEST));
+    const en = tarotCrisisReply(baseEnv, makeInboundEvent({ text: 'I want to kill myself' }), v2Ctx(ZACK_TEST), { replyLang: 'en' });
     expect(en).toContain('988');
-    for (const text of ['幫我抽三張牌看看這週', 'Draw a card for me', '每日一牌']) {
-      expect(await tarotSafetyReply(baseEnv, makeInboundEvent({ text }), v2Ctx(ZACK_TEST)), text).toBeNull();
+    for (const text of ['幫我抽三張牌看看這週', 'Draw a card for me', '每日一牌', 'subscribe weekly']) {
+      expect(tarotCrisisReply(baseEnv, makeInboundEvent({ text }), v2Ctx(ZACK_TEST), { replyLang: 'en' }), text).toBeNull();
+    }
+  });
+
+  it('safetyReply leaves crisis to crisisReply and ordinary asks to the brain', async () => {
+    for (const text of ['I want to kill myself', '幫我抽三張牌看看這週', 'Draw a card for me']) {
+      expect(await tarotSafetyReply(baseEnv, makeInboundEvent({ text }), v2Ctx(ZACK_TEST), { replyLang: 'en' }), text).toBeNull();
     }
   });
 
@@ -1968,11 +1975,11 @@ describe('v2 (chat-native) safetyReply and local draw', () => {
     const enabledEnv = { ...baseEnv, NARRA_GATEWAY_ENABLED: 'on', NARRA_AGENT_TOKEN: 'narra_v2_tok' } as Env;
     const optedIn = async () => (await fetchTarotUpdates(enabledEnv, new Date().toISOString())).some((u) => u.roomId === roomId);
 
-    const on = await tarotSafetyReply(baseEnv, makeInboundEvent({ roomId, text: 'subscribe weekly' }), v2Ctx(roomId));
+    const on = await tarotSafetyReply(baseEnv, makeInboundEvent({ roomId, text: 'subscribe weekly' }), v2Ctx(roomId), { replyLang: 'en' });
     expect(on).toContain('enabled');
     expect(await optedIn()).toBe(true);
 
-    const off = await tarotSafetyReply(baseEnv, makeInboundEvent({ roomId, text: '取消每週' }), v2Ctx(roomId));
+    const off = await tarotSafetyReply(baseEnv, makeInboundEvent({ roomId, text: '取消每週' }), v2Ctx(roomId), { replyLang: 'zh-Hant' });
     expect(off).toContain('已關閉');
     expect(await optedIn()).toBe(false);
   });
