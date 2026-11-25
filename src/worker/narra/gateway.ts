@@ -11,7 +11,6 @@ import {
   detectExplicitLangSwitch,
   detectLang,
   isNarraGatewayEnabled,
-  pipelineForRoom,
   replyLanguageFor,
   stripAgentMentions,
   type AgentSpec,
@@ -960,9 +959,10 @@ export async function buildTarotEnvelopeFields(
   decision: TriageDecision,
   memories: RecallTurnResult,
   context: RoomContext,
+  info?: { pipeline: 'v1' | 'v2' },
 ): Promise<Record<string, string> | null> {
   const lastDraw = await buildTarotExtraEnvelopeFields(env, event, decision, memories, context);
-  if (pipelineForRoom(env, event.roomId) !== 'v2') return lastDraw;
+  if (info?.pipeline !== 'v2') return lastDraw;
   return {
     ...buildTarotLocalDrawFields(v2ReplyLang(event, context), new Date(event.timestampMs || Date.now())),
     ...(lastDraw ?? {}),
@@ -995,6 +995,14 @@ export const narraGatewayConfig: NarraGatewayConfig<Env> = {
       'Daily card please',
     ],
     crisisReply: tarotCrisisReply,
+    // Close neighbours that belong to other agents: fortune sticks (AI Fortune Stick), news, food.
+    notExamples: [
+      '幫我求一支籤',
+      '第 8 籤是什麼意思？',
+      'Draw a fortune stick for me',
+      '今天有什麼 AI 新聞？',
+      '倫敦哪裡有好吃的拉麵？',
+    ],
     safetyReply: tarotSafetyReply,
   },
 };
