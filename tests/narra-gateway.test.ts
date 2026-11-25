@@ -1987,13 +1987,13 @@ describe('v2 (chat-native) safetyReply and local draw', () => {
   it('hands the brain a fresh draw and the daily card only in v2 rooms', async () => {
     const v2Env = { ...baseEnv, NARRA_PIPELINE: 'v2', NARRA_PIPELINE_ROOMS: ZACK_TEST } as Env;
     const ev = makeInboundEvent({ roomId: ZACK_TEST, text: '幫我抽三張牌看看工作' });
-    const fields = await buildTarotEnvelopeFields(v2Env, ev, {} as never, noMem, v2Ctx(ZACK_TEST));
+    const fields = await buildTarotEnvelopeFields(v2Env, ev, {} as never, noMem, v2Ctx(ZACK_TEST), { pipeline: 'v2' });
     expect(fields?.local_draw).toMatch(/1\. .+\n2\. .+\n3\. /);
     expect(fields?.daily_card).toContain(TAROT_SITE_URL);
     assertPureZhHant(fields!.local_draw);
 
     const other = '!other:matrix.netmind.chat';
-    const v1Fields = await buildTarotEnvelopeFields(v2Env, makeInboundEvent({ roomId: other, text: '幫我抽牌' }), {} as never, noMem, v2Ctx(other));
+    const v1Fields = await buildTarotEnvelopeFields(v2Env, makeInboundEvent({ roomId: other, text: '幫我抽牌' }), {} as never, noMem, v2Ctx(other), { pipeline: 'v1' });
     expect(v1Fields?.local_draw).toBeUndefined();
   });
 
